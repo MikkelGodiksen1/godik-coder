@@ -1546,9 +1546,26 @@ export class SessionManager {
       : new Set(entries.map((e) => e.id));
     const out: T[] = [];
     let messagesSoFar = 0;
+    // Count like repairToolPairs: a tool call with no tool_result after it gets
+    // a synthetic result in memory, which live anchors include. Disk-only
+    // counting drifted one slot early per interrupted call.
+    const branchMessages = entries.filter(
+      (e): e is MessageEntry =>
+        e.type === "message" && onBranch.has(e.id) && e.message.role !== "system",
+    );
+    const repairedCountAfter = new Map<string, number>();
+    branchMessages.forEach((e, i) => {
+      const repaired =
+        e.message.role === "assistant" &&
+        Array.isArray(e.message.content) &&
+        e.message.content.some((p) => p.type === "tool_call") &&
+        branchMessages[i + 1]?.message.role !== "tool";
+      repairedCountAfter.set(e.id, (messagesSoFar += repaired ? 2 : 1));
+    });
+    messagesSoFar = 0;
     for (const entry of entries) {
       if (entry.type === "message") {
-        if (onBranch.has(entry.id) && entry.message.role !== "system") messagesSoFar++;
+        messagesSoFar = repairedCountAfter.get(entry.id) ?? messagesSoFar;
         continue;
       }
       if (entry.type !== "custom") continue;
