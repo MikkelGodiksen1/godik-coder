@@ -8885,6 +8885,14 @@ select {
   border-color: var(--primary);
   background: color-mix(in srgb, var(--primary) 8%, var(--surface-1));
 }
+/* GODIK CODER: writing to Ken (Mentor key or a leading @ken) turns the whole
+   box Ken's colour, the same --ken his replies use, so it can't be mistaken
+   for a message to the code session. */
+.inputwrap.ken-active,
+.inputwrap.ken-active:focus-within {
+  border-color: var(--ken);
+  background: color-mix(in srgb, var(--ken) 20%, var(--surface-1));
+}
 /* Composer row: attach | text | send, always one row. The circles are pinned to
    the bottom, so a growing draft pushes text UPWARD past them and every added
    line costs exactly one line of height. Reflowing the buttons onto their own

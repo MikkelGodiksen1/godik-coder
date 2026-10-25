@@ -13,6 +13,7 @@ import {
 import { createChatLayoutMotion } from "./chat-layout-motion";
 import { open } from "@tauri-apps/plugin-dialog";
 import { theme } from "./theme";
+import { toggleMentorPrefix } from "./mentor";
 import { activeChatErrorId, readChatError } from "./chat-error";
 import { showScreen } from "./view-transition";
 import {
@@ -1459,6 +1460,11 @@ function App(): React.ReactElement {
   // returned at least one file. Clamp the highlighted row to the result count.
   // Never open while `@Ken` is active — that token addresses Ken, not a file.
   const mentionOpen = mention !== null && fileMatches.length > 0 && !kenActive;
+  // GODIK CODER: the deck's Mentor key adds or removes the leading `@ken`.
+  function toggleMentor(): void {
+    setDeckPanel(null);
+    fillComposer(toggleMentorPrefix(input));
+  }
   const clampedFileIndex = fileMatches.length > 0 ? fileIndex % fileMatches.length : 0;
   // Footer background-tasks indicator only shows while something is actually
   // running (exited tasks shouldn't keep the bar item around).
@@ -2896,6 +2902,7 @@ function App(): React.ReactElement {
             showGit={workspaceMode === "code"}
             panel={deckPanel}
             onPanelChange={setDeckPanel}
+            mentor={workspaceMode === "code" ? { active: kenActive, onToggle: toggleMentor } : null}
             running={running}
             contextPct={contextPct}
             models={models}

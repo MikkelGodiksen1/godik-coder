@@ -155,7 +155,7 @@ export function Composer({
       ref={composerRef}
       className={`inputwrap${isFileDragOver ? " dragover" : ""}${
         scheduleInvalid ? " schedule-invalid" : ""
-      }`}
+      }${kenActive ? " ken-active" : ""}`}
     >
       <WorkingBeam active={running || kenRunning || autopilotReviewing} />
       {scheduleDraft && (

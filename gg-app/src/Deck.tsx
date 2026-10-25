@@ -102,6 +102,8 @@ export interface DeckProps {
   trophies: TrophySnapshot | null;
   /** Notes, Tasks and Brain: undefined where the workspace has no such tool. */
   tools: Partial<Record<DeckToolId, DeckTool>>;
+  /** GODIK CODER: the Mentor key beside ⋯ (code + goals); null hides it. */
+  mentor?: { active: boolean; onToggle: () => void } | null;
 }
 
 /**
@@ -231,6 +233,7 @@ function Rail({
   onStopSchedule,
   radio,
   toggle,
+  mentor,
 }: DeckProps & {
   radio: Radio;
   toggle: (id: DeckPanelId, event: React.MouseEvent<HTMLElement>) => void;
@@ -327,6 +330,17 @@ function Rail({
       >
         <Icon name="more-horiz" size={16} />
       </button>
+      {mentor && (
+        <button
+          type="button"
+          className="key rail-key mentor-key"
+          title={mentor.active ? "Stop writing to Ken" : "Write to Ken, your mentor"}
+          aria-pressed={mentor.active}
+          onClick={mentor.onToggle}
+        >
+          <span className="rail-label">Mentor</span>
+        </button>
+      )}
       <span className="deck-spacer" />
       <button
         type="button"
