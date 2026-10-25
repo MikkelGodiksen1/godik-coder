@@ -24,7 +24,7 @@ describe("KenActivityBar", () => {
     expect(orb?.style.filter).toBe(`url("#${filter?.id}")`);
     const flood = container.querySelector<SVGElement>("feFlood");
     expect(flood?.style.getPropertyValue("flood-color")).toBe(theme.ken);
-    const label = screen.getByText("Ken is thinking…");
+    const label = screen.getByText("@Mentor is thinking…");
     expect(label.classList.contains("shimmer-text")).toBe(true);
     expect(label.style.getPropertyValue("--shimmer-base")).toBe(theme.ken);
   });

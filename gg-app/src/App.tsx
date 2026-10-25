@@ -13,7 +13,7 @@ import {
 import { createChatLayoutMotion } from "./chat-layout-motion";
 import { open } from "@tauri-apps/plugin-dialog";
 import { theme } from "./theme";
-import { toggleMentorPrefix } from "./mentor";
+import { MENTOR_HANDLE, toggleMentorPrefix } from "./mentor";
 import { activeChatErrorId, readChatError } from "./chat-error";
 import { showScreen } from "./view-transition";
 import {
@@ -196,15 +196,15 @@ import "./App.css";
 import "./Deck.css";
 import "./Trophies.css";
 
-const DEFAULT_INPUT_PLACEHOLDER = "Type a message, / commands, @ files, @Ken for help";
+const DEFAULT_INPUT_PLACEHOLDER = `Type a message, / commands, @ files, ${MENTOR_HANDLE} for help`;
 const INPUT_PLACEHOLDERS = [
   DEFAULT_INPUT_PLACEHOLDER,
-  "Need a second opinion? Ask @Ken",
-  "Stuck on what to do next? Ask @Ken",
+  `Need a second opinion? Ask ${MENTOR_HANDLE}`,
+  `Stuck on what to do next? Ask ${MENTOR_HANDLE}`,
   DEFAULT_INPUT_PLACEHOLDER,
-  "Want a second set of eyes? Ask @Ken",
-  "Unsure how to proceed? Ask @Ken",
-  "Need a quick review? Ask @Ken",
+  `Want a second set of eyes? Ask ${MENTOR_HANDLE}`,
+  `Unsure how to proceed? Ask ${MENTOR_HANDLE}`,
+  `Need a quick review? Ask ${MENTOR_HANDLE}`,
 ] as const;
 const RUNNING_INPUT_PLACEHOLDERS = [
   "Agent is working. Add a follow-up if you want",
@@ -1447,12 +1447,12 @@ function App(): React.ReactElement {
   // with it (case-insensitive, word-boundary so `@kennedy.ts` still picks files),
   // Ken is "active": the file picker is suppressed and the input is tinted in
   // Ken's color with a shimmering marker, so it's obvious the message goes to Ken.
-  const kenActive = workspaceMode === "code" && /^@ken\b/i.test(input.trimStart());
+  const kenActive = workspaceMode === "code" && /^@(?:ken|mentor)\b/i.test(input.trimStart());
   // Split the input for the `@Ken` highlight overlay: any leading whitespace,
   // the literal `@Ken` token (preserving the user's casing), then the rest. Only
   // the token shimmers; lead+rest render in the normal input color.
   const kenInputParts = (() => {
-    const m = /^(\s*)(@ken)/i.exec(input);
+    const m = /^(\s*)(@ken|@mentor)/i.exec(input);
     if (!m) return null;
     return { lead: m[1], token: m[2], rest: input.slice(m[1].length + m[2].length) };
   })();
@@ -2224,10 +2224,13 @@ function App(): React.ReactElement {
     // `@Ken <prompt>` (case-insensitive, optional colon) routes to Ken Kai, the
     // read-only mentor agent — NOT GG Coder. Ken runs concurrently with any
     // build run; his reply streams into a magenta bubble via ken_* events.
-    const kenMatch = workspaceMode === "code" ? /^@ken\b:?\s*/i.exec(trimmed) : null;
+    const kenMatch = workspaceMode === "code" ? /^@(?:ken|mentor)\b:?\s*/i.exec(trimmed) : null;
     if (kenMatch) {
       if (attachments.length > 0) {
-        toast("Ken cannot receive attachments. Remove @Ken to send them to GG.", "warning");
+        toast(
+          `Mentor cannot receive attachments. Remove ${MENTOR_HANDLE} to send them to GG.`,
+          "warning",
+        );
         return;
       }
       const question = trimmed.slice(kenMatch[0].length).trim();

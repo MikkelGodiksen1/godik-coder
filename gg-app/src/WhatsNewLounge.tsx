@@ -5,7 +5,7 @@ import { lightAt } from "./scene-light";
 import { useLocalHour } from "./use-local-hour";
 import { useWindowFocused } from "./useWindowFocused";
 import type { CSSProperties } from "react";
-import title from "./assets/home/gg-coder-title.png";
+import title from "./assets/home/godik-coder-title.png";
 import { HOME_TITLE_H, HOME_TITLE_W } from "./HomeTitle";
 import { DoneButton, FeatureCopy, ReleaseHistory, type LoungeProps } from "./WhatsNewParts";
 

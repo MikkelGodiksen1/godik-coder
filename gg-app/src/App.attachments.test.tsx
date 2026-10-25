@@ -366,7 +366,7 @@ describe("composer attachments", () => {
     expect(input.value).toBe("@Ken check this screenshot");
     expect(screen.getByRole("button", { name: "Remove screenshot.png" })).toBeTruthy();
     expect(notifications.toast).toHaveBeenCalledWith(
-      "Ken cannot receive attachments. Remove @Ken to send them to GG.",
+      "Mentor cannot receive attachments. Remove @Mentor to send them to GG.",
       "warning",
     );
     fireEvent.change(input, { target: { value: "check this screenshot" } });

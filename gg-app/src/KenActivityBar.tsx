@@ -4,6 +4,7 @@ import { theme } from "./theme";
 import { formatTokenCount } from "./ActivityBar";
 import { ShimmerText } from "./ShimmerText";
 import { useMotionLevel } from "./window-motion";
+import { MENTOR_HANDLE } from "./mentor";
 
 function formatElapsed(ms: number): string {
   const s = Math.round(ms / 1000);
@@ -97,7 +98,7 @@ export function KenActivityBar({
         />
         <span style={{ color: theme.ken }}>
           <ShimmerText base={theme.ken} bright={theme.text}>
-            {"Ken is thinking…"}
+            {`${MENTOR_HANDLE} is thinking…`}
           </ShimmerText>
         </span>
         <span style={{ color: theme.textMuted }}>

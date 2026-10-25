@@ -1600,7 +1600,7 @@ select {
 }
 .home-title-art {
   display: block;
-  width: calc(201px * var(--title-scale));
+  width: calc(276px * var(--title-scale));
   height: calc(39px * var(--title-scale));
   image-rendering: pixelated;
   user-select: none;

@@ -24,7 +24,7 @@ const LOGO_TEXT = LOGO_LINES.join("\n");
  */
 export function AsciiLogo(): React.ReactElement {
   return (
-    <div className="ascii-logo" role="img" aria-label="GG Coder">
+    <div className="ascii-logo" role="img" aria-label="GODIK Coder">
       <div className="ascii-logo-glitch" data-text={LOGO_TEXT} aria-hidden="true">
         {LOGO_LINES.map((line, i) => (
           <div className="ascii-logo-line" key={i}>
