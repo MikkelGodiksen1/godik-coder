@@ -81,10 +81,14 @@ describe("deck Mentor key", () => {
     expect(input.value).toBe("");
     fireEvent.click(screen.getByTitle("Write to Ken, your mentor"));
     expect(input.value).toBe("@Mentor hvad siger du?");
-    await waitFor(() => expect(document.activeElement).toBe(input));
-    expect(input.selectionStart).toBe("@Mentor ".length);
-    expect(input.selectionEnd).toBe("@Mentor hvad siger du?".length);
-    expect(input.value.slice(input.selectionStart, input.selectionEnd)).toBe("hvad siger du?");
+    // App applies the selection in requestAnimationFrame, so wait for the
+    // selection itself rather than for focus.
+    await waitFor(() => {
+      expect(document.activeElement).toBe(input);
+      expect(input.selectionStart).toBe("@Mentor ".length);
+      expect(input.selectionEnd).toBe("@Mentor hvad siger du?".length);
+      expect(input.value.slice(input.selectionStart, input.selectionEnd)).toBe("hvad siger du?");
+    });
 
     fireEvent.keyDown(input, { key: "Enter" });
     await waitFor(() => expect(ken).toHaveBeenCalledExactlyOnceWith("hvad siger du?", []));
@@ -104,8 +108,10 @@ describe("deck Mentor key", () => {
     fireEvent.change(input, { target: { value: "why is this slow?" } });
     fireEvent.click(screen.getByTitle("Write to Ken, your mentor"));
     expect(input.value).toBe("@Mentor why is this slow?");
-    await waitFor(() => expect(document.activeElement).toBe(input));
-    expect(input.selectionStart).toBe(input.value.length);
-    expect(input.selectionEnd).toBe(input.value.length);
+    await waitFor(() => {
+      expect(document.activeElement).toBe(input);
+      expect(input.selectionStart).toBe(input.value.length);
+      expect(input.selectionEnd).toBe(input.value.length);
+    });
   });
 });
