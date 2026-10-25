@@ -50,8 +50,10 @@ export function buildKenContext(
   question: string,
   workflowCommands: readonly WorkflowCommandSpec[],
   injectedPrompts: readonly string[],
+  otherGoals = "",
 ): string {
   return buildKenDigest({
+    otherGoals,
     question,
     cwd,
     gitBranch,

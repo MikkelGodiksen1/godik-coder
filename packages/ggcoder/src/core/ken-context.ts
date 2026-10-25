@@ -75,6 +75,8 @@ export interface KenDigestInput {
    *  the transcript render as a short `[ran workflow command /name]` note
    *  instead of hundreds of template lines masquerading as a user ask. */
   workflowCommands?: readonly WorkflowCommandSpec[];
+  /** GODIK CODER: the user's other active goals (core/goal-board.ts); "" or absent hides the section. */
+  otherGoals?: string;
 }
 
 /** Truncate long text and note how much was dropped. */
@@ -433,6 +435,7 @@ function renderDigest(input: KenDigestInput, framing: DigestFraming): string {
     `- Git branch: ${input.gitBranch ?? "(not a git repo / unknown)"}`,
   );
   sections.push(`${framing.buildingHeading}\n${building.join("\n")}`);
+  if (input.otherGoals?.trim()) sections.push(`## Other goals\n${input.otherGoals.trim()}`);
 
   if (summaryText) {
     sections.push(

@@ -14,6 +14,8 @@ import { readBody, json } from "./http.js";
 import { type AppAttachment, prepareAttachments } from "./attachments.js";
 import { saveAutopilot } from "./app-settings.js";
 import { lastAssistantText, buildKenContext } from "./ken-context.js";
+import { buildGoalBoard } from "../core/goal-board.js";
+import { goalsRoot } from "../core/goals-store.js";
 import { keepAwake } from "./keep-awake.js";
 import type { SessionRouteContext } from "./route-context.js";
 import { mentionedPaths, slashCommandName } from "../core/trophies/engine.js";
@@ -377,6 +379,10 @@ export function handlePromptRoutes(
       ctx.broadcast("ken_run_start", { text });
       try {
         const ken = await ctx.ensureKenSession();
+        const otherGoals = await buildGoalBoard(
+          goalsRoot(ctx.paths.agentDir),
+          ctx.goal?.dir ?? null,
+        );
         const digest = await buildKenContext(
           ctx.session,
           ctx.cwd,
@@ -384,7 +390,13 @@ export function handlePromptRoutes(
           text,
           await ctx.loadWorkflowCommandSpecs(),
           ctx.injectedAutopilotPrompts,
+          otherGoals,
         );
+        log("INFO", "app-sidecar", "ken digest", {
+          chars: String(digest.length),
+          goalBoardChars: String(otherGoals.length),
+          goalBoardGoals: String(otherGoals ? otherGoals.split("\n").length : 0),
+        });
         await ken.prompt(digest);
         // Record the turn against the BUILD session so it persists + survives
         // resume (advisory custom entry, never an LLM message). Reply is Ken's
