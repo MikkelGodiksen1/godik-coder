@@ -2,14 +2,24 @@ name: GODIK Sync upstream
 
 # Every 6 hours: pick up Ken's newest app release tag (v<version> on
 # KenKaiii/gg-framework) that GODIK CODER hasn't shipped yet, merge it into
-# main (my changes stay on top), push main, tag the merge godik-v<version> and
-# start godik-release.yml for it. On a merge conflict it fails loudly and
-# leaves main untouched: fix it locally with ./sync-upstream, push, and re-run.
+# main (my changes stay on top), check that our session-manager.ts patch still
+# applies, then push main, tag the merge godik-v<version>, create its GitHub
+# release and start godik-release.yml to build and upload into it.
+# Anything that fails before the push leaves main and the tags untouched.
+# Merge conflict: fix it locally with ./sync-upstream, push, and re-run.
+#
+# dry_run (manual runs only): skip the merge and instead prove this workflow's
+# token can create a release, on a throwaway draft that is deleted again.
 
 on:
   schedule:
     - cron: "17 */6 * * *"
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Only prove release creation on a throwaway draft"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -22,15 +32,29 @@ concurrency:
 jobs:
   sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
         with:
           ref: main
           fetch-depth: 0
-          # The push below must use a token; checkout's own persisted one is fine.
+
+      - name: "Dry run: create and delete a throwaway draft release"
+        if: inputs.dry_run == true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="godik-dryrun-${GITHUB_RUN_ID}"
+          gh release create "$tag" -R "$GITHUB_REPOSITORY" --draft --target "$GITHUB_SHA" \
+            --title "GODIK CODER dry run (delete me)" --notes "Throwaway release from godik-sync dry_run."
+          echo "Created draft release $tag with this workflow's token."
+          gh release delete "$tag" -R "$GITHUB_REPOSITORY" --yes --cleanup-tag
+          echo "Deleted $tag again."
 
       - name: Find Ken's newest unshipped app tag
+        if: inputs.dry_run != true
         id: pick
         shell: bash
         run: |
@@ -57,7 +81,7 @@ jobs:
             echo "tag=$pick" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Merge into main
+      - name: Merge into main (local only)
         if: steps.pick.outputs.tag != ''
         shell: bash
         env:
@@ -76,10 +100,52 @@ jobs:
           fi
           conf="$(node -p 'require("./gg-app/src-tauri/tauri.conf.json").version')"
           [[ "v$conf" == "$TAG" ]] || { echo "::error::After merge tauri.conf.json is $conf but tag is $TAG"; exit 1; }
+
+      - uses: pnpm/action-setup@v6
+        if: steps.pick.outputs.tag != ''
+
+      - uses: actions/setup-node@v7
+        if: steps.pick.outputs.tag != ''
+        with:
+          node-version: 22.x
+          cache: pnpm
+
+      - name: Check our Ken-turn patch still holds after the merge
+        if: steps.pick.outputs.tag != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm install --frozen-lockfile
+          pnpm --filter @kenkaiiii/gg-ai build
+          pnpm --filter @kenkaiiii/gg-agent build
+          pnpm --filter @kenkaiiii/gg-core build
+          cd packages/ggcoder
+          if ! pnpm exec vitest run src/core/ken-turn-anchor.test.ts; then
+            echo "::error::ken-turn-anchor.test.ts fails after merging ${{ steps.pick.outputs.tag }}. Ken may have fixed the Ken-turn anchor drift upstream: our patch in packages/ggcoder/src/core/session-manager.ts (mapCustomEntriesInFileOrder, repairedCountAfter) should then be dropped. main was NOT pushed and nothing was tagged."
+            exit 1
+          fi
+
+      - name: Push main, tag and create the release
+        if: steps.pick.outputs.tag != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.pick.outputs.tag }}
+        run: |
+          set -euo pipefail
           git push origin main
           git tag "godik-$TAG"
           git push origin "godik-$TAG"
           echo "Tagged godik-$TAG"
+          # tauri-action finds this release by tagName and only uploads to it;
+          # creating it there failed with "Resource not accessible by integration".
+          if gh release view "godik-$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release godik-$TAG already exists."
+          else
+            gh release create "godik-$TAG" -R "$GITHUB_REPOSITORY" --verify-tag \
+              --title "GODIK CODER $TAG" \
+              --notes "GODIK CODER: Ken's GG Coder $TAG plus my changes. macOS Apple Silicon; ad-hoc signed, not notarized."
+          fi
 
       - name: Start the release build
         if: steps.pick.outputs.tag != ''

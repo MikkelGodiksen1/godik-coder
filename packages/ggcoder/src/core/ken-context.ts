@@ -112,6 +112,7 @@ function isInjected(text: string, opts: RenderMessageOptions): boolean {
 
 /** Summarize one tool call to a `name(arg)` one-liner. */
 function summarizeToolCall(name: string, args: Record<string, unknown>): string {
+  if (name === "ask_user") return `ask_user(\n${renderAskUser(args)}\n)`;
   const primary =
     args.file_path ??
     editTargetPaths(args)[0] ??
@@ -123,6 +124,26 @@ function summarizeToolCall(name: string, args: Record<string, unknown>): string 
     undefined;
   const arg = typeof primary === "string" ? cap(primary, 80) : "";
   return arg ? `${name}(${arg})` : `${name}()`;
+}
+
+/** GODIK CODER: the questions an ask_user call puts to the user, so the mentor
+ *  can help answer them. Bounded and marked when cut. */
+const ASK_USER_CAP = 1500;
+function renderAskUser(args: Record<string, unknown>): string {
+  const questions = Array.isArray(args.questions) ? (args.questions as unknown[]) : [];
+  const str = (v: unknown): string => (typeof v === "string" ? v : "");
+  const lines = questions.map((raw, i) => {
+    const q = (raw ?? {}) as Record<string, unknown>;
+    const out = [`Q${i + 1} [${str(q.kind) || "?"}]: ${str(q.question)}`];
+    if (str(q.detail)) out.push(`   detail: ${str(q.detail)}`);
+    const options = Array.isArray(q.options) ? (q.options as Record<string, unknown>[]) : [];
+    options.forEach((o, j) => {
+      out.push(`   ${j + 1}. ${str(o?.label)}${o?.recommended === true ? " (recommended)" : ""}`);
+    });
+    if (q.kind === "confirm" && options.length === 0) out.push("   (Yes / No)");
+    return out.join("\n");
+  });
+  return capContext(lines.join("\n") || "(no questions)", ASK_USER_CAP, "ask_user questions");
 }
 
 /** Per-digest options threaded into message rendering. */

@@ -751,3 +751,122 @@ describe("buildKenDigest — workflow-command labeling", () => {
     expect(digest).toContain("**User:** please compare my two branches");
   });
 });
+
+// GODIK CODER: the mentor sees the questions an ask_user call puts to the user.
+describe("buildKenDigest ask_user", () => {
+  const base = {
+    question: "what should I pick?",
+    cwd: "/tmp/proj",
+    gitBranch: "main",
+    platform: "darwin",
+  };
+  const ask = (questions: unknown[], id = "ask"): Message => ({
+    role: "assistant",
+    content: [
+      { type: "text", text: "I need a decision." },
+      { type: "tool_call", id, name: "ask_user", args: { questions } },
+    ],
+  });
+  const answered = (id = "ask"): Message => ({
+    role: "tool",
+    content: [{ type: "tool_result", toolCallId: id, content: "Picked A", isError: false }],
+  });
+
+  it("renders one question with numbered options and the recommended one marked", () => {
+    const digest = buildKenDigest({
+      ...base,
+      messages: [
+        ask([
+          {
+            id: "a",
+            question: "Which deploy target?",
+            kind: "choice",
+            detail: "Staging is cheaper.",
+            options: [{ label: "Staging", recommended: true }, { label: "Production" }],
+          },
+        ]),
+        answered(),
+      ],
+    });
+    expect(digest).toContain(
+      "ask_user(\nQ1 [choice]: Which deploy target?\n   detail: Staging is cheaper.\n   1. Staging (recommended)\n   2. Production\n)",
+    );
+    expect(digest).not.toContain("ask_user()");
+  });
+
+  it("renders several questions, including text and confirm kinds", () => {
+    const digest = buildKenDigest({
+      ...base,
+      messages: [
+        ask([
+          { id: "a", question: "Name the repo?", kind: "text" },
+          { id: "b", question: "Push now?", kind: "confirm" },
+          {
+            id: "c",
+            question: "Which tools?",
+            kind: "multi",
+            options: [{ label: "gh" }, { label: "pnpm" }],
+          },
+        ]),
+        answered(),
+      ],
+    });
+    expect(digest).toContain("Q1 [text]: Name the repo?");
+    expect(digest).toContain("Q2 [confirm]: Push now?\n   (Yes / No)");
+    expect(digest).toContain("Q3 [multi]: Which tools?\n   1. gh\n   2. pnpm");
+  });
+
+  it("keeps a pending ask_user (no answer yet) in recent activity", () => {
+    const filler: Message[] = Array.from({ length: KEN_RECENT_MESSAGE_LIMIT * 2 }, (_, i) =>
+      i % 2 === 0
+        ? { role: "user", content: `step ${i}` }
+        : { role: "assistant", content: [{ type: "text", text: `done ${i}` }] },
+    );
+    const digest = buildKenDigest({
+      ...base,
+      messages: [
+        ...filler,
+        ask(
+          [
+            {
+              id: "a",
+              question: "Merge or rebase?",
+              kind: "choice",
+              options: [{ label: "Merge" }, { label: "Rebase", recommended: true }],
+            },
+          ],
+          "pending",
+        ),
+      ],
+    });
+    const recent = digest.slice(digest.indexOf("## Recent activity"));
+    expect(recent).toContain(
+      "Q1 [choice]: Merge or rebase?\n   1. Merge\n   2. Rebase (recommended)",
+    );
+    expect(recent).toContain("I need a decision.");
+  });
+
+  it("caps long question sets and says so plainly", () => {
+    const long = "x".repeat(400);
+    const digest = buildKenDigest({
+      ...base,
+      messages: [
+        ask(
+          Array.from({ length: 5 }, (_, i) => ({
+            id: `q${i}`,
+            question: `${long} ${i}`,
+            kind: "choice",
+            options: [{ label: long }],
+          })),
+        ),
+        answered(),
+      ],
+    });
+    expect(digest).toContain("[Context incomplete: ask_user questions was truncated.");
+    const block = digest.slice(
+      digest.indexOf("ask_user(\n"),
+      digest.indexOf("[Context incomplete: ask_user"),
+    );
+    expect(block.length).toBeLessThan(1600);
+  });
+});

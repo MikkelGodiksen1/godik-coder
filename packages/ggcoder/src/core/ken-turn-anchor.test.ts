@@ -34,9 +34,11 @@ function session() {
         role: "assistant",
         content: [{ type: "tool_call", id: `call-${++n}`, name, args: {} }],
       } as Message),
-    ken: (question: string) => {
+    /** `staleAnchor`: a stored anchor past the real position (older writers),
+     *  so the replay's own file-order count decides where the turn lands. */
+    ken: (question: string, staleAnchor?: number) => {
       // AgentSession.persistedTranscriptCount() after resume: the repaired list.
-      const afterMessageCount = manager.getMessages(entries, leaf).length;
+      const afterMessageCount = staleAnchor ?? manager.getMessages(entries, leaf).length;
       entries.push({
         type: "custom",
         kind: KEN_TURN_CUSTOM_KIND,
@@ -90,7 +92,29 @@ describe("Ken turns after an interrupted tool call", () => {
     s.ken("install now?");
     s.ken("red checks?");
     const order = await replayOrder(s);
-    expect(order.slice(-3)).toEqual(["assistant:report", "ken:install now?", "ken:red checks?"]);
+    const report = order.indexOf("assistant:report");
+    expect(order.indexOf("ken:install now?")).toBe(report + 1);
+    expect(order.indexOf("ken:red checks?")).toBe(report + 2);
+    expect(order).toHaveLength(report + 3);
+  });
+
+  it("lands immediately after the report when the stored anchor is stale", async () => {
+    // Over-counting (e.g. the correction applied twice) would push this turn
+    // past "next"; under-counting pulls it above the report.
+    const s = session();
+    s.user("start");
+    s.interruptedCall("ask_user");
+    s.user("again");
+    s.interruptedCall("bash");
+    s.user("go");
+    s.assistant("report");
+    s.ken("stale", 999);
+    s.user("next");
+    s.assistant("later");
+    const order = await replayOrder(s);
+    const report = order.indexOf("assistant:report");
+    expect(order[report + 1]).toBe("ken:stale");
+    expect(order[report + 2]).toBe("user:next");
   });
 
   it("does not drift with two interrupted calls", async () => {
@@ -106,6 +130,8 @@ describe("Ken turns after an interrupted tool call", () => {
     s.assistant("second report");
     s.ken("after");
     const order = await replayOrder(s);
+    expect(order.indexOf("ken:between")).toBe(order.indexOf("assistant:first report") + 1);
+    expect(order.indexOf("ken:after")).toBe(order.indexOf("assistant:second report") + 1);
     expect(order.slice(-6)).toEqual([
       "user:and again",
       "assistant:first report",
