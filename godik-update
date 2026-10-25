@@ -47,8 +47,16 @@ fi
 [ -d "$BUILT" ] || { echo "STOP: no build at $BUILT." >&2; exit 1; }
 
 if running; then
-  echo "STOP: $APP_NAME is open. The new build is ready; quit $APP_NAME and run: ./godik-update --install" >&2
-  exit 1
+  # A running copy must not be swapped out underneath itself. When this run
+  # built the app, the build succeeded: say it isn't installed yet and exit 0.
+  # A bare --install that can't install has done nothing, so that stays exit 1.
+  if [ "${1:-}" = "--install" ]; then
+    echo "STOP: $APP_NAME is open. Quit it, then run: ./godik-update --install" >&2
+    exit 1
+  fi
+  echo "Built $BUILT"
+  echo "NOT installed: $APP_NAME is open. Quit it, then run: ./godik-update --install"
+  exit 0
 fi
 
 mkdir -p "$HOME/Applications"
