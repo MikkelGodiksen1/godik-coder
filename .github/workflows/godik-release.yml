@@ -1,0 +1,101 @@
+name: GODIK Release
+
+# GODIK CODER's own release: the macOS Apple Silicon leg of Ken's release.yml,
+# without Windows, without Apple certificate/notarization (the app is ad-hoc
+# signed by Tauri), and without the desktop-production environment.
+# Publishes a GitHub release with the .app.tar.gz + .sig updater artifacts and
+# latest.json, which the installed app polls (plugins.updater.endpoints).
+#
+# Required repository secrets:
+#   TAURI_SIGNING_PRIVATE_KEY           — minisign private key matching
+#                                         plugins.updater.pubkey in tauri.conf.json
+#   TAURI_SIGNING_PRIVATE_KEY_PASSWORD  — its password (empty is fine)
+#
+# Tags are godik-v<version>, created by godik-sync.yml (or by hand). A tag
+# pushed with GITHUB_TOKEN doesn't fire this workflow, so godik-sync.yml also
+# starts it with workflow_dispatch; tagName below is then taken from the ref.
+
+on:
+  push:
+    tags:
+      - "godik-v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: macos-14 # Apple Silicon (arm64)
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Validate tag and signing secrets
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REF_TYPE" == "tag" ]] || { echo "Run this on a godik-v* tag (use --ref godik-vX.Y.Z)" >&2; exit 1; }
+          [[ "$GITHUB_REF_NAME" =~ ^godik-v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Tag must look like godik-v1.2.3" >&2; exit 1; }
+          version="${GITHUB_REF_NAME#godik-v}"
+          conf="$(node -p 'require("./gg-app/src-tauri/tauri.conf.json").version')"
+          [[ "$conf" == "$version" ]] || { echo "Tag version $version != tauri.conf.json version $conf" >&2; exit 1; }
+          [[ -n "$TAURI_SIGNING_PRIVATE_KEY" ]] || { echo "Missing secret TAURI_SIGNING_PRIVATE_KEY" >&2; exit 1; }
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22.x
+          cache: pnpm
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: gg-app/src-tauri
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build framework packages
+        shell: bash
+        run: |
+          pnpm --filter @kenkaiiii/gg-ai build
+          pnpm --filter @kenkaiiii/gg-agent build
+          pnpm --filter @kenkaiiii/gg-core build
+          pnpm --filter @kenkaiiii/ggcoder build
+
+      - name: Stage node runtime + bundle sidecar
+        shell: bash
+        run: |
+          pnpm --filter gg-app stage:node
+          pnpm --filter gg-app bundle:sidecar
+
+      - name: Sidecar smoke (bundled runtime + bundle)
+        shell: bash
+        run: node gg-app/scripts/smoke-sidecar.mjs
+
+      - uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          projectPath: gg-app
+          tagName: ${{ github.ref_name }}
+          releaseName: "GODIK CODER v__VERSION__"
+          releaseBody: "GODIK CODER: Ken's GG Coder ${{ github.ref_name }} plus my changes. macOS Apple Silicon; ad-hoc signed, not notarized."
+          releaseDraft: false
+          prerelease: false
+          uploadUpdaterJson: true
+          args: --target aarch64-apple-darwin

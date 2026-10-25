@@ -36,7 +36,11 @@ pnpm --filter gg-app stage:node
 pnpm --filter gg-app bundle:sidecar
 
 echo "Building the Mac app (this takes a few minutes)..."
-pnpm --filter gg-app tauri build --bundles app
+# Local builds have no updater signing key, so skip the updater artifacts
+# (.app.tar.gz + .sig) here at runtime. The committed tauri.conf.json keeps
+# createUpdaterArtifacts: true for CI (.github/workflows/godik-release.yml),
+# and the app built here still checks the fork's releases for updates.
+pnpm --filter gg-app tauri build --bundles app --config '{"bundle":{"createUpdaterArtifacts":false}}'
 
 fi
 

@@ -1,0 +1,89 @@
+name: GODIK Sync upstream
+
+# Every 6 hours: pick up Ken's newest app release tag (v<version> on
+# KenKaiii/gg-framework) that GODIK CODER hasn't shipped yet, merge it into
+# main (my changes stay on top), push main, tag the merge godik-v<version> and
+# start godik-release.yml for it. On a merge conflict it fails loudly and
+# leaves main untouched: fix it locally with ./sync-upstream, push, and re-run.
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: godik-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+          # The push below must use a token; checkout's own persisted one is fine.
+
+      - name: Find Ken's newest unshipped app tag
+        id: pick
+        shell: bash
+        run: |
+          set -euo pipefail
+          git remote add upstream https://github.com/KenKaiii/gg-framework.git
+          git fetch --tags upstream
+          # Ken's app tags are v0.x.y on commits that set tauri.conf.json's
+          # version to the same number. Old v4.x tags are CLI packages: skipped
+          # by that version check. Newest by tag date, not by number.
+          pick=""
+          for tag in $(git tag -l 'v[0-9]*' --sort=-creatordate); do
+            v="${tag#v}"
+            conf="$(git show "$tag:gg-app/src-tauri/tauri.conf.json" 2>/dev/null | node -p 'try{JSON.parse(require("fs").readFileSync(0,"utf8")).version}catch{""}')"
+            [[ "$conf" == "$v" ]] || continue
+            pick="$tag"
+            break
+          done
+          [[ -n "$pick" ]] || { echo "No upstream app tag found" >&2; exit 1; }
+          echo "Newest upstream app tag: $pick"
+          if git rev-parse -q --verify "refs/tags/godik-$pick" >/dev/null; then
+            echo "Already shipped as godik-$pick; nothing to do."
+            echo "tag=" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=$pick" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Merge into main
+        if: steps.pick.outputs.tag != ''
+        shell: bash
+        env:
+          TAG: ${{ steps.pick.outputs.tag }}
+        run: |
+          set -euo pipefail
+          git config user.name "godik-sync[bot]"
+          git config user.email "godik-sync@users.noreply.github.com"
+          if git merge-base --is-ancestor "$TAG" HEAD; then
+            echo "main already contains $TAG."
+          elif ! git merge --no-edit "$TAG" -m "Merge Ken's $TAG into GODIK CODER"; then
+            echo "::error::Merge conflict with $TAG in: $(git diff --name-only --diff-filter=U | tr '\n' ' ')"
+            echo "Fix locally: cd godik-coder && ./sync-upstream, resolve, push main, then re-run this workflow." >&2
+            git merge --abort
+            exit 1
+          fi
+          conf="$(node -p 'require("./gg-app/src-tauri/tauri.conf.json").version')"
+          [[ "v$conf" == "$TAG" ]] || { echo "::error::After merge tauri.conf.json is $conf but tag is $TAG"; exit 1; }
+          git push origin main
+          git tag "godik-$TAG"
+          git push origin "godik-$TAG"
+          echo "Tagged godik-$TAG"
+
+      - name: Start the release build
+        if: steps.pick.outputs.tag != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.pick.outputs.tag }}
+        run: gh workflow run godik-release.yml --ref "godik-$TAG"
