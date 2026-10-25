@@ -805,13 +805,17 @@ pub(crate) async fn agent_ken_prompt(
     webview: WebviewWindow,
     client: State<'_, reqwest::Client>,
     text: String,
+    attachments: Option<serde_json::Value>,
 ) -> Result<(), String> {
     let port = port_for(&webview).ok_or("daemon not ready")?;
     let gg_sid = session_for(&webview).ok_or("session not ready")?;
     client
         .post(format!("{}/ken/prompt", sidecar_base(port)))
         .header("x-gg-session", &gg_sid)
-        .json(&serde_json::json!({ "text": text }))
+        .json(&serde_json::json!({
+            "text": text,
+            "attachments": attachments.unwrap_or(serde_json::Value::Array(vec![])),
+        }))
         .send()
         .await
         .map_err(|e| e.to_string())?;

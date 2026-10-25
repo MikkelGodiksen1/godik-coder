@@ -12,6 +12,7 @@ import { PROMPT_COMMANDS } from "../core/prompt-commands.js";
 import { log } from "../core/logger.js";
 import { readBody, json } from "./http.js";
 import { type AppAttachment, prepareAttachments } from "./attachments.js";
+import { getModel } from "../core/model-registry.js";
 import { saveAutopilot } from "./app-settings.js";
 import { lastAssistantText, buildKenContext } from "./ken-context.js";
 import { buildGoalBoard } from "../core/goal-board.js";
@@ -359,19 +360,44 @@ export function handlePromptRoutes(
     void readBody(req, res).then(async (raw) => {
       if (raw === null) return;
       let text: string;
+      let attachments: AppAttachment[];
       try {
-        text = (JSON.parse(raw) as { text?: string }).text ?? "";
+        const body = JSON.parse(raw) as { text?: string; attachments?: AppAttachment[] };
+        text = body.text ?? "";
+        attachments = Array.isArray(body.attachments) ? body.attachments : [];
       } catch {
         json(res, 400, { error: "invalid JSON body" });
         return;
       }
-      if (!text.trim()) {
+      if (!text.trim() && attachments.length === 0) {
         json(res, 400, { error: "empty prompt" });
         return;
       }
       if (ctx.kenRunning) {
         json(res, 409, { error: "Ken is already thinking — wait for his reply." });
         return;
+      }
+      // Images only (screenshots), and only for a model that can see them: Ken
+      // has no vision tool to fall back on, so an image must never be dropped.
+      if (attachments.length > 0) {
+        let refusal: string | null = null;
+        if (attachments.some((a) => a.kind !== "image")) {
+          refusal = "Ken can only take images. Send other files to GG instead.";
+        } else {
+          try {
+            const { model } = (await ctx.ensureKenSession()).getState();
+            if (getModel(model)?.supportsImages !== true) {
+              refusal = `Ken's model (${model}) can't see images. Pick a model with image input for Ken, or send the image to GG instead.`;
+            }
+          } catch (err) {
+            refusal = `Ken couldn't start: ${err instanceof Error ? err.message : String(err)}`;
+          }
+        }
+        if (refusal) {
+          json(res, 400, { error: refusal });
+          ctx.broadcastError("ken_error", "ken image refused", new Error(refusal));
+          return;
+        }
       }
       json(res, 202, { accepted: true });
       ctx.kenRunning = true;
@@ -387,7 +413,7 @@ export function handlePromptRoutes(
           ctx.session,
           ctx.cwd,
           ctx.gitBranch,
-          text,
+          text.trim() || "(No question typed. Look at the attached image and say what matters.)",
           await ctx.loadWorkflowCommandSpecs(),
           ctx.injectedAutopilotPrompts,
           otherGoals,
@@ -397,13 +423,26 @@ export function handlePromptRoutes(
           goalBoardChars: String(otherGoals.length),
           goalBoardGoals: String(otherGoals ? otherGoals.split("\n").length : 0),
         });
-        await ken.prompt(digest);
+        // Same path as GG's own attachments: saved under .gg/uploads, then sent
+        // as native image blocks next to the digest.
+        const prepared =
+          attachments.length > 0 ? await prepareAttachments(ctx.cwd, attachments) : [];
+        if (prepared.some((a) => a.kind !== "image")) {
+          throw new Error("Ken couldn't read the attached image. Try a PNG or JPEG screenshot.");
+        }
+        if (prepared.length > 0) await ken.promptWithAttachments(digest, prepared);
+        else await ken.prompt(digest);
         // Record the turn against the BUILD session so it persists + survives
         // resume (advisory custom entry, never an LLM message). Reply is Ken's
         // last assistant message; skip persistence if he produced nothing.
+        // Images are kept as their saved paths only, never base64.
         const reply = lastAssistantText(ken.getMessages());
         if (reply.trim()) {
-          await ctx.session.persistKenTurn(text, reply);
+          await ctx.session.persistKenTurn(
+            text,
+            reply,
+            prepared.flatMap((a) => (a.path ? [a.path] : [])),
+          );
           void ctx.trophies.count("kenQuestions", ctx.sessionId);
         }
       } catch (err) {

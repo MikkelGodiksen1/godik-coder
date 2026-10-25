@@ -2226,15 +2226,15 @@ function App(): React.ReactElement {
     // build run; his reply streams into a magenta bubble via ken_* events.
     const kenMatch = workspaceMode === "code" ? /^@(?:ken|mentor)\b:?\s*/i.exec(trimmed) : null;
     if (kenMatch) {
-      if (attachments.length > 0) {
+      if (attachments.some((a) => a.kind !== "image")) {
         toast(
-          `Mentor cannot receive attachments. Remove ${MENTOR_HANDLE} to send them to GG.`,
+          `Mentor can only take images. Remove ${MENTOR_HANDLE} to send other files to GG.`,
           "warning",
         );
         return;
       }
       const question = trimmed.slice(kenMatch[0].length).trim();
-      if (!question) return;
+      if (!question && attachments.length === 0) return;
       chatLayout.capture();
       setSendCount((n) => n + 1);
       recordHistory(trimmed);
@@ -2243,17 +2243,27 @@ function App(): React.ReactElement {
       const kenFailed = {
         bubbleId: kenBubbleId,
         draft: input,
-        attachments: [],
+        attachments,
         mentionedPaths,
         scope: "ken_error" as const,
       };
-      pushItem({ kind: "user", id: kenBubbleId, text: trimmed, ken: true });
+      const kenImgs = attachments.flatMap((a) => (a.previewUrl ? [a.previewUrl] : []));
+      pushItem({
+        kind: "user",
+        id: kenBubbleId,
+        text: trimmed,
+        ken: true,
+        images: kenImgs.length > 0 ? kenImgs : undefined,
+      });
       setInput("");
+      clearAttachments();
       setSlashIndex(0);
       setMention(null);
       setMentionedPaths([]);
       setEnhancement(null);
-      void sendKenPrompt(question).catch((e: unknown) => restoreFailedSend(kenFailed, e));
+      void sendKenPrompt(question, attachments.map(toWire)).catch((e: unknown) =>
+        restoreFailedSend(kenFailed, e),
+      );
       return;
     }
 

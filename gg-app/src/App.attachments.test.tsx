@@ -355,26 +355,33 @@ describe("composer attachments", () => {
     await waitFor(() => expect(screen.queryByText("Couldn't connect to the agent.")).toBeNull());
   });
 
-  it("preserves the draft and explains how to send attachments when addressing Ken", async () => {
+  it("sends a pasted screenshot to Ken, not to GG, and clears the chip", async () => {
     const ken = vi.spyOn(agent, "sendKenPrompt").mockResolvedValue(undefined);
     const { input, sends } = await setup();
     fireEvent.change(input, { target: { value: "@Ken check this screenshot" } });
     paste(input);
     await screen.findByRole("button", { name: "Remove screenshot.png" });
     fireEvent.click(screen.getByTitle("Send"));
-    expect(ken).not.toHaveBeenCalled();
-    expect(input.value).toBe("@Ken check this screenshot");
-    expect(screen.getByRole("button", { name: "Remove screenshot.png" })).toBeTruthy();
-    expect(notifications.toast).toHaveBeenCalledWith(
-      "Mentor cannot receive attachments. Remove @Mentor to send them to GG.",
-      "warning",
+    await waitFor(() =>
+      expect(ken).toHaveBeenCalledExactlyOnceWith("check this screenshot", [
+        attachments.toWire(image),
+      ]),
     );
-    fireEvent.change(input, { target: { value: "check this screenshot" } });
+    expect(sends).not.toHaveBeenCalled();
+    expect(input.value).toBe("");
+    expect(screen.queryByRole("button", { name: "Remove screenshot.png" })).toBeNull();
+  });
+
+  it("sends an image-only message to Ken", async () => {
+    const ken = vi.spyOn(agent, "sendKenPrompt").mockResolvedValue(undefined);
+    const { input, sends } = await setup();
+    fireEvent.change(input, { target: { value: "@Mentor " } });
+    paste(input);
+    await screen.findByRole("button", { name: "Remove screenshot.png" });
     fireEvent.click(screen.getByTitle("Send"));
     await waitFor(() =>
-      expect(sends).toHaveBeenCalledExactlyOnceWith(
-        expect.objectContaining({ attachments: [attachments.toWire(image)] }),
-      ),
+      expect(ken).toHaveBeenCalledExactlyOnceWith("", [attachments.toWire(image)]),
     );
+    expect(sends).not.toHaveBeenCalled();
   });
 });

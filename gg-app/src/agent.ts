@@ -953,11 +953,13 @@ export async function cancel(): Promise<CancelResult> {
 
 /** Ask Ken Kai. Fires the read-only mentor run; reply arrives via `ken_*`
  *  SSE events. Lazily boots Ken's session on first use. */
-export async function sendKenPrompt(text: string): Promise<void> {
-  await logInfo(`ken prompt: ${text.slice(0, 80)}`);
+export async function sendKenPrompt(text: string, attachments: Attachment[] = []): Promise<void> {
+  await logInfo(
+    `ken prompt: ${text.slice(0, 80)}${attachments.length ? ` (+${attachments.length} att)` : ""}`,
+  );
   try {
     await waitForReady();
-    await invoke("agent_ken_prompt", { text });
+    await invoke("agent_ken_prompt", { text, attachments });
   } catch (e) {
     await logError(`agent_ken_prompt failed: ${String(e)}`);
     throw e;

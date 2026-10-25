@@ -4255,8 +4255,8 @@ export class AgentSession {
    * sessions (kept in memory only). Best-effort: a write failure is swallowed by
    * appendEntry's own handling.
    */
-  async persistKenTurn(question: string, reply: string): Promise<void> {
-    await this.markers.recordKenTurn(question, reply, this.persistedTranscriptCount());
+  async persistKenTurn(question: string, reply: string, attachments: string[] = []): Promise<void> {
+    await this.markers.recordKenTurn(question, reply, this.persistedTranscriptCount(), attachments);
   }
 
   /**

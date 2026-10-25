@@ -107,8 +107,19 @@ export class TranscriptMarkers {
     this.appMarkers = this.appMarkers.map(move);
   }
 
-  async recordKenTurn(question: string, reply: string, afterMessageCount: number): Promise<void> {
-    const payload: KenTurnPayload = { version: 1, question, reply, afterMessageCount };
+  async recordKenTurn(
+    question: string,
+    reply: string,
+    afterMessageCount: number,
+    attachments: string[] = [],
+  ): Promise<void> {
+    const payload: KenTurnPayload = {
+      version: 1,
+      question,
+      reply,
+      afterMessageCount,
+      ...(attachments.length > 0 ? { attachments } : {}),
+    };
     this.kenTurns.push(payload);
     await this.append(KEN_TURN_CUSTOM_KIND, payload);
   }

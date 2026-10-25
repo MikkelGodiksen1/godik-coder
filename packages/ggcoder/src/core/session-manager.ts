@@ -161,6 +161,9 @@ export interface KenTurnPayload {
   question: string;
   reply: string;
   afterMessageCount: number;
+  /** Saved paths (under .gg/uploads) of images sent with the question. Paths
+   *  only, never image data. Absent on turns without images. */
+  attachments?: string[];
   /** Read-only: branch messages that preceded this entry in FILE order. Never
    *  persisted — see {@link RecordedPosition}. */
   recordedAfterMessageCount?: number;
@@ -1590,6 +1593,9 @@ export class SessionManager {
               question: p.question,
               reply: p.reply,
               afterMessageCount: typeof p.afterMessageCount === "number" ? p.afterMessageCount : 0,
+              ...(Array.isArray(p.attachments) && p.attachments.every((a) => typeof a === "string")
+                ? { attachments: p.attachments }
+                : {}),
               recordedAfterMessageCount,
             },
           ];
