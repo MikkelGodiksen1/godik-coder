@@ -9,7 +9,8 @@ name: GODIK Sync upstream
 # Merge conflict: fix it locally with ./sync-upstream, push, and re-run.
 #
 # dry_run (manual runs only): skip the merge and instead prove this workflow's
-# token can create a release, on a throwaway draft that is deleted again.
+# token can create a release on a pushed tag, on a throwaway prerelease + tag
+# that are deleted again.
 
 on:
   schedule:
@@ -17,7 +18,7 @@ on:
   workflow_dispatch:
     inputs:
       dry_run:
-        description: "Only prove release creation on a throwaway draft"
+        description: "Only prove release creation on a throwaway tag"
         type: boolean
         default: false
 
@@ -39,19 +40,23 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: "Dry run: create and delete a throwaway draft release"
+      - name: "Dry run: push a throwaway tag, create its release, delete both"
         if: inputs.dry_run == true
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
+          # Same calls as the real path below (tag push, then release create
+          # with --verify-tag). Marked prerelease and never "latest", so the
+          # app's update endpoint (releases/latest) can't point at it.
           tag="godik-dryrun-${GITHUB_RUN_ID}"
-          gh release create "$tag" -R "$GITHUB_REPOSITORY" --draft --target "$GITHUB_SHA" \
-            --title "GODIK CODER dry run (delete me)" --notes "Throwaway release from godik-sync dry_run."
-          echo "Created draft release $tag with this workflow's token."
-          gh release delete "$tag" -R "$GITHUB_REPOSITORY" --yes --cleanup-tag
-          echo "Deleted $tag again."
+          git tag "$tag"
+          git push origin "$tag"
+          trap 'gh release delete "$tag" -R "$GITHUB_REPOSITORY" --yes 2>/dev/null || true; git push origin ":refs/tags/$tag" || true' EXIT
+          gh release create "$tag" -R "$GITHUB_REPOSITORY" --verify-tag --prerelease --latest=false \
+            --title "GODIK CODER dry run (deleted again)" --notes "Throwaway release from godik-sync dry_run."
+          echo "DRY RUN OK: this workflow's token created release $tag on an existing tag."
 
       - name: Find Ken's newest unshipped app tag
         if: inputs.dry_run != true
