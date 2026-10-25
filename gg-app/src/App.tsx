@@ -1460,10 +1460,12 @@ function App(): React.ReactElement {
   // returned at least one file. Clamp the highlighted row to the result count.
   // Never open while `@Ken` is active — that token addresses Ken, not a file.
   const mentionOpen = mention !== null && fileMatches.length > 0 && !kenActive;
-  // GODIK CODER: the deck's Mentor key adds or removes the leading `@ken`.
+  // GODIK CODER: the deck's Mentor key adds or removes the leading `@Mentor`;
+  // on an empty composer it fills a default question and selects it.
   function toggleMentor(): void {
     setDeckPanel(null);
-    fillComposer(toggleMentorPrefix(input));
+    const { text, selection } = toggleMentorPrefix(input);
+    fillComposer(text, selection);
   }
   const clampedFileIndex = fileMatches.length > 0 ? fileIndex % fileMatches.length : 0;
   // Footer background-tasks indicator only shows while something is actually
@@ -1493,14 +1495,17 @@ function App(): React.ReactElement {
   const defaultRepoName = (state?.cwd ?? "").split(/[\\/]/).filter(Boolean).pop() ?? "";
 
   /** Put text in the composer with the caret at the end, ready to finish and send. */
-  function fillComposer(text: string): void {
+  function fillComposer(
+    text: string,
+    selection: { start: number; end: number } = { start: text.length, end: text.length },
+  ): void {
     setInput(text);
-    setCaret(text.length);
+    setCaret(selection.end);
     requestAnimationFrame(() => {
       const el = inputRef.current;
       if (!el) return;
       el.focus();
-      el.setSelectionRange(text.length, text.length);
+      el.setSelectionRange(selection.start, selection.end);
     });
   }
 
