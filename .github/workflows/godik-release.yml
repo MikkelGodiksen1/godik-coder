@@ -8,7 +8,7 @@ name: GODIK Release
 #
 # Required repository secrets:
 #   TAURI_SIGNING_PRIVATE_KEY           — minisign private key matching
-#                                         plugins.updater.pubkey in tauri.conf.json
+#                                         plugins.updater.pubkey in tauri.macos.conf.json
 #   TAURI_SIGNING_PRIVATE_KEY_PASSWORD  — its password (empty is fine)
 #
 # Tags are godik-v<version>, created by godik-sync.yml (or by hand). A tag

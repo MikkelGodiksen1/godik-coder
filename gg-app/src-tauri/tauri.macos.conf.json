@@ -1,0 +1,13 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "GODIK CODER",
+  "identifier": "dk.godik.coder",
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEE5N0RFMDU3NEEzREUxNkUKUldSdTRUMUtWK0I5cVJYY244aHBSSDBiT3VJS0JZZHZWemdNVmRYNng2QUw1N3VHWk1Tc0toT1YK",
+      "endpoints": [
+        "https://github.com/MikkelGodiksen1/godik-coder/releases/latest/download/latest.json"
+      ]
+    }
+  }
+}
