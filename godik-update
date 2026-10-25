@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+# Update GODIK CODER: pull Ken's latest code (./sync-upstream), then rebuild the
+# Mac app and put it in ~/Applications. Stops on merge conflicts or build errors.
+#   ./godik-update            # sync + build + install
+#   ./godik-update --no-sync  # just rebuild + install what's checked out
+set -euo pipefail
+cd "$(dirname "$0")"
+
+APP_NAME="GODIK CODER"
+DEST="$HOME/Applications/$APP_NAME.app"
+BUILT="gg-app/src-tauri/target/release/bundle/macos/$APP_NAME.app"
+
+# Rust is installed per-user by rustup and may not be on PATH in this shell.
+[ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
+for tool in pnpm cargo; do
+  command -v "$tool" >/dev/null || { echo "STOP: '$tool' not found. Install it first (Rust: https://rustup.rs)." >&2; exit 1; }
+done
+
+if [ "${1:-}" != "--no-sync" ]; then
+  ./sync-upstream   # exits 1 with a clear message on conflicts; we stop here too
+fi
+
+echo "Installing dependencies..."
+pnpm install --frozen-lockfile >/dev/null
+
+echo "Building the agent, Node runtime and sidecar..."
+pnpm --filter @kenkaiiii/ggcoder build >/dev/null
+pnpm --filter gg-app stage:node
+pnpm --filter gg-app bundle:sidecar
+
+echo "Building the Mac app (this takes a few minutes)..."
+pnpm --filter gg-app tauri build --bundles app
+
+[ -d "$BUILT" ] || { echo "STOP: build finished but $BUILT is missing." >&2; exit 1; }
+
+mkdir -p "$HOME/Applications"
+PREVIOUS="$HOME/Applications/$APP_NAME.previous.app"
+# A running copy keeps working from the renamed folder; the fresh build takes its place.
+if [ -d "$PREVIOUS" ]; then
+  if pgrep -f "$PREVIOUS/Contents/MacOS/" >/dev/null; then
+    echo "STOP: the previous copy is still running from $PREVIOUS. Quit it, then run ./godik-update again." >&2
+    exit 1
+  fi
+  rm -rf "$PREVIOUS"
+fi
+[ -d "$DEST" ] && mv "$DEST" "$PREVIOUS"
+cp -R "$BUILT" "$DEST"
+echo "Installed $DEST ($(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$DEST/Contents/Info.plist"))."
+
+if pgrep -f "$PREVIOUS/Contents/MacOS/" >/dev/null; then
+  echo "$APP_NAME is open right now (the old copy, kept at $PREVIOUS). Quit it and open the new one from ~/Applications; the old copy is removed next time you run ./godik-update."
+else
+  rm -rf "$PREVIOUS"
+  echo "Open it with: open \"$DEST\""
+fi
