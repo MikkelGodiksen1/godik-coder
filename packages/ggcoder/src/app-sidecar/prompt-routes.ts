@@ -397,6 +397,12 @@ export function handlePromptRoutes(
           goalBoardChars: String(otherGoals.length),
           goalBoardGoals: String(otherGoals ? otherGoals.split("\n").length : 0),
         });
+        // GODIK CODER: log the ask_user blocks Ken was given (each already capped
+        // at 1500 chars in ken-context.ts), so "can Ken see the options?" is
+        // answerable from the log. Nothing is logged when there is no ask_user.
+        for (const block of digest.match(/ask_user\(\n[\s\S]*?\n\)/g) ?? []) {
+          log("INFO", "app-sidecar", "ken digest ask_user", { block });
+        }
         await ken.prompt(digest);
         // Record the turn against the BUILD session so it persists + survives
         // resume (advisory custom entry, never an LLM message). Reply is Ken's
