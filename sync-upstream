@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# Pull Ken's latest gg-framework into GODIK CODER.
+# Fetches `upstream`, merges upstream/main into your local main, and stops
+# with a clear message if the merge has conflicts. Push yourself afterwards:
+#   git push origin main
+set -euo pipefail
+cd "$(dirname "$0")"
+
+if ! git remote get-url upstream >/dev/null 2>&1; then
+  echo "Adding upstream remote (KenKaiii/gg-framework)..."
+  git remote add upstream https://github.com/KenKaiii/gg-framework.git
+fi
+
+if [ -n "$(git status --porcelain)" ]; then
+  echo "STOP: you have uncommitted changes. Commit or stash them first, then run ./sync-upstream again." >&2
+  exit 1
+fi
+
+branch="$(git branch --show-current)"
+if [ "$branch" != "main" ]; then
+  echo "Switching from '$branch' to main..."
+  git checkout main
+fi
+
+echo "Fetching upstream..."
+git fetch upstream
+
+if git merge-base --is-ancestor upstream/main HEAD; then
+  echo "Already up to date with upstream/main."
+  exit 0
+fi
+
+echo "Merging upstream/main into main..."
+if ! git merge --no-edit upstream/main; then
+  echo >&2
+  echo "STOP: merge conflicts. These files need fixing:" >&2
+  git diff --name-only --diff-filter=U | sed 's/^/  - /' >&2
+  echo >&2
+  echo "Fix them, then: git add <files> && git commit" >&2
+  echo "Or give up on this merge with: git merge --abort" >&2
+  exit 1
+fi
+
+echo "Done. main now includes upstream/main. Push with: git push origin main"

@@ -98,7 +98,7 @@ export type ChatAgentId = "general" | "therapist" | "research";
  */
 export function workspaceProductName(mode: WorkspaceMode, isGoal = false): string {
   if (isGoal) return "GG Goals";
-  return mode === "chat" ? "GG Chat" : mode === "motion" ? "GG Motion" : "GG Coder";
+  return mode === "chat" ? "GG Chat" : mode === "motion" ? "GG Motion" : "GODIK CODER";
 }
 
 export type MemoryCategory =

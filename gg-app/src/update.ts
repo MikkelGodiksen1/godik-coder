@@ -29,6 +29,13 @@ export interface UpdateInfo {
 const POLL_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
 
 /**
+ * GODIK CODER fork: self-update is OFF so Ken's GG Coder releases can never be
+ * installed over this build. The endpoint list in tauri.conf.json is empty too.
+ * Get new upstream code with `./sync-upstream` and rebuild instead.
+ */
+const UPDATES_DISABLED = true;
+
+/**
  * DEV ONLY — fake a pending update so the banner + home button + install flow
  * can be eyeballed before any real GitHub release exists. Flip to `false` (or
  * just ship a production build, where it's ignored) to disable. The simulated
@@ -66,6 +73,7 @@ export function useAppUpdate(): UpdateInfo {
       announce(FAKE_VERSION);
       return;
     }
+    if (UPDATES_DISABLED) return;
     // Don't interrupt an in-flight install with a re-check.
     setPhase((p) => (p === "installing" ? p : "checking"));
     try {
@@ -112,7 +120,7 @@ export function useAppUpdate(): UpdateInfo {
       setPhase("available");
       return;
     }
-    if (!update) return;
+    if (UPDATES_DISABLED || !update) return;
     setPhase("installing");
     setProgress(0);
     try {

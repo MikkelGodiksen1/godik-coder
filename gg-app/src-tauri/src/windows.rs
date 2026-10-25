@@ -115,7 +115,7 @@ pub(crate) fn build_app_window_with_visibility(
     visible: bool,
 ) -> Result<WebviewWindow, String> {
     let mut builder = WebviewWindowBuilder::new(app, label, WebviewUrl::App("index.html".into()))
-        .title("GG Coder")
+        .title("GODIK CODER")
         .inner_size(1024.0, 720.0)
         .min_inner_size(480.0, 360.0)
         .background_color(APP_BG)
