@@ -86,4 +86,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.pick.outputs.tag }}
-        run: gh workflow run godik-release.yml --ref "godik-$TAG"
+        # -R is required: with the upstream remote added above, gh would
+        # otherwise guess Ken's repo and 404.
+        run: gh workflow run godik-release.yml -R "$GITHUB_REPOSITORY" --ref "godik-$TAG"
