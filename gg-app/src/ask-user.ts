@@ -147,6 +147,21 @@ export function dropSupersededAsks<T extends { kind: string; sent?: boolean; can
   return items.filter((it) => !(it.kind === "ask" && it.sent !== true && it.cancelled !== true));
 }
 
+/**
+ * The sidecar says question `promptId` was superseded: the user sent a message
+ * of their own — maybe from another client (the glasses) — and that message is
+ * the answer. Its open band goes exactly as `dropSupersededAsks` drops it when
+ * the app sends itself, so it looks the same wherever the message came from:
+ * never cancelled, never answered. Bands already sent or closed are history and
+ * stay; another question is untouched. Safe to receive twice.
+ */
+export function dropSupersededAsk<
+  T extends { kind: string; prompt?: unknown; sent?: boolean; cancelled?: boolean },
+>(items: readonly T[], promptId: string): T[] {
+  const ids = new Set([promptId]);
+  return items.filter((it) => !isOpenAsk(it, ids));
+}
+
 export function isAskUserPrompt(data: unknown): data is AskUserPrompt {
   if (typeof data !== "object" || data === null) return false;
   const { id, questions } = data as { id?: unknown; questions?: unknown };

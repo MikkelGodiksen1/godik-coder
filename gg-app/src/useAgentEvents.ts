@@ -19,6 +19,7 @@ import {
   closeAsks,
   closeAsksNotIn,
   isAskUserPrompt,
+  dropSupersededAsk,
   markAskAnswered,
   markAskDeferred,
   parseOpenAskPrompts,
@@ -1132,6 +1133,18 @@ export function useAgentEvents(deps: AgentEventsDeps): AgentEvents {
               return next.length === prev.length && next.every((it, i) => it === prev[i])
                 ? prev
                 : next;
+            });
+          }
+          break;
+        case "ask_user_superseded":
+          // A message of the user's own released the question — maybe sent from
+          // another client (the glasses). The band goes, as when the app sends
+          // itself; already gone = nothing to do.
+          if (typeof d.id === "string") {
+            const promptId = d.id;
+            setItems((prev) => {
+              const next = dropSupersededAsk(prev, promptId);
+              return next.length === prev.length ? prev : next;
             });
           }
           break;

@@ -870,6 +870,9 @@ async function createSession(
     // Any client's answer (the app, the glasses via POST /ask/:id): every
     // window marks the band answered, not just the one that sent it.
     onAnswered: ({ id, answers }) => broadcast("ask_user_answered", { id, answers }),
+    // A message of the user's own released the question (sent from any client):
+    // every window drops the band, as the app does when it sends itself.
+    onSuperseded: (id) => broadcast("ask_user_superseded", { id }),
     onLateAnswer: (late) => {
       log("INFO", "app-sidecar", "ask_user late answer queued", { id: late.prompt.id });
       // A late "Start the goal now" starts the goal before GG Goals hears it,

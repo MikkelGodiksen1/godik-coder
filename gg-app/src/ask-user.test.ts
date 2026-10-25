@@ -4,6 +4,8 @@ import {
   askItemFor,
   closeAsksNotIn,
   firstOpenAskId,
+  dropSupersededAsk,
+  dropSupersededAsks,
   isAskUserPrompt,
   markAskAnswered,
   parseOpenAskPrompts,
@@ -224,5 +226,34 @@ describe("markAskAnswered", () => {
     expect(markAskAnswered(rows(), "ask-2", { a: "No" }, next)).toEqual(rows());
     const closed = rows().map((r) => (r.kind === "ask" ? { ...r, cancelled: true } : r));
     expect(markAskAnswered(closed, "ask-1", { a: "No" }, next)).toEqual(closed);
+  });
+});
+
+describe("dropSupersededAsk", () => {
+  type Band = Row & { prompt?: { id: string } };
+  const rows = (): Band[] => [
+    { kind: "user", id: 1 },
+    { kind: "ask", id: 2, prompt: { id: "ask-1" }, questions: [q("a")] },
+    { kind: "ask", id: 3, prompt: { id: "ask-2" }, questions: [q("b")] },
+    { kind: "assistant", id: 4 },
+  ];
+
+  it("drops that open band as the app's own send does – not cancelled, not answered", () => {
+    const out = dropSupersededAsk(rows(), "ask-1");
+    expect(out.map((r) => r.id)).toEqual([1, 3, 4]);
+    expect(out.some((r) => r.cancelled === true || r.sent === true)).toBe(false);
+    // exactly what dropSupersededAsks does to that band when the app sends itself
+    const own = dropSupersededAsks(rows().filter((r) => r.id !== 3));
+    expect(own.map((r) => r.id)).toEqual([1, 4]);
+  });
+
+  it("is idempotent; sent or closed bands and other questions stay", () => {
+    const once = dropSupersededAsk(rows(), "ask-1");
+    expect(dropSupersededAsk(once, "ask-1")).toEqual(once);
+    const history = rows().map((r) =>
+      r.id === 2 ? { ...r, sent: true } : r.id === 3 ? { ...r, cancelled: true } : r,
+    );
+    expect(dropSupersededAsk(history, "ask-1")).toEqual(history);
+    expect(dropSupersededAsk(history, "ask-2")).toEqual(history);
   });
 });

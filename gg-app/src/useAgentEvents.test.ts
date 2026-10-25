@@ -1680,6 +1680,47 @@ describe("models_change", () => {
       expect(getItems()).toBe(once); // the same array: nothing changed
     });
 
+    // Overtaken by a message of the user's own sent elsewhere (a Mentor prompt
+    // from the glasses): the band goes as when the app sends itself, so
+    // goalWaitingOnUser / GoalAskNotice go quiet.
+    it("ask_user_superseded drops the open band (not cancelled, not answered); twice changes nothing", () => {
+      const { hook, getItems } = setup();
+      act(() => {
+        hook.result.current.handleEvent(ev("ask_user", { id: "ask-1", questions: [question] }));
+      });
+      expect(getItems()).toEqual([expect.objectContaining({ kind: "ask" })]);
+      act(() => {
+        hook.result.current.handleEvent(ev("ask_user_superseded", { id: "ask-1" }));
+      });
+      const once = getItems();
+      expect(once).toEqual([]);
+      act(() => {
+        hook.result.current.handleEvent(ev("ask_user_superseded", { id: "ask-1" }));
+        hook.result.current.handleEvent(ev("ask_user_superseded", { id: "ask-9" }));
+        hook.result.current.handleEvent(ev("ask_user_superseded", {}));
+      });
+      expect(getItems()).toBe(once); // the same array: nothing changed
+    });
+
+    it("ask_user_superseded leaves an answered band (history) and another open question alone", () => {
+      const { hook, getItems } = setup();
+      act(() => {
+        hook.result.current.handleEvent(ev("ask_user", { id: "ask-1", questions: [question] }));
+        hook.result.current.handleEvent(
+          ev("ask_user_answered", { id: "ask-1", answers: { flag: "Yes" } }),
+        );
+        hook.result.current.handleEvent(ev("ask_user", { id: "ask-2", questions: [question] }));
+      });
+      act(() => {
+        hook.result.current.handleEvent(ev("ask_user_superseded", { id: "ask-1" }));
+      });
+      expect(getItems()).toEqual([
+        expect.objectContaining({ kind: "ask", sent: true, answers: { flag: "Yes" } }),
+        expect.objectContaining({ kind: "ask" }),
+      ]);
+      expect(getItems()[1]).not.toHaveProperty("sent");
+    });
+
     it("ask_user_answered for another question or with a malformed payload changes nothing", () => {
       const { hook, getItems } = setup();
       act(() => {

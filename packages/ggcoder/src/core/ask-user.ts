@@ -129,6 +129,13 @@ export interface AskUserBridgeOptions {
    * Cancelled or superseded questions never come here.
    */
   onAnswered?: (answered: { id: string; answers: Record<string, string | string[]> }) => void;
+  /**
+   * An open question was released because the user sent a message of their own
+   * (`cancelAll` with `superseded: true`) — from the app or from another client
+   * (the glasses). That message is the answer, so every window drops the band
+   * exactly as the app does when it sends itself. Plain cancels never come here.
+   */
+  onSuperseded?: (id: string) => void;
 }
 
 export function createAskUserBridge(opts: AskUserBridgeOptions): AskUserBridge {
@@ -197,7 +204,10 @@ export function createAskUserBridge(opts: AskUserBridgeOptions): AskUserBridge {
       return true;
     },
     cancelAll: (result) => {
-      for (const id of [...pending.keys()]) release(id, result ?? { action: "cancel" });
+      const superseded = result?.action === "cancel" && result.superseded === true;
+      for (const id of [...pending.keys()]) {
+        if (release(id, result ?? { action: "cancel" }) && superseded) opts.onSuperseded?.(id);
+      }
       closeDeferred();
     },
     closeDeferred,

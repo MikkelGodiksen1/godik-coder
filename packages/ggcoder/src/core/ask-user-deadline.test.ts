@@ -23,7 +23,15 @@ function harness(timeoutMs: number | (() => number) = 1000) {
   const onClosed = vi.fn<(ids: string[]) => void>();
   const onAnswered =
     vi.fn<(answered: { id: string; answers: Record<string, string | string[]> }) => void>();
-  const bridge = createAskUserBridge({ broadcast, timeoutMs, onLateAnswer, onClosed, onAnswered });
+  const onSuperseded = vi.fn<(id: string) => void>();
+  const bridge = createAskUserBridge({
+    broadcast,
+    timeoutMs,
+    onLateAnswer,
+    onClosed,
+    onAnswered,
+    onSuperseded,
+  });
   const tool = createAskUserTool(bridge.park);
   const call = (question = "Ship it?"): Promise<string> =>
     tool.execute({ questions: [{ id: "q", question, kind: "confirm" }] }, {
@@ -37,7 +45,7 @@ function harness(timeoutMs: number | (() => number) = 1000) {
     if (!last) throw new Error("nothing broadcast");
     return last[0];
   };
-  return { bridge, call, lastPrompt, onLateAnswer, onClosed, onAnswered };
+  return { bridge, call, lastPrompt, onLateAnswer, onClosed, onAnswered, onSuperseded };
 }
 
 describe("ask_user soft deadline", () => {
@@ -278,5 +286,54 @@ describe("ask_user answered by any client", () => {
     bridge.cancelAll({ action: "cancel", superseded: true });
     await third;
     expect(onAnswered).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * A message of the user's own releases an open question (`cancelAll` with
+ * `superseded: true`, prompt-routes) — sent from the app or from the glasses.
+ * Every window must hear it: without `ask_user_superseded` a question overtaken
+ * from another client stayed up as an open card.
+ */
+describe("ask_user superseded by a message of the user's own", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("reports every open question it releases as superseded, once – not answered, not closed", async () => {
+    const { bridge, call, lastPrompt, onSuperseded, onAnswered, onClosed } = harness();
+    const result = call();
+    await vi.advanceTimersByTimeAsync(10);
+    const { id } = lastPrompt();
+    bridge.cancelAll({ action: "cancel", superseded: true });
+    await expect(result).resolves.toContain("sent their own message instead");
+    expect(onSuperseded).toHaveBeenCalledTimes(1);
+    expect(onSuperseded).toHaveBeenCalledWith(id);
+    expect(onAnswered).not.toHaveBeenCalled();
+    expect(onClosed).not.toHaveBeenCalled();
+    // nothing open any more: a second supersede reports nothing
+    bridge.cancelAll({ action: "cancel", superseded: true });
+    expect(onSuperseded).toHaveBeenCalledTimes(1);
+  });
+
+  it("a plain cancel or reset is not a supersede; deferred questions still close as before", async () => {
+    const { bridge, call, lastPrompt, onSuperseded, onClosed } = harness();
+    const open = call();
+    await vi.advanceTimersByTimeAsync(10);
+    bridge.cancelAll({ action: "cancel" }); // a stopped run
+    await open;
+    bridge.cancelAll(); // a reset
+    expect(onSuperseded).not.toHaveBeenCalled();
+    // a deferred question: a later supersede closes it through closeDeferred (ask_user_closed), unchanged
+    const late = call();
+    await vi.advanceTimersByTimeAsync(1001);
+    await late;
+    const deferredId = lastPrompt().id;
+    bridge.cancelAll({ action: "cancel", superseded: true });
+    expect(onSuperseded).not.toHaveBeenCalled(); // nothing was pending, only deferred
+    expect(onClosed).toHaveBeenCalledWith([deferredId]);
   });
 });
