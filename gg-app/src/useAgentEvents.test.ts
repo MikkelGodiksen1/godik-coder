@@ -1655,5 +1655,45 @@ describe("models_change", () => {
       });
       expect(getItems()).toEqual([expect.not.objectContaining({ cancelled: true })]);
     });
+
+    // Answered elsewhere (the glasses post /ask/:id): the sidecar says so, and
+    // the band reads as answered – so goalWaitingOnUser / GoalAskNotice, which
+    // look for an open band, go quiet by themselves.
+    it("ask_user_answered marks the band sent with the answers (not cancelled); twice changes nothing", () => {
+      const { hook, getItems } = setup();
+      act(() => {
+        hook.result.current.handleEvent(ev("ask_user", { id: "ask-1", questions: [question] }));
+        hook.result.current.handleEvent(
+          ev("ask_user_answered", { id: "ask-1", answers: { flag: "Yes" } }),
+        );
+      });
+      const once = getItems();
+      expect(once).toEqual([
+        expect.objectContaining({ kind: "ask", sent: true, answers: { flag: "Yes" } }),
+      ]);
+      expect(once[0]).not.toHaveProperty("cancelled");
+      act(() => {
+        hook.result.current.handleEvent(
+          ev("ask_user_answered", { id: "ask-1", answers: { flag: "No" } }),
+        );
+      });
+      expect(getItems()).toBe(once); // the same array: nothing changed
+    });
+
+    it("ask_user_answered for another question or with a malformed payload changes nothing", () => {
+      const { hook, getItems } = setup();
+      act(() => {
+        hook.result.current.handleEvent(ev("ask_user", { id: "ask-1", questions: [question] }));
+      });
+      const before = getItems();
+      act(() => {
+        hook.result.current.handleEvent(
+          ev("ask_user_answered", { id: "ask-2", answers: { flag: "Yes" } }),
+        );
+        hook.result.current.handleEvent(ev("ask_user_answered", { id: "ask-1" }));
+        hook.result.current.handleEvent(ev("ask_user_answered", { answers: { flag: "Yes" } }));
+      });
+      expect(getItems()).toBe(before);
+    });
   });
 });

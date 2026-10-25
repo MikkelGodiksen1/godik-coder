@@ -5,6 +5,7 @@ import {
   closeAsksNotIn,
   firstOpenAskId,
   isAskUserPrompt,
+  markAskAnswered,
   parseOpenAskPrompts,
   withOpenAsks,
   type AskQuestion,
@@ -174,5 +175,54 @@ describe("withOpenAsks", () => {
       prompt: { id: "x", questions: [q("a")] },
       deferred: true,
     });
+  });
+});
+
+describe("markAskAnswered", () => {
+  type Band = Row & { prompt?: { id: string } };
+  const rows = (): Band[] => [
+    { kind: "user", id: 1 },
+    {
+      kind: "ask",
+      id: 2,
+      prompt: { id: "ask-1" },
+      questions: [q("a"), q("b")],
+      answers: { a: "Yes" },
+    },
+    { kind: "assistant", id: 3 },
+  ];
+  let seq = 0;
+  const next = () => 100 + ++seq;
+
+  it("marks the open band sent with the answers – answered, not cancelled – and moves it to the end", () => {
+    const out = markAskAnswered(rows(), "ask-1", { a: "No", b: ["x", "y"] }, next);
+    expect(out.map((r) => r.kind)).toEqual(["user", "assistant", "ask"]);
+    const band = out[2];
+    expect(band).toMatchObject({
+      sent: true,
+      answeredLive: true,
+      answers: { a: "No", b: ["x", "y"] },
+    });
+    expect(band?.cancelled).toBeUndefined();
+    expect(firstOpenAskId(out)).toBeNull(); // nothing waits any more
+  });
+
+  it("is idempotent: a band already sent here (or by an earlier copy of the event) is left alone", () => {
+    const once = markAskAnswered(rows(), "ask-1", { a: "No", b: "Yes" }, next);
+    const twice = markAskAnswered(once, "ask-1", { a: "Other", b: "Other" }, next);
+    expect(twice).toEqual(once);
+    // answered in the app first: the event changes nothing
+    const answeredHere = answer(
+      chat([q("a")]).map((r) => (r.kind === "ask" ? { ...r, prompt: { id: "ask-9" } } : r)),
+      3,
+      { a: "Yes" },
+    ).items;
+    expect(markAskAnswered(answeredHere, "ask-9", { a: "No" }, next)).toEqual(answeredHere);
+  });
+
+  it("leaves other questions and closed bands as they are", () => {
+    expect(markAskAnswered(rows(), "ask-2", { a: "No" }, next)).toEqual(rows());
+    const closed = rows().map((r) => (r.kind === "ask" ? { ...r, cancelled: true } : r));
+    expect(markAskAnswered(closed, "ask-1", { a: "No" }, next)).toEqual(closed);
   });
 });

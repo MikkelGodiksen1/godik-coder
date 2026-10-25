@@ -19,6 +19,7 @@ import {
   closeAsks,
   closeAsksNotIn,
   isAskUserPrompt,
+  markAskAnswered,
   markAskDeferred,
   parseOpenAskPrompts,
   withOpenAsks,
@@ -1112,6 +1113,26 @@ export function useAgentEvents(deps: AgentEventsDeps): AgentEvents {
           if (typeof d.id === "string") {
             const promptId = d.id;
             setItems((prev) => markAskDeferred(prev, promptId));
+          }
+          break;
+        case "ask_user_answered":
+          // Answered — maybe from another client (the glasses): the band reads
+          // as answered with those answers. Already sent here = nothing to do.
+          if (typeof d.id === "string" && typeof d.answers === "object" && d.answers !== null) {
+            const promptId = d.id;
+            const answers = Object.fromEntries(
+              Object.entries(d.answers as Record<string, unknown>).filter(
+                (e): e is [string, string | string[]] =>
+                  typeof e[1] === "string" ||
+                  (Array.isArray(e[1]) && e[1].every((v) => typeof v === "string")),
+              ),
+            );
+            setItems((prev) => {
+              const next = markAskAnswered(prev, promptId, answers, nextId);
+              return next.length === prev.length && next.every((it, i) => it === prev[i])
+                ? prev
+                : next;
+            });
           }
           break;
         case "ask_user_closed":

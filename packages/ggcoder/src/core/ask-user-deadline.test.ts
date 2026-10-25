@@ -21,7 +21,9 @@ function harness(timeoutMs: number | (() => number) = 1000) {
   const broadcast = vi.fn<(prompt: AskUserPrompt) => void>();
   const onLateAnswer = vi.fn<(late: LateAskAnswer) => void>();
   const onClosed = vi.fn<(ids: string[]) => void>();
-  const bridge = createAskUserBridge({ broadcast, timeoutMs, onLateAnswer, onClosed });
+  const onAnswered =
+    vi.fn<(answered: { id: string; answers: Record<string, string | string[]> }) => void>();
+  const bridge = createAskUserBridge({ broadcast, timeoutMs, onLateAnswer, onClosed, onAnswered });
   const tool = createAskUserTool(bridge.park);
   const call = (question = "Ship it?"): Promise<string> =>
     tool.execute({ questions: [{ id: "q", question, kind: "confirm" }] }, {
@@ -35,7 +37,7 @@ function harness(timeoutMs: number | (() => number) = 1000) {
     if (!last) throw new Error("nothing broadcast");
     return last[0];
   };
-  return { bridge, call, lastPrompt, onLateAnswer, onClosed };
+  return { bridge, call, lastPrompt, onLateAnswer, onClosed, onAnswered };
 }
 
 describe("ask_user soft deadline", () => {
@@ -216,5 +218,65 @@ describe("late answer delivery", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+/**
+ * Every window must hear that a question was answered, whoever answered it:
+ * the app, or another client such as the glasses posting /ask/:id. The app
+ * marks its band answered from `ask_user_answered`; without it a question
+ * answered elsewhere stayed up as an open card.
+ */
+describe("ask_user answered by any client", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("an answer from another client (POST /ask/:id) reports it answered, once", async () => {
+    const { bridge, call, lastPrompt, onAnswered, onClosed } = harness();
+    const result = call();
+    await vi.advanceTimersByTimeAsync(10);
+    const { id } = lastPrompt();
+    expect(bridge.settle(id, { action: "answer", answers: { q: "Yes" } })).toBe(true);
+    await expect(result).resolves.toContain("The user answered");
+    expect(onAnswered).toHaveBeenCalledTimes(1);
+    expect(onAnswered).toHaveBeenCalledWith({ id, answers: { q: "Yes" } });
+    // a second answer to the same question reaches nobody and reports nothing
+    expect(bridge.settle(id, { action: "answer", answers: { q: "No" } })).toBe(false);
+    expect(onAnswered).toHaveBeenCalledTimes(1);
+    expect(onClosed).not.toHaveBeenCalled(); // answered is not closed
+  });
+
+  it("a late answer to a deferred question reports it answered too", async () => {
+    const { bridge, call, lastPrompt, onAnswered, onLateAnswer } = harness();
+    const result = call();
+    await vi.advanceTimersByTimeAsync(1001);
+    await result;
+    const { id } = lastPrompt();
+    expect(onAnswered).not.toHaveBeenCalled(); // the deadline is no answer
+    expect(bridge.settle(id, { action: "answer", answers: { q: "No" } })).toBe(true);
+    expect(onLateAnswer).toHaveBeenCalledTimes(1);
+    expect(onAnswered).toHaveBeenCalledTimes(1);
+    expect(onAnswered).toHaveBeenCalledWith({ id, answers: { q: "No" } });
+  });
+
+  it("cancel, dismiss and supersede stay as they were: nothing reported answered", async () => {
+    const { bridge, call, lastPrompt, onAnswered } = harness();
+    const first = call();
+    await vi.advanceTimersByTimeAsync(10);
+    expect(bridge.settle(lastPrompt().id, { action: "cancel" })).toBe(true);
+    await first;
+    const second = call();
+    await vi.advanceTimersByTimeAsync(1001);
+    await second;
+    expect(bridge.settle(lastPrompt().id, { action: "cancel" })).toBe(true); // dismissing a deferred one
+    const third = call();
+    await vi.advanceTimersByTimeAsync(10);
+    bridge.cancelAll({ action: "cancel", superseded: true });
+    await third;
+    expect(onAnswered).not.toHaveBeenCalled();
   });
 });

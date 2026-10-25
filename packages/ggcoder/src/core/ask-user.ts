@@ -122,6 +122,13 @@ export interface AskUserBridgeOptions {
   onLateAnswer?: (late: LateAskAnswer) => void;
   /** Deferred questions closed without an answer (superseded, cancelled, reset). */
   onClosed?: (ids: string[]) => void;
+  /**
+   * A question was answered — by any client (the app, the glasses through
+   * POST /ask/:id), on time or late. Every window marks its band answered from
+   * this, so a question answered elsewhere does not stay up as an open card.
+   * Cancelled or superseded questions never come here.
+   */
+  onAnswered?: (answered: { id: string; answers: Record<string, string | string[]> }) => void;
 }
 
 export function createAskUserBridge(opts: AskUserBridgeOptions): AskUserBridge {
@@ -176,11 +183,17 @@ export function createAskUserBridge(opts: AskUserBridgeOptions): AskUserBridge {
         opts.broadcast(prompt);
       }),
     settle: (id, result) => {
-      if (release(id, result)) return true;
+      if (release(id, result)) {
+        if (result.action === "answer") opts.onAnswered?.({ id, answers: result.answers });
+        return true;
+      }
       const prompt = deferred.get(id);
       if (!prompt) return false;
       deferred.delete(id);
-      if (result.action === "answer") opts.onLateAnswer?.({ prompt, answers: result.answers });
+      if (result.action === "answer") {
+        opts.onLateAnswer?.({ prompt, answers: result.answers });
+        opts.onAnswered?.({ id, answers: result.answers });
+      }
       return true;
     },
     cancelAll: (result) => {

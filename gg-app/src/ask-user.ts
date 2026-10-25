@@ -90,6 +90,41 @@ export function answerAskItem<
   };
 }
 
+/**
+ * The sidecar says question `promptId` was answered — possibly by another
+ * client (the glasses through POST /ask/:id). Its open band reads as answered
+ * with those answers, exactly as if it had been answered here, so nothing keeps
+ * saying a question is waiting. A band already sent (answered here, or by an
+ * earlier copy of this event) or closed is left as it is: the event is safe to
+ * receive twice. Unlike `closeAsks` it never marks the band cancelled.
+ */
+export function markAskAnswered<
+  T extends {
+    kind: string;
+    id: number;
+    prompt?: unknown;
+    sent?: boolean;
+    cancelled?: boolean;
+    answers?: AskAnswers;
+    answeredLive?: boolean;
+  },
+>(items: readonly T[], promptId: string, answers: AskAnswers, nextId: () => number): T[] {
+  const index = items.findIndex((it) => isOpenAsk(it, new Set([promptId])));
+  const item = items[index];
+  if (index < 0 || item === undefined) return [...items];
+  const rest = items.filter((_, i) => i !== index);
+  return [
+    ...rest,
+    {
+      ...item,
+      id: nextId(),
+      answers: { ...item.answers, ...answers },
+      sent: true,
+      answeredLive: true,
+    },
+  ];
+}
+
 /** The oldest question band still waiting on an answer, if any. */
 export function firstOpenAskId<
   T extends { kind: string; id: number; sent?: boolean; cancelled?: boolean },
