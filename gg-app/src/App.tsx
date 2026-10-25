@@ -14,6 +14,7 @@ import { createChatLayoutMotion } from "./chat-layout-motion";
 import { open } from "@tauri-apps/plugin-dialog";
 import { theme } from "./theme";
 import { MENTOR_HANDLE, toggleMentorPrefix } from "./mentor";
+import { wrapMaxGas } from "./max-gas";
 import { activeChatErrorId, readChatError } from "./chat-error";
 import { showScreen } from "./view-transition";
 import {
@@ -462,6 +463,9 @@ function App(): React.ReactElement {
   // Files referenced via `@`, tracked as chips (NOT left in the input text).
   // Their paths are appended to the prompt on submit.
   const [mentionedPaths, setMentionedPaths] = useState<string[]>([]);
+  // GODIK CODER: Max Gas, per window and off by default. While on, a send goes
+  // to Ken wrapped in the production brief (max-gas.ts) instead of to GG.
+  const [maxGas, setMaxGas] = useState(false);
   // Footer extras mirrored from the sidecar: live background tasks and the
   // running context-window usage (input-side tokens of the latest turn).
   const [tasks, setTasks] = useState<BackgroundTask[]>([]);
@@ -1467,6 +1471,12 @@ function App(): React.ReactElement {
     const { text, selection } = toggleMentorPrefix(input);
     fillComposer(text, selection);
   }
+  // GODIK CODER: the Max Gas key; leaves the draft alone.
+  const maxGasOn = workspaceMode === "code" && maxGas;
+  function toggleMaxGas(): void {
+    setDeckPanel(null);
+    setMaxGas((on) => !on);
+  }
   const clampedFileIndex = fileMatches.length > 0 ? fileIndex % fileMatches.length : 0;
   // Footer background-tasks indicator only shows while something is actually
   // running (exited tasks shouldn't keep the bar item around).
@@ -2230,7 +2240,8 @@ function App(): React.ReactElement {
     // read-only mentor agent — NOT GG Coder. Ken runs concurrently with any
     // build run; his reply streams into a magenta bubble via ken_* events.
     const kenMatch = workspaceMode === "code" ? /^@(?:ken|mentor)\b:?\s*/i.exec(trimmed) : null;
-    if (kenMatch) {
+    // GODIK CODER: Max Gas takes the same route, with the task wrapped for Ken.
+    if (kenMatch || maxGasOn) {
       if (attachments.some((a) => a.kind !== "image")) {
         toast(
           `Mentor can only take images. Remove ${MENTOR_HANDLE} to send other files to GG.`,
@@ -2238,7 +2249,7 @@ function App(): React.ReactElement {
         );
         return;
       }
-      const question = trimmed.slice(kenMatch[0].length).trim();
+      const question = kenMatch ? trimmed.slice(kenMatch[0].length).trim() : trimmed;
       if (!question && attachments.length === 0) return;
       chatLayout.capture();
       setSendCount((n) => n + 1);
@@ -2266,8 +2277,8 @@ function App(): React.ReactElement {
       setMention(null);
       setMentionedPaths([]);
       setEnhancement(null);
-      void sendKenPrompt(question, attachments.map(toWire)).catch((e: unknown) =>
-        restoreFailedSend(kenFailed, e),
+      void sendKenPrompt(maxGasOn ? wrapMaxGas(question) : question, attachments.map(toWire)).catch(
+        (e: unknown) => restoreFailedSend(kenFailed, e),
       );
       return;
     }
@@ -2921,6 +2932,7 @@ function App(): React.ReactElement {
             panel={deckPanel}
             onPanelChange={setDeckPanel}
             mentor={workspaceMode === "code" ? { active: kenActive, onToggle: toggleMentor } : null}
+            maxGas={workspaceMode === "code" ? { active: maxGas, onToggle: toggleMaxGas } : null}
             running={running}
             contextPct={contextPct}
             models={models}

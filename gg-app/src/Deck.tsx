@@ -104,6 +104,8 @@ export interface DeckProps {
   tools: Partial<Record<DeckToolId, DeckTool>>;
   /** GODIK CODER: the Mentor key beside ⋯ (code + goals); null hides it. */
   mentor?: { active: boolean; onToggle: () => void } | null;
+  /** GODIK CODER: the Max Gas key beside Mentor; null hides it. */
+  maxGas?: { active: boolean; onToggle: () => void } | null;
 }
 
 /**
@@ -195,6 +197,14 @@ export function Deck(props: DeckProps): React.ReactElement {
               Plan mode
             </span>
           )}
+          {props.maxGas?.active && (
+            <span
+              className="deck-flag max-gas-flag"
+              title="Max Gas: your message goes to Ken, who writes a production-run prompt for GG"
+            >
+              Max Gas
+            </span>
+          )}
         </div>
         <div className="deck-compose">{props.composer}</div>
       </div>
@@ -234,6 +244,7 @@ function Rail({
   radio,
   toggle,
   mentor,
+  maxGas,
 }: DeckProps & {
   radio: Radio;
   toggle: (id: DeckPanelId, event: React.MouseEvent<HTMLElement>) => void;
@@ -339,6 +350,21 @@ function Rail({
           onClick={mentor.onToggle}
         >
           <span className="rail-label">Mentor</span>
+        </button>
+      )}
+      {maxGas && (
+        <button
+          type="button"
+          className="key rail-key max-gas-key"
+          title={
+            maxGas.active
+              ? "Max Gas off: send to GG as usual"
+              : "Max Gas: send the task to Ken for a production-run prompt"
+          }
+          aria-pressed={maxGas.active}
+          onClick={maxGas.onToggle}
+        >
+          <span className="rail-label">Max Gas</span>
         </button>
       )}
       <span className="deck-spacer" />

@@ -694,6 +694,17 @@
   background: color-mix(in srgb, var(--ken) 22%, transparent);
   box-shadow: inset 0 0 0 1px var(--ken);
 }
+/* GODIK CODER: Max Gas in the warning colour: the send leaves for Ken wrapped. */
+.key.max-gas-key {
+  color: var(--warning);
+}
+.key.max-gas-key[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--warning) 22%, transparent);
+  box-shadow: inset 0 0 0 1px var(--warning);
+}
+.deck-flag.max-gas-flag {
+  color: var(--warning);
+}
 .rail-label {
   max-width: 16ch;
   overflow: hidden;
