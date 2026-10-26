@@ -39,15 +39,29 @@ describe("guardRefreshFetch", () => {
   });
 
   it("logs a refresh attempt and its success (expiry + rotation, never token values)", async () => {
-    await store.patch("trello", { tokens: { access_token: "A1", refresh_token: "R1", token_type: "Bearer" } });
+    await store.patch("trello", {
+      tokens: { access_token: "A1", refresh_token: "R1", token_type: "Bearer" },
+    });
     const base = vi.fn(
       async () =>
-        new Response(JSON.stringify({ access_token: "A2", refresh_token: "R2", token_type: "Bearer", expires_in: 28800 }), {
-          status: 200,
-          headers: { "content-type": "application/json" },
-        }),
+        new Response(
+          JSON.stringify({
+            access_token: "A2",
+            refresh_token: "R2",
+            token_type: "Bearer",
+            expires_in: 28800,
+          }),
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          },
+        ),
     );
-    const res = await guardRefreshFetch("trello", store, base)(TOKEN_URL, { method: "POST", body: refreshBody("R1") });
+    const res = await guardRefreshFetch(
+      "trello",
+      store,
+      base,
+    )(TOKEN_URL, { method: "POST", body: refreshBody("R1") });
     expect(res.ok).toBe(true);
     expect(logs.map((l) => l.msg)).toEqual([
       'MCP OAuth refresh attempt for "trello"',
@@ -58,37 +72,65 @@ describe("guardRefreshFetch", () => {
   });
 
   it("logs a failed refresh with the OAuth error code and description (no secrets)", async () => {
-    await store.patch("trello", { tokens: { access_token: "A1", refresh_token: "R1", token_type: "Bearer" } });
+    await store.patch("trello", {
+      tokens: { access_token: "A1", refresh_token: "R1", token_type: "Bearer" },
+    });
     const base = vi.fn(
       async () =>
-        new Response(JSON.stringify({ error: "invalid_grant", error_description: "Unknown or invalid refresh token." }), {
-          status: 403,
-          headers: { "content-type": "application/json" },
-        }),
+        new Response(
+          JSON.stringify({
+            error: "invalid_grant",
+            error_description: "Unknown or invalid refresh token.",
+          }),
+          {
+            status: 403,
+            headers: { "content-type": "application/json" },
+          },
+        ),
     );
-    const res = await guardRefreshFetch("trello", store, base)(TOKEN_URL, { method: "POST", body: refreshBody("R1") });
+    const res = await guardRefreshFetch(
+      "trello",
+      store,
+      base,
+    )(TOKEN_URL, { method: "POST", body: refreshBody("R1") });
     expect(res.status).toBe(403);
     expect(logs[1]).toEqual({
       level: "WARN",
       msg: 'MCP OAuth refresh failed for "trello"',
-      data: { status: "403", error: "invalid_grant", description: "Unknown or invalid refresh token." },
+      data: {
+        status: "403",
+        error: "invalid_grant",
+        description: "Unknown or invalid refresh token.",
+      },
     });
     expect(JSON.stringify(logs)).not.toMatch(/R1|A1/);
   });
 
   it("logs a network failure of the refresh and rethrows it", async () => {
-    await store.patch("trello", { tokens: { access_token: "A1", refresh_token: "R1", token_type: "Bearer" } });
+    await store.patch("trello", {
+      tokens: { access_token: "A1", refresh_token: "R1", token_type: "Bearer" },
+    });
     const base = vi.fn(async () => {
       throw new TypeError("fetch failed");
     });
     await expect(
-      guardRefreshFetch("trello", store, base)(TOKEN_URL, { method: "POST", body: refreshBody("R1") }),
+      guardRefreshFetch(
+        "trello",
+        store,
+        base,
+      )(TOKEN_URL, { method: "POST", body: refreshBody("R1") }),
     ).rejects.toThrow("fetch failed");
-    expect(logs[1]).toMatchObject({ level: "WARN", msg: 'MCP OAuth refresh failed for "trello"', data: { error: "fetch failed" } });
+    expect(logs[1]).toMatchObject({
+      level: "WARN",
+      msg: 'MCP OAuth refresh failed for "trello"',
+      data: { error: "fetch failed" },
+    });
   });
 
   it("serializes concurrent refreshes: the second session reuses the rotated pair instead of replaying the spent token", async () => {
-    await store.patch("trello", { tokens: { access_token: "A1", refresh_token: "R1", token_type: "Bearer" } });
+    await store.patch("trello", {
+      tokens: { access_token: "A1", refresh_token: "R1", token_type: "Bearer" },
+    });
     let calls = 0;
     const base = vi.fn(async (_url: string | URL, init?: RequestInit) => {
       calls++;
@@ -98,12 +140,22 @@ describe("guardRefreshFetch", () => {
       }
       // The SDK persists the new pair right after the response.
       setTimeout(() => {
-        void store.patch("trello", { tokens: { access_token: "A2", refresh_token: "R2", token_type: "Bearer" } });
+        void store.patch("trello", {
+          tokens: { access_token: "A2", refresh_token: "R2", token_type: "Bearer" },
+        });
       }, 20);
-      return new Response(JSON.stringify({ access_token: "A2", refresh_token: "R2", token_type: "Bearer", expires_in: 28800 }), {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({
+          access_token: "A2",
+          refresh_token: "R2",
+          token_type: "Bearer",
+          expires_in: 28800,
+        }),
+        {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        },
+      );
     });
     const sessionA = guardRefreshFetch("trello", store, base);
     const sessionB = guardRefreshFetch("trello", store, base);
@@ -115,6 +167,8 @@ describe("guardRefreshFetch", () => {
     expect(a.ok && b.ok).toBe(true);
     const bBody = (await b.json()) as { access_token: string; refresh_token: string };
     expect(bBody).toMatchObject({ access_token: "A2", refresh_token: "R2" });
-    expect(logs.map((l) => l.msg)).toContain('MCP OAuth refresh for "trello" skipped: already refreshed by another session');
+    expect(logs.map((l) => l.msg)).toContain(
+      'MCP OAuth refresh for "trello" skipped: already refreshed by another session',
+    );
   });
 });

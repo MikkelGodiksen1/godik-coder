@@ -67,7 +67,9 @@ async function withLock<T>(key: string, fn: (release: () => void) => Promise<T>)
 function refreshTokenOf(init: RequestInit | undefined): string | undefined {
   const body = init?.body;
   if (body instanceof URLSearchParams) {
-    return body.get("grant_type") === "refresh_token" ? (body.get("refresh_token") ?? undefined) : undefined;
+    return body.get("grant_type") === "refresh_token"
+      ? (body.get("refresh_token") ?? undefined)
+      : undefined;
   }
   if (typeof body === "string" && body.includes("grant_type=refresh_token")) {
     const params = new URLSearchParams(body);
@@ -83,6 +85,9 @@ async function describeFailure(res: Response): Promise<Record<string, string>> {
     const body = (await res.clone().json()) as { error?: unknown; error_description?: unknown };
     if (typeof body.error === "string") out.error = body.error.slice(0, 64);
     if (typeof body.error_description === "string") {
+      // Control characters are the point: strip them so a server's error text
+      // can't break or forge log lines.
+      // eslint-disable-next-line no-control-regex
       out.description = body.error_description.replace(/[\u0000-\u001f\u007f]/g, " ").slice(0, 160);
     }
   } catch {
@@ -105,7 +110,11 @@ async function describeFailure(res: Response): Promise<Record<string, string>> {
  * token, its fresh pair is answered locally instead of replaying the dead one.
  * Every other request passes straight through.
  */
-export function guardRefreshFetch(serverName: string, store: McpOAuthStore, base: McpFetch = fetch): McpFetch {
+export function guardRefreshFetch(
+  serverName: string,
+  store: McpOAuthStore,
+  base: McpFetch = fetch,
+): McpFetch {
   return async (url, init) => {
     const sent = refreshTokenOf(init);
     if (sent === undefined) return base(url, init);
@@ -113,7 +122,11 @@ export function guardRefreshFetch(serverName: string, store: McpOAuthStore, base
       const stored = (await store.get(serverName)).tokens;
       if (stored?.access_token && stored.refresh_token && stored.refresh_token !== sent) {
         release();
-        log("INFO", "mcp", `MCP OAuth refresh for "${serverName}" skipped: already refreshed by another session`);
+        log(
+          "INFO",
+          "mcp",
+          `MCP OAuth refresh for "${serverName}" skipped: already refreshed by another session`,
+        );
         const { issuer: _issuer, ...wire } = stored as typeof stored & { issuer?: string };
         return new Response(JSON.stringify(wire), {
           status: 200,
@@ -133,15 +146,24 @@ export function guardRefreshFetch(serverName: string, store: McpOAuthStore, base
       }
       if (!res.ok) {
         release();
-        log("WARN", "mcp", `MCP OAuth refresh failed for "${serverName}"`, await describeFailure(res));
+        log(
+          "WARN",
+          "mcp",
+          `MCP OAuth refresh failed for "${serverName}"`,
+          await describeFailure(res),
+        );
         return res;
       }
       let expiresIn: string | undefined;
       let rotated: string | undefined;
       try {
-        const body = (await res.clone().json()) as { expires_in?: unknown; refresh_token?: unknown };
+        const body = (await res.clone().json()) as {
+          expires_in?: unknown;
+          refresh_token?: unknown;
+        };
         if (typeof body.expires_in === "number") expiresIn = String(body.expires_in);
-        rotated = typeof body.refresh_token === "string" ? String(body.refresh_token !== sent) : "false";
+        rotated =
+          typeof body.refresh_token === "string" ? String(body.refresh_token !== sent) : "false";
       } catch {
         // Leave the details out; the SDK reports a malformed body itself.
       }
