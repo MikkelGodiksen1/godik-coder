@@ -163,7 +163,8 @@ import { useProgress } from "./useProgress";
 import { useTrophies } from "./useTrophies";
 import { TrophyUnlock } from "./TrophyUnlock";
 import { SettingsScreen, type SettingsTabId } from "./SettingsScreen";
-import { PromptSendProvider } from "./Markdown";
+import { PromptSendProvider, PromptSentProvider } from "./Markdown";
+import { sentPromptsAfterKen } from "./markdown-prompt";
 import { TranscriptSkeleton } from "./Skeleton";
 import { recoverPromptLabel } from "./prompt-labels";
 import { playSound } from "./sounds";
@@ -578,6 +579,16 @@ function App(): React.ReactElement {
     jumpToNew,
     jumpToAsk,
   } = useTranscriptScroll({ items, scrollRef, chatLayout });
+
+  // Prompts already sent after each Ken bubble ("Sent to GG Coder" turns, from
+  // this window or restored from history), so his prompt blocks show "Sent"
+  // without a click here. Lists are reused while unchanged.
+  const sentAfterKenRef = useRef<ReadonlyMap<number, readonly string[]>>(new Map());
+  const sentAfterKen = useMemo(() => {
+    const next = sentPromptsAfterKen(items, sentAfterKenRef.current);
+    sentAfterKenRef.current = next;
+    return next;
+  }, [items]);
 
   const setDragOverActive = useDragOverlay({ isFileDragOver, setIsFileDragOver });
 
@@ -2835,7 +2846,7 @@ function App(): React.ReactElement {
                 <PromptSendProvider value={sendKenRecommendedPrompt}>
                   <LiveTextContext.Provider value={liveText}>
                     {visibleItems.flatMap((it) => {
-                      const row = (
+                      const transcriptRow = (
                         <TranscriptRow
                           key={it.id}
                           item={it}
@@ -2876,6 +2887,14 @@ function App(): React.ReactElement {
                           onAskType={typeAskInstead}
                         />
                       );
+                      const row =
+                        it.kind === "ken" ? (
+                          <PromptSentProvider key={it.id} value={sentAfterKen.get(it.id) ?? []}>
+                            {transcriptRow}
+                          </PromptSentProvider>
+                        ) : (
+                          transcriptRow
+                        );
                       // Zero-height landing spot for "You have new chats". A flat
                       // keyed list, so rows never remount when it comes and goes.
                       return it.id === firstNewId

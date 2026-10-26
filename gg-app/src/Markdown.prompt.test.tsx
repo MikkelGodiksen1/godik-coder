@@ -6,7 +6,7 @@ const { sendPrompt, toast } = vi.hoisted(() => ({ sendPrompt: vi.fn(), toast: vi
 vi.mock("./agent", () => ({ openProjectPath: vi.fn(), openUrl: vi.fn(), sendPrompt }));
 vi.mock("./toast", () => ({ toast }));
 
-import { Markdown, PromptSendProvider } from "./Markdown";
+import { Markdown, PromptSendProvider, PromptSentProvider } from "./Markdown";
 
 const PROMPT = "```prompt\nAdd a retry to the upload\n```";
 
@@ -51,5 +51,52 @@ describe("Ken prompt block", () => {
         screen.getByRole<HTMLButtonElement>("button", { name: /send to gg coder/i }).disabled,
       ).toBe(false),
     );
+  });
+
+  it("shows Sent when the transcript already has this prompt sent (another client)", () => {
+    render(
+      <PromptSentProvider value={["Add a retry to the upload"]}>
+        <Markdown>{PROMPT}</Markdown>
+      </PromptSentProvider>,
+    );
+    const button = screen.getByRole<HTMLButtonElement>("button", { name: /sent/i });
+    expect(button.textContent).toBe("Sent");
+    expect(button.disabled).toBe(true);
+  });
+
+  it("stays Send when only a different prompt was sent", () => {
+    render(
+      <PromptSentProvider value={["Add a footer"]}>
+        <Markdown>{PROMPT}</Markdown>
+      </PromptSentProvider>,
+    );
+    expect(
+      screen.getByRole<HTMLButtonElement>("button", { name: /send to gg coder/i }).disabled,
+    ).toBe(false);
+  });
+
+  it("a failed click never turns a transcript Sent back into Send", async () => {
+    const onSend = vi.fn().mockResolvedValue(false);
+    const { rerender } = render(
+      <PromptSendProvider value={onSend}>
+        <PromptSentProvider value={[]}>
+          <Markdown>{PROMPT}</Markdown>
+        </PromptSentProvider>
+      </PromptSendProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /send to gg coder/i }));
+    // The other client's send lands while this click is still failing.
+    rerender(
+      <PromptSendProvider value={onSend}>
+        <PromptSentProvider value={["Add a retry to the upload"]}>
+          <Markdown>{PROMPT}</Markdown>
+        </PromptSentProvider>
+      </PromptSendProvider>,
+    );
+    await waitFor(() => expect(onSend).toHaveBeenCalledOnce());
+    await Promise.resolve();
+    const button = screen.getByRole<HTMLButtonElement>("button", { name: /sent/i });
+    expect(button.textContent).toBe("Sent");
+    expect(button.disabled).toBe(true);
   });
 });

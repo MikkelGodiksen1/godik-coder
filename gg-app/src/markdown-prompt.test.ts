@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { createElement } from "react";
-import { codeLanguage, codeNodeText } from "./markdown-prompt";
+import { codeLanguage, codeNodeText, isPromptSent, sentPromptsAfterKen } from "./markdown-prompt";
 
 // These two helpers are the core of the "Send to GG Coder" button: ReactMarkdown
 // hands the `pre` override a `<code class="language-xxx">…</code>` child.
@@ -62,5 +62,60 @@ describe("codeNodeText (what actually gets sent to GG Coder)", () => {
   it("returns empty string for a null/empty node", () => {
     expect(codeNodeText(null)).toBe("");
     expect(codeNodeText(undefined)).toBe("");
+  });
+});
+
+// A prompt block reads "Sent" when a later "Send to GG Coder" turn (kenSent)
+// carries its text, from this window or another client (e.g. the glasses).
+describe("isPromptSent (Sent state from the transcript)", () => {
+  const sentTurn = (text: string) => ({ kind: "user", text, kenSent: true });
+
+  it("is sent when a later kenSent turn has the same text", () => {
+    expect(isPromptSent("Add a retry\n", [sentTurn("Add a retry")])).toBe(true);
+  });
+
+  it("is not sent without a matching kenSent turn", () => {
+    expect(
+      isPromptSent("Add a retry", [
+        sentTurn("Add a footer"),
+        { kind: "user", text: "Add a retry" },
+        { kind: "assistant", text: "Add a retry" },
+      ]),
+    ).toBe(false);
+  });
+
+  it("matches after trimming whitespace on both sides", () => {
+    expect(isPromptSent("  Add a retry\n", [sentTurn("\nAdd a retry  ")])).toBe(true);
+  });
+
+  it("never treats an empty block as sent", () => {
+    expect(isPromptSent("\n", [sentTurn("")])).toBe(false);
+  });
+});
+
+describe("sentPromptsAfterKen (per Ken bubble)", () => {
+  it("counts only kenSent turns AFTER each Ken bubble", () => {
+    const items = [
+      { kind: "user", id: 1, text: "Add a retry", kenSent: true },
+      { kind: "ken", id: 2, text: "```prompt\nAdd a retry\n```" },
+      { kind: "assistant", id: 3, text: "ok" },
+      { kind: "ken", id: 4, text: "```prompt\nAdd a footer\n```" },
+      { kind: "user", id: 5, text: " Add a footer\n", kenSent: true },
+    ];
+    const map = sentPromptsAfterKen(items);
+    // The earlier identical send (id 1) comes BEFORE bubble 2: it doesn't count.
+    expect(map.get(2)).toEqual(["Add a footer"]);
+    expect(map.get(4)).toEqual(["Add a footer"]);
+    expect(isPromptSent("Add a retry", items.slice(2))).toBe(false);
+  });
+
+  it("reuses an unchanged list so the context doesn't churn", () => {
+    const items = [
+      { kind: "ken", id: 1, text: "k" },
+      { kind: "user", id: 2, text: "Add a retry", kenSent: true },
+    ];
+    const first = sentPromptsAfterKen(items);
+    const second = sentPromptsAfterKen([...items, { kind: "assistant", id: 3, text: "x" }], first);
+    expect(second.get(1)).toBe(first.get(1));
   });
 });

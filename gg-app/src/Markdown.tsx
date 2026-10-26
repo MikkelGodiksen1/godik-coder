@@ -14,7 +14,7 @@ import rehypeHighlight from "rehype-highlight";
 import { CheckIcon, CopyIcon, ArrowElbowDownLeftIcon } from "@phosphor-icons/react";
 import { openProjectPath, openUrl, sendPrompt } from "./agent";
 import { toast } from "./toast";
-import { codeLanguage, codeNodeText } from "./markdown-prompt";
+import { codeLanguage, codeNodeText, normalizePromptText } from "./markdown-prompt";
 import { collapsedCode, shouldCollapseCode, visibleBlockCount } from "./collapse";
 import { marked } from "marked";
 import { rehypeAnimateWords } from "./rehype-animate-words";
@@ -210,6 +210,14 @@ const PromptReadyContext = createContext(true);
 const PromptSendContext = createContext<((text: string) => Promise<boolean>) | null>(null);
 
 /**
+ * Prompt texts already sent to GG Coder from a "Send to GG Coder" turn AFTER
+ * the Ken bubble this block sits in (see sentPromptsAfterKen), from this
+ * window or another client. App provides it per Ken bubble, so a block shows
+ * "Sent" live and after reload without having been clicked here.
+ */
+const PromptSentContext = createContext<readonly string[]>([]);
+
+/**
  * A Ken-recommended GG Coder prompt. Ken wraps every runnable prompt in a
  * ```prompt fence; we render the body in a styled block with a "Send to GG
  * Coder" button that fires it into the build session exactly as if the user
@@ -219,9 +227,13 @@ const PromptSendContext = createContext<((text: string) => Promise<boolean>) | n
 function PromptBlock({ body }: { body: string }): React.ReactElement {
   const ready = useContext(PromptReadyContext);
   const onSend = useContext(PromptSendContext);
-  const [sent, setSent] = useState(false);
+  const sentElsewhere = useContext(PromptSentContext).includes(normalizePromptText(body));
+  const [clicked, setSent] = useState(false);
+  // A failed click resets only the local flag; a send seen in the transcript
+  // keeps the block "Sent" regardless.
+  const sent = clicked || sentElsewhere;
   const send = useCallback(() => {
-    const text = body.replace(/\n$/, "").trim();
+    const text = normalizePromptText(body);
     if (!text) return;
     // Route through App so it can render the shimmering "Sent to GG Coder" user
     // bubble; fall back to a direct send if no handler is provided. Stays "Sent"
@@ -508,3 +520,6 @@ export const Markdown = memo(function Markdown({
 /** Provider for the "Send to GG Coder" click handler. App wraps the transcript
  *  with this so prompt-block buttons push a transcript row + send. */
 export const PromptSendProvider = PromptSendContext.Provider;
+
+/** Provider for the prompts already sent after one Ken bubble. */
+export const PromptSentProvider = PromptSentContext.Provider;
