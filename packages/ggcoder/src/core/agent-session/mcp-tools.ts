@@ -35,11 +35,14 @@ export class McpToolRegistry {
   createManager(options: {
     modernProtocol: boolean;
     onElicit: MCPElicitHandler | undefined;
+    /** A "Requires login." server connected later (login / refreshed tokens). */
+    onLateConnect?: (name: string, tools: AgentTool[]) => void;
   }): void {
     this.manager = new MCPClientManager({
       catalogCache: this.catalogCache,
       modernProtocol: options.modernProtocol,
       onElicit: options.onElicit,
+      ...(options.onLateConnect ? { onLateConnect: options.onLateConnect } : {}),
     });
   }
 

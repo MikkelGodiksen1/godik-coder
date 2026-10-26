@@ -25,6 +25,8 @@ import {
   MCP_OAUTH_CALLBACK_PATH,
 } from "./oauth-provider.js";
 import { McpOAuthStore } from "./oauth-store.js";
+import { onMcpTokensChanged } from "./oauth-events.js";
+import { guardRefreshFetch } from "./oauth-refresh.js";
 import { isLocalhost, alternateLoopback, isNetworkError } from "./loopback.js";
 import { toToolResult } from "./content.js";
 import { resolveStdioCommand } from "./resolve-stdio.js";
@@ -219,6 +221,20 @@ export class MCPClientManager {
    */
   private idleStopped = new WeakSet<Client>();
 
+  /** OAuth credential store for remote servers (injectable for tests). */
+  private readonly oauthStore: McpOAuthStore;
+
+  /**
+   * Remote servers that failed with "Requires login.", by name. When tokens for
+   * one appear (a login in any session, a refresh elsewhere, the auth file
+   * changing) the server is reconnected and its tools handed to `onLateConnect`,
+   * instead of the session keeping the stale failure until restart.
+   */
+  private authPending = new Map<string, MCPServerConfig>();
+  private authRetrying = new Set<string>();
+  private unwatchTokens?: () => void;
+  private readonly onLateConnect?: (name: string, tools: AgentTool[]) => void;
+
   constructor(
     opts: {
       catalogCache?: McpCatalogCache;
@@ -229,6 +245,14 @@ export class MCPClientManager {
       onServerClosed?: (name: string) => void;
       /** Override `MCP_DEFAULT_IDLE_TIMEOUT_MS`; 0 disables idle shutdown. */
       idleTimeoutMs?: number;
+      /** OAuth store for remote servers; defaults to `~/.gg/mcp-auth.json`. */
+      oauthStore?: McpOAuthStore;
+      /**
+       * A server that failed with "Requires login." connected later, after its
+       * tokens appeared. Without this callback no reconnect is attempted (the
+       * manager has nobody to hand the tools to).
+       */
+      onLateConnect?: (name: string, tools: AgentTool[]) => void;
     } = {},
   ) {
     this.catalogCache = opts.catalogCache ?? new McpCatalogCache();
@@ -242,6 +266,55 @@ export class MCPClientManager {
     this.pool = opts.sharedPool ?? sharedMcpPool;
     this.onServerClosed = opts.onServerClosed;
     this.idleTimeoutMs = opts.idleTimeoutMs ?? MCP_DEFAULT_IDLE_TIMEOUT_MS;
+    this.oauthStore = opts.oauthStore ?? new McpOAuthStore();
+    this.onLateConnect = opts.onLateConnect;
+  }
+
+  /** Remember / forget "Requires login." servers and watch for their tokens. */
+  private trackAuth(config: MCPServerConfig, result: MCPConnectResult): void {
+    if (result.ok || !result.requiresAuth || !config.url) {
+      this.authPending.delete(config.name);
+    } else {
+      this.authPending.set(config.name, config);
+    }
+    if (this.authPending.size > 0 && this.onLateConnect && !this.unwatchTokens && !this.disposing) {
+      this.unwatchTokens = onMcpTokensChanged(this.oauthStore.path, (name) => {
+        void this.retryAuthPending(name);
+      });
+    } else if (this.authPending.size === 0 && this.unwatchTokens) {
+      this.unwatchTokens();
+      this.unwatchTokens = undefined;
+    }
+  }
+
+  /** Tokens changed (for `name`, or for any server when undefined): reconnect waiting servers that now have tokens. */
+  private async retryAuthPending(name: string | undefined): Promise<void> {
+    for (const [pending, config] of [...this.authPending]) {
+      if (this.disposing) return;
+      if (name !== undefined && name !== pending) continue;
+      if (this.authRetrying.has(pending)) continue;
+      if (!(await this.oauthStore.hasTokens(pending))) continue;
+      this.authRetrying.add(pending);
+      try {
+        log("INFO", "mcp", `MCP OAuth tokens changed for "${pending}", reconnecting`);
+        const [result] = await this.connectAllDetailed([config]);
+        if (this.disposing) return;
+        if (result?.ok) {
+          log("INFO", "mcp", `MCP server "${pending}" connected after login`, {
+            tools: String(result.toolCount),
+          });
+          try {
+            this.onLateConnect?.(pending, result.tools);
+          } catch (err) {
+            log("WARN", "mcp", `MCP late-connect handler failed for "${pending}"`, {
+              error: err instanceof Error ? err.message : String(err),
+            });
+          }
+        }
+      } finally {
+        this.authRetrying.delete(pending);
+      }
+    }
   }
 
   /**
@@ -554,6 +627,8 @@ export class MCPClientManager {
       log("WARN", "mcp", `Failed to connect to MCP server "${name}"`, { error });
       return { name, ok: false, toolCount: 0, tools: [], error, requiresAuth };
     });
+
+    for (const [i, result] of results.entries()) this.trackAuth(enabled[i], result);
 
     // Release anyone waiting on a cached-only tool from these servers.
     for (const result of results) {
@@ -1097,12 +1172,18 @@ export class MCPClientManager {
     transport: StreamableHTTPClientTransport | SSEClientTransport;
   }> {
     const reqInit = config.headers ? { headers: config.headers } : undefined;
-    const authProvider = isLocal ? undefined : new McpOAuthProvider({ serverName: config.name });
+    const authProvider = isLocal
+      ? undefined
+      : new McpOAuthProvider({ serverName: config.name, store: this.oauthStore });
+    // Remote: token refreshes go through a per-server lock that also logs them
+    // (the SDK only console.warns refresh failures, invisible in the mcp log).
+    const authFetch = authProvider ? guardRefreshFetch(config.name, this.oauthStore) : undefined;
     const sseTransport = (): SSEClientTransport =>
       new SSEClientTransport(url, {
         eventSourceInit: config.headers ? { fetch: createHeaderFetch(config.headers) } : undefined,
         requestInit: reqInit,
         authProvider,
+        ...(authFetch ? { fetch: authFetch } : {}),
       });
 
     if (config.transport === "sse") {
@@ -1116,6 +1197,7 @@ export class MCPClientManager {
       const transport = new StreamableHTTPClientTransport(url, {
         requestInit: reqInit,
         authProvider,
+        ...(authFetch ? { fetch: authFetch } : {}),
       });
       const client = this.createClient(config.name, negotiate);
       await client.connect(transport, connectOptions);
@@ -1158,6 +1240,9 @@ export class MCPClientManager {
     // Our own teardown closes transports too; flag it so those closes are not
     // reported as unexpected deaths.
     this.disposing = true;
+    this.unwatchTokens?.();
+    this.unwatchTokens = undefined;
+    this.authPending.clear();
     this.connections.clear();
     this.reconnecting.clear();
     // Idle countdowns must not outlive the manager (they are unref'd, but a

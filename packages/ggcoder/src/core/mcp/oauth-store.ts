@@ -2,6 +2,8 @@ import fs from "node:fs/promises";
 import { getAppPaths } from "@kenkaiiii/gg-core";
 import type { OAuthClientInformationFull, OAuthTokens } from "@modelcontextprotocol/client";
 import { log } from "../logger.js";
+import { emitMcpTokensChanged } from "./oauth-events.js";
+import { noteMcpTokensSaved } from "./oauth-refresh.js";
 
 /**
  * Persisted OAuth state for ONE remote MCP server (RFC 8414/7591/6749 flow).
@@ -36,6 +38,11 @@ interface McpAuthFile {
 export class McpOAuthStore {
   constructor(private readonly filePath: string = getAppPaths().mcpAuthFile) {}
 
+  /** The backing file (watched for cross-process logins). */
+  get path(): string {
+    return this.filePath;
+  }
+
   private async readAll(): Promise<McpAuthFile> {
     try {
       const raw = await fs.readFile(this.filePath, "utf-8");
@@ -69,6 +76,12 @@ export class McpOAuthStore {
     const all = await this.readAll();
     all.servers[name] = { ...(all.servers[name] ?? {}), ...patch };
     await this.writeAll(all);
+    // Tokens written (login, refresh): unblock a waiting refresh and tell live
+    // sessions, so one that cached "Requires login." reconnects.
+    if (patch.tokens?.access_token) {
+      noteMcpTokensSaved(name);
+      emitMcpTokensChanged(name);
+    }
   }
 
   /** Drop a server's whole OAuth record (used on logout / removal). */

@@ -1073,6 +1073,16 @@ export class AgentSession {
     this.mcp.createManager({
       modernProtocol: this.settingsManager.get("mcpModernProtocol"),
       onElicit: this.opts.onMcpElicit,
+      // A server that said "Requires login." at connect and got tokens later
+      // (a login in any window, the auth file changing): adopt its tools now.
+      onLateConnect: (_name, tools) => {
+        const mcpTools = this.opts.allowedTools
+          ? tools.filter((t) => this.isToolAllowed(t.name))
+          : tools;
+        if (mcpTools.length === 0) return;
+        this.addMcpTools(mcpTools);
+        if (this.messages.length > 0) void this.rebuildSystemPromptInPlace().catch(() => {});
+      },
     });
     if (this.opts.backgroundMcpConnect) {
       void this.connectMcpServers();

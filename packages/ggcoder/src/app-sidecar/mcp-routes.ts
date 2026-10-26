@@ -1,3 +1,4 @@
+import { emitMcpTokensChanged } from "../core/mcp/oauth-events.js";
 import type http from "node:http";
 import { log } from "../core/logger.js";
 import {
@@ -183,6 +184,10 @@ export function handleMcpRoutes(
           ctx.broadcast("mcp_auth_url", { name, url: authUrl });
         });
         if (result.ok) {
+          // Live sessions holding a cached "Requires login." for this server
+          // reconnect now (the store also announces the saved tokens; this
+          // covers a login whose tokens were already on disk).
+          emitMcpTokensChanged(name);
           ctx.broadcast("mcp_auth_done", { name, toolCount: result.toolCount });
         } else {
           ctx.broadcast("mcp_auth_error", { name, message: result.error ?? "Login failed." });
