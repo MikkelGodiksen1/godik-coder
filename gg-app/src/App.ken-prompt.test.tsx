@@ -217,3 +217,123 @@ describe("Ken prompt block live", () => {
     ).toBe(false);
   });
 });
+
+// Live, then a reload. A reload remounts App, which hydrates the transcript
+// from agent_history (the sidecar's GET /history), exactly as a real window
+// reload does. The history rows below are the shape GET /history returns for
+// these prompts (see app-sidecar-prompt-accepted-live.test.ts in ggcoder).
+describe("Ken prompt block live, then reload", () => {
+  const ASKED: HistoryEntry = { role: "user", ken: true, text: "what next?" };
+  const SENT_ROW = {
+    role: "user",
+    text: "Add a retry to the upload",
+    images: [],
+    hook: null,
+    command: false,
+    compacted: false,
+    kenSent: true,
+  } as unknown as HistoryEntry;
+  const DONE: HistoryEntry = { role: "assistant", text: "Done." };
+
+  const userRows = () => [...document.querySelectorAll(".transcript .user-msg")];
+  const sentRows = () => screen.queryAllByText("Sent to GG Coder");
+  const queuedRows = () => document.querySelectorAll(".transcript .user-msg.queued");
+
+  /** One finished run of the prompt, as the sidecar streams it. */
+  function runIt(emit: Resumed["emit"], text: string): void {
+    emit("run_start", { text, runState: "running", continued: false });
+    emit("text_delta", { text: "Done." });
+    emit("run_end", { failed: false, reviewPending: false, runState: "idle" });
+    emit("queued", { count: 0, messages: [] });
+  }
+
+  async function expectSentOnce(): Promise<void> {
+    expect(
+      (await screen.findByRole<HTMLButtonElement>("button", { name: /^sent$/i })).disabled,
+    ).toBe(true);
+    expect(screen.queryByRole("button", { name: /send to gg coder/i })).toBeNull();
+    await waitFor(() => expect(sentRows()).toHaveLength(1));
+    expect(queuedRows()).toHaveLength(0);
+  }
+
+  it("a prompt from another client: one Sent row live, still exactly one after reload", async () => {
+    const { emit } = await resume([ASKED, KEN_REPLY]);
+    await screen.findByRole("button", { name: /send to gg coder/i });
+    emit("prompt_accepted", {
+      id: "glasses-1",
+      text: "Add a retry to the upload",
+      kenSent: true,
+      queued: false,
+      attachments: 0,
+    });
+    runIt(emit, "Add a retry to the upload");
+    await expectSentOnce();
+    // Ken's question plus the one sent prompt.
+    expect(userRows()).toHaveLength(2);
+
+    cleanup();
+    await resume([ASKED, KEN_REPLY, SENT_ROW, DONE]);
+    await expectSentOnce();
+    expect(userRows()).toHaveLength(2);
+  });
+
+  it("a click in this window: one Sent row live (echo ignored), still exactly one after reload", async () => {
+    const { emit, sends } = await resume([ASKED, KEN_REPLY]);
+    fireEvent.click(await screen.findByRole("button", { name: /send to gg coder/i }));
+    await waitFor(() => expect(sends).toHaveBeenCalledOnce());
+    const payload = sends.mock.calls[0]?.[0] as { text: string; meta: Record<string, unknown> };
+    emit("prompt_accepted", {
+      id: payload.meta.promptId,
+      text: payload.text,
+      kenSent: true,
+      queued: false,
+      attachments: 0,
+    });
+    runIt(emit, payload.text);
+    await expectSentOnce();
+    expect(userRows()).toHaveLength(2);
+
+    cleanup();
+    await resume([ASKED, KEN_REPLY, SENT_ROW, DONE]);
+    await expectSentOnce();
+    expect(userRows()).toHaveLength(2);
+  });
+
+  it("a prompt from another client that queues: one row, its queued pill clears when the agent takes it", async () => {
+    // A plain prompt: a Ken-sent row renders as the "Sent to GG Coder" label,
+    // which never shows the queued pill, so only a plain one can prove it clears.
+    const { emit } = await resume([ASKED, KEN_REPLY]);
+    await screen.findByRole("button", { name: /send to gg coder/i });
+    emit("run_start", { text: "first task", runState: "running", continued: false });
+    emit("prompt_accepted", {
+      id: "glasses-2",
+      text: "Then run the linter",
+      queued: true,
+      attachments: 0,
+    });
+    emit("queued", { count: 1, messages: [{ id: "q1", text: "Then run the linter" }] });
+    await waitFor(() => expect(queuedRows()).toHaveLength(1));
+    // The agent takes it at a turn boundary (queue_drained -> queued count 0).
+    emit("queued", { count: 0, messages: [] });
+    emit("run_end", { failed: false, reviewPending: false, runState: "idle" });
+    await waitFor(() => expect(queuedRows()).toHaveLength(0));
+    const rows = userRows().filter((row) => row.textContent?.includes("Then run the linter"));
+    expect(rows).toHaveLength(1);
+    // A plain prompt never marks Ken's block.
+    expect(sentRows()).toHaveLength(0);
+
+    cleanup();
+    await resume([
+      ASKED,
+      KEN_REPLY,
+      { role: "user", text: "Then run the linter" } as HistoryEntry,
+      DONE,
+    ]);
+    await waitFor(() =>
+      expect(
+        userRows().filter((row) => row.textContent?.includes("Then run the linter")),
+      ).toHaveLength(1),
+    );
+    expect(queuedRows()).toHaveLength(0);
+  });
+});
