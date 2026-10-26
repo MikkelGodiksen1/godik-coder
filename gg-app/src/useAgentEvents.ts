@@ -41,6 +41,7 @@ import type { Item } from "./App";
 import { readChatError } from "./chat-error";
 import type { LiveTextStore } from "./live-text";
 import { lastIssuedId } from "./transcript-item";
+import { isLocalPromptId } from "./local-prompt-ids";
 
 /**
  * Build-session SSE event handling + assistant-streaming helpers, extracted from
@@ -602,6 +603,32 @@ export function useAgentEvents(deps: AgentEventsDeps): AgentEvents {
           // A goal cut off by the restart picks itself back up (a briefing
           // asks its question again), as it does when its window opens.
           if (readyState.goal?.needsResume) onGoalNeedsResume?.();
+          break;
+        }
+        case "prompt_accepted": {
+          // The sidecar accepted a user prompt (started or queued it). This
+          // window already shows the ones it sent (matched by the id
+          // sendPrompt attached, never by text); one from another client (the
+          // glasses via gg-bridge, another window) gets its row here, so it and
+          // a Ken prompt block's Sent show without a reload. Injected runs
+          // (autopilot, goals, tasks) never send this event.
+          if (typeof d.id !== "string" || isLocalPromptId(d.id)) break;
+          const raw = typeof d.text === "string" ? d.text : "";
+          if (!raw.trim()) break;
+          const queued = d.queued === true;
+          // Same as a local send: a started prompt ends the streaming bubble, a
+          // queued one lands mid-stream as a dimmed queued row. A queued row
+          // keeps the exact text: the `queued` snapshot clears it by matching
+          // the queue's (untrimmed) text.
+          if (!queued) endStreamingText();
+          pushItem({
+            kind: "user",
+            id: nextId(),
+            text: queued ? raw : raw.trim(),
+            ...(d.kenSent === true ? { kenSent: true } : {}),
+            ...(d.command === true ? { command: true } : {}),
+            ...(queued ? { queued: true } : {}),
+          });
           break;
         }
         case "run_start":

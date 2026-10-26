@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { clearMocks, mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { AgentState, HistoryEntry } from "./agent";
+import type { AgentState, HistoryEntry, SidecarEvent } from "./agent";
 
 mockWindows("main");
 mockIPC(() => new Promise(() => {}));
@@ -32,9 +32,25 @@ afterEach(() => {
   else Reflect.deleteProperty(HTMLElement.prototype, "scrollTo");
 });
 
+interface Resumed {
+  /** Deliver a sidecar event to the window, as the SSE stream would. */
+  emit: (type: string, data: Record<string, unknown>) => void;
+  /** Payloads of the `agent_prompt` calls this window made. */
+  sends: ReturnType<typeof vi.fn>;
+}
+
 /** Resume a session whose history the sidecar returns as given. */
-async function resume(history: HistoryEntry[]): Promise<void> {
-  vi.spyOn(agent, "subscribe").mockImplementation(() => () => {});
+async function resume(history: HistoryEntry[]): Promise<Resumed> {
+  // Several parts of the window subscribe; deliver to all of them, like the
+  // real event stream.
+  const listeners = new Set<(e: SidecarEvent) => void>();
+  vi.spyOn(agent, "subscribe").mockImplementation((onEvent) => {
+    listeners.add(onEvent);
+    return () => {
+      listeners.delete(onEvent);
+    };
+  });
+  const sends = vi.fn();
   const state: AgentState = {
     cwd: "/workspaces/ken-prompt",
     mode: "code",
@@ -43,7 +59,7 @@ async function resume(history: HistoryEntry[]): Promise<void> {
     running: false,
   };
   mockWindows("main");
-  mockIPC((command) => {
+  mockIPC((command, payload) => {
     switch (command) {
       case "window_restore_target":
         return { mode: "code", cwd: state.cwd, sessionPath: null };
@@ -59,6 +75,9 @@ async function resume(history: HistoryEntry[]): Promise<void> {
         return { tasks: [] };
       case "agent_history":
         return { history };
+      case "agent_prompt":
+        sends(payload);
+        return null;
       case "plugin:log|log":
         return null;
       default:
@@ -67,6 +86,13 @@ async function resume(history: HistoryEntry[]): Promise<void> {
   });
   render(<App />);
   await screen.findByRole<HTMLTextAreaElement>("textbox");
+  await waitFor(() => expect(document.querySelector(".footer-skeleton")).toBeNull());
+  const emit = (type: string, data: Record<string, unknown>): void => {
+    act(() => {
+      for (const listener of listeners) listener({ type, data } as SidecarEvent);
+    });
+  };
+  return { emit, sends };
 }
 
 const KEN_REPLY: HistoryEntry = {
@@ -111,5 +137,83 @@ describe("Ken prompt block on resume", () => {
       name: /send to gg coder/i,
     });
     expect(button.disabled).toBe(false);
+  });
+});
+
+// Live, without a reload: the sidecar announces every accepted /prompt
+// (prompt_accepted). A window adds the row only for prompts it didn't send
+// itself, matched by the id sendPrompt attaches, never by text.
+describe("Ken prompt block live", () => {
+  const ASKED: HistoryEntry = { role: "user", ken: true, text: "what next?" };
+
+  it("turns Sent when another client (the glasses) sends the prompt", async () => {
+    const { emit } = await resume([ASKED, KEN_REPLY]);
+    await screen.findByRole("button", { name: /send to gg coder/i });
+
+    emit("prompt_accepted", {
+      id: "glasses-1",
+      text: "Add a retry to the upload",
+      kenSent: true,
+      queued: false,
+      attachments: 0,
+    });
+    emit("run_start", { text: "Add a retry to the upload", runState: "running", continued: false });
+
+    const button = await screen.findByRole<HTMLButtonElement>("button", { name: /^sent$/i });
+    expect(button.disabled).toBe(true);
+    expect(screen.getAllByText("Sent to GG Coder")).toHaveLength(1);
+  });
+
+  it("a click here gives exactly one row, even when the sidecar echoes it back", async () => {
+    const { emit, sends } = await resume([ASKED, KEN_REPLY]);
+    fireEvent.click(await screen.findByRole("button", { name: /send to gg coder/i }));
+    // The click itself turns the block Sent and adds the row, before any echo.
+    expect(
+      (await screen.findByRole<HTMLButtonElement>("button", { name: /^sent$/i })).disabled,
+    ).toBe(true);
+    expect(screen.getAllByText("Sent to GG Coder")).toHaveLength(1);
+    await waitFor(() => expect(sends).toHaveBeenCalledOnce());
+    const payload = sends.mock.calls[0]?.[0] as { text: string; meta: Record<string, unknown> };
+    expect(payload.text).toBe("Add a retry to the upload");
+    expect(payload.meta.kenSent).toBe(true);
+    expect(typeof payload.meta.promptId).toBe("string");
+
+    emit("prompt_accepted", {
+      id: payload.meta.promptId,
+      text: payload.text,
+      kenSent: true,
+      queued: false,
+      attachments: 0,
+    });
+    emit("run_start", { text: payload.text, runState: "running", continued: false });
+
+    expect(
+      (await screen.findByRole<HTMLButtonElement>("button", { name: /^sent$/i })).disabled,
+    ).toBe(true);
+    expect(screen.getAllByText("Sent to GG Coder")).toHaveLength(1);
+  });
+
+  it("shows a plain prompt from another client live, without marking Ken's block", async () => {
+    const { emit } = await resume([ASKED, KEN_REPLY]);
+    await screen.findByRole("button", { name: /send to gg coder/i });
+
+    emit("prompt_accepted", {
+      id: "bridge-7",
+      text: "Add a retry to the upload",
+      queued: false,
+      attachments: 0,
+    });
+
+    // A normal user bubble (not Ken's own, not a "Sent to GG Coder" label).
+    await waitFor(() => {
+      const rows = [...document.querySelectorAll(".user-msg:not(.user-ken)")];
+      expect(rows.map((row) => row.textContent)).toEqual([
+        expect.stringContaining("Add a retry to the upload"),
+      ]);
+    });
+    expect(screen.queryByText("Sent to GG Coder")).toBeNull();
+    expect(
+      screen.getByRole<HTMLButtonElement>("button", { name: /send to gg coder/i }).disabled,
+    ).toBe(false);
   });
 });

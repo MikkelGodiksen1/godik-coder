@@ -7,6 +7,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type { ChatErrorData } from "./chat-error";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { error as logError, info as logInfo } from "@tauri-apps/plugin-log";
+import { newPromptId, rememberLocalPromptId } from "./local-prompt-ids";
 
 // Per-window event bus. The Rust side emits agent traffic with `emit_to` the
 // specific window label, so each window must listen on ITS OWN webview target —
@@ -857,6 +858,9 @@ export interface PromptMeta {
   /** Plan feedback from the review box: the sidecar revises the plan back in
    *  read-only plan mode instead of with full write access. */
   planRevision?: boolean;
+  /** Set by sendPrompt. The sidecar echoes it in `prompt_accepted`, so this
+   *  window skips the prompts it already shows. */
+  promptId?: string;
 }
 
 export async function sendPrompt(
@@ -867,8 +871,11 @@ export async function sendPrompt(
   await logInfo(
     `prompt: ${text.slice(0, 80)}${attachments.length ? ` (+${attachments.length} att)` : ""}`,
   );
+  // Remembered before the request: prompt_accepted can arrive before invoke resolves.
+  const promptId = newPromptId();
+  rememberLocalPromptId(promptId);
   try {
-    await invoke("agent_prompt", { text, attachments, meta: meta ?? null });
+    await invoke("agent_prompt", { text, attachments, meta: { ...meta, promptId } });
   } catch (e) {
     await logError(`agent_prompt failed: ${String(e)}`);
     throw e;

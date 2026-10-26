@@ -1738,3 +1738,85 @@ describe("models_change", () => {
     });
   });
 });
+
+// prompt_accepted: the sidecar announces every accepted /prompt. Only prompts
+// this window didn't send get a row here (matched by id, never by text).
+describe("prompt_accepted", () => {
+  const userRows = (items: Item[]) => items.filter((it) => it.kind === "user");
+
+  it("adds a Ken-sent row for a prompt from another client", () => {
+    const { hook, getItems } = setup();
+    act(() =>
+      hook.result.current.handleEvent(
+        ev("prompt_accepted", {
+          id: "glasses-1",
+          text: "  Add a retry  ",
+          kenSent: true,
+          queued: false,
+          attachments: 0,
+        }),
+      ),
+    );
+    expect(userRows(getItems())).toEqual([
+      { kind: "user", id: expect.any(Number), text: "Add a retry", kenSent: true },
+    ]);
+  });
+
+  it("adds a plain row without kenSent, and a queued one as queued", () => {
+    const { hook, getItems } = setup();
+    act(() => {
+      hook.result.current.handleEvent(
+        ev("prompt_accepted", { id: "b-1", text: "Run the tests", queued: false }),
+      );
+      hook.result.current.handleEvent(
+        ev("prompt_accepted", { id: "b-2", text: "Then lint", queued: true }),
+      );
+    });
+    expect(userRows(getItems())).toEqual([
+      { kind: "user", id: expect.any(Number), text: "Run the tests" },
+      { kind: "user", id: expect.any(Number), text: "Then lint", queued: true },
+    ]);
+  });
+
+  it("ignores a prompt this window sent, even with the same text twice", async () => {
+    const { rememberLocalPromptId } = await import("./local-prompt-ids");
+    rememberLocalPromptId("local-1");
+    const { hook, getItems, pushUserItem } = setup();
+    pushUserItem("Add a retry", false);
+    act(() => {
+      hook.result.current.handleEvent(
+        ev("prompt_accepted", { id: "local-1", text: "Add a retry", queued: false }),
+      );
+      // Same text, other client: still shown (no text matching).
+      hook.result.current.handleEvent(
+        ev("prompt_accepted", { id: "glasses-2", text: "Add a retry", queued: false }),
+      );
+    });
+    expect(userRows(getItems()).map((it) => it.text)).toEqual(["Add a retry", "Add a retry"]);
+  });
+
+  it("clears a foreign queued row once the agent takes it from the queue", () => {
+    const { hook, getItems } = setup();
+    act(() => {
+      hook.result.current.handleEvent(
+        ev("prompt_accepted", { id: "g-9", text: "Then lint\n", queued: true }),
+      );
+      hook.result.current.handleEvent(
+        ev("queued", { count: 1, messages: [{ id: "q1", text: "Then lint\n" }] }),
+      );
+      hook.result.current.handleEvent(ev("queued", { count: 0, messages: [] }));
+    });
+    const rows = userRows(getItems());
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).not.toHaveProperty("queued", true);
+  });
+
+  it("skips an empty prompt and one without an id", () => {
+    const { hook, getItems } = setup();
+    act(() => {
+      hook.result.current.handleEvent(ev("prompt_accepted", { id: "x", text: "   " }));
+      hook.result.current.handleEvent(ev("prompt_accepted", { text: "no id" }));
+    });
+    expect(userRows(getItems())).toEqual([]);
+  });
+});

@@ -1,4 +1,5 @@
 import type http from "node:http";
+import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import {
@@ -20,6 +21,38 @@ import { goalsRoot } from "../core/goals-store.js";
 import { keepAwake } from "./keep-awake.js";
 import type { SessionRouteContext } from "./route-context.js";
 import { mentionedPaths, slashCommandName } from "../core/trophies/engine.js";
+
+/** Longest client-chosen prompt id the sidecar echoes back; longer ones are replaced. */
+const MAX_PROMPT_ID_LENGTH = 128;
+
+/**
+ * Payload of `prompt_accepted`: the user prompt POST /prompt just accepted,
+ * started or queued. Every window of the session gets it, so a prompt sent by
+ * another client (the glasses via gg-bridge, another window) shows up live.
+ * `id` is the sender's `meta.promptId` when it gave a usable one, so the
+ * window that sent the prompt (and already shows it) can recognise its own;
+ * otherwise a fresh id. Injected runs (autopilot, goals, tasks) never send it.
+ */
+function promptAcceptedPayload(
+  text: string,
+  meta: { kenSent?: boolean; promptId?: unknown } | undefined,
+  attachments: number,
+  queued: boolean,
+  command: boolean,
+): Record<string, unknown> {
+  const clientId = meta?.promptId;
+  return {
+    id:
+      typeof clientId === "string" && clientId.length > 0 && clientId.length <= MAX_PROMPT_ID_LENGTH
+        ? clientId
+        : randomUUID(),
+    text,
+    ...(meta?.kenSent === true ? { kenSent: true } : {}),
+    ...(command ? { command: true } : {}),
+    queued,
+    attachments,
+  };
+}
 
 /**
  * Count a sent prompt toward trophies: a slash command (and whether it's the
@@ -141,6 +174,7 @@ export function handlePromptRoutes(
               enhancements?: unknown[];
               scheduled?: boolean;
               planRevision?: boolean;
+              promptId?: unknown;
             }
           | undefined;
         try {
@@ -152,6 +186,7 @@ export function handlePromptRoutes(
               enhancements?: unknown[];
               scheduled?: boolean;
               planRevision?: boolean;
+              promptId?: unknown;
             };
           };
           text = body.text ?? "";
@@ -194,6 +229,12 @@ export function handlePromptRoutes(
           const prepared =
             attachments.length > 0 ? await prepareAttachments(ctx.cwd, attachments) : [];
           const count = ctx.session.queueMessage(text, prepared);
+          // Before the queue snapshot, so the row exists when the snapshot
+          // acknowledges it (same order as a local queued send).
+          ctx.broadcast(
+            "prompt_accepted",
+            promptAcceptedPayload(text, meta, attachments.length, true, false),
+          );
           ctx.broadcast("queued", { count, messages: ctx.session.listQueuedMessages() });
           json(res, 202, { queued: true, count });
           void recordPromptTrophies(ctx, {
@@ -276,6 +317,17 @@ export function handlePromptRoutes(
         ctx.clearPendingPlan();
         const assistantsBefore = countAssistantMessages(ctx.session.getMessages());
         const messagesBefore = ctx.session.getMessages().length;
+        // The row goes up before run_start, as it does for a local send.
+        ctx.broadcast(
+          "prompt_accepted",
+          promptAcceptedPayload(
+            text,
+            meta,
+            attachments.length,
+            false,
+            workflowCommand || expandsToTemplate,
+          ),
+        );
         await ctx.runAgent(
           text,
           async () => {
