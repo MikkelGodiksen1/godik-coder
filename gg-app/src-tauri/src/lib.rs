@@ -376,10 +376,14 @@ pub fn run() {
                 snapshot_workspace(app);
                 // Terminate the daemon's process group once — reaps every
                 // session's MCP/LSP children in one shot (no orphans).
-                let child = app.state::<Daemon>().child.lock_or_recover().take();
-                if let Some(child) = child {
-                    terminate_child(child);
-                }
+                // GODIK patch: synchronously, so the SIGKILL fallback can't die
+                // with the quitting process (see `stop_daemon_on_quit`).
+                stop_daemon_on_quit(app);
+            }
+            // GODIK patch: macOS Quit ends the loop as `Exit` without
+            // `ExitRequested`; stop the daemon tree there too (no-op if done).
+            if let RunEvent::Exit = event {
+                stop_daemon_on_quit(app);
             }
         });
 }

@@ -53,6 +53,91 @@ pub(crate) fn terminate_child(mut child: Child) {
     });
 }
 
+// ── GODIK patch: stop the daemon's process group synchronously on quit ──────
+// `terminate_child` leaves its SIGKILL fallback to a spawned thread, which dies
+// with the app process when it is quitting, and it only escalates while the
+// group LEADER is still alive, so a member that ignores SIGTERM outlives a
+// leader that exits cleanly. On macOS, Quit (Cmd+Q, the Dock, an AppleEvent)
+// also ends the loop as `RunEvent::Exit` without `ExitRequested`, so the group
+// was never signalled at all. Measured before this patch: MCP children that do
+// not exit on stdin EOF survived every quit until the next launch's sweep, and
+// the ledger kept the dead sidecar's PID.
+
+/// How long the quit path waits for the daemon to finish its own teardown
+/// before force-killing the whole group (same as `terminate_child`'s ~3s).
+pub(crate) const QUIT_GRACE: std::time::Duration = std::time::Duration::from_secs(3);
+
+/// Whether the group leader has exited, WITHOUT reaping it (`WNOWAIT`). A
+/// zombie still holds its pid, so its pgid cannot have been recycled and a
+/// group kill can only reach this sidecar's tree. `None` = not waitable (reaped
+/// elsewhere), in which case the group must not be signalled.
+#[cfg(unix)]
+fn leader_exited(pid: i32) -> Option<bool> {
+    let mut info: libc::siginfo_t = unsafe { std::mem::zeroed() };
+    let rc = unsafe {
+        libc::waitid(
+            libc::P_PID,
+            pid as libc::id_t,
+            &mut info,
+            libc::WEXITED | libc::WNOHANG | libc::WNOWAIT,
+        )
+    };
+    if rc != 0 {
+        return None;
+    }
+    Some(unsafe { info.si_pid() } != 0)
+}
+
+/// Quit-path variant of `terminate_child`: SIGTERM the group, wait (bounded by
+/// `grace`) for the leader to finish its teardown, then SIGKILL the whole group
+/// before reaping the leader, all on the calling thread so it completes before
+/// the process exits.
+pub(crate) fn terminate_child_blocking(mut child: Child, grace: std::time::Duration) {
+    #[cfg(unix)]
+    {
+        let pid = child.id() as i32;
+        unsafe {
+            libc::kill(-pid, libc::SIGTERM);
+        }
+        let deadline = std::time::Instant::now() + grace;
+        let mut state = leader_exited(pid);
+        while state == Some(false) && std::time::Instant::now() < deadline {
+            std::thread::sleep(std::time::Duration::from_millis(25));
+            state = leader_exited(pid);
+        }
+        if state.is_some() {
+            unsafe {
+                libc::kill(-pid, libc::SIGKILL);
+            }
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = grace;
+        // Same tree-kill as `terminate_child`, run inline instead of on a thread.
+        let _ = hide_console(&mut std::process::Command::new("taskkill"))
+            .args(["/PID", &child.id().to_string(), "/T", "/F"])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
+        let _ = child.kill();
+    }
+    let _ = child.wait();
+}
+
+/// Stop the daemon and its whole process tree as the app quits, then drop its
+/// PID from the ledger (nothing is left for the next launch's sweep to reap).
+/// Called from both `ExitRequested` and `Exit`; the second call finds no child.
+pub(crate) fn stop_daemon_on_quit(app: &tauri::AppHandle) {
+    app.state::<AppExiting>().0.store(true, Ordering::SeqCst);
+    let child = app.state::<Daemon>().child.lock_or_recover().take();
+    if let Some(child) = child {
+        let pid = child.id() as i32;
+        terminate_child_blocking(child, QUIT_GRACE);
+        forget_sidecar_pid(pid);
+    }
+}
+
 // ── Startup orphan sweeper ─────────────────────────────────────────────────
 // When the app is force-quit, crashes, or is killed during a dev run, the
 // sidecar process tree (Node sidecar + MCP stdio children + LSP servers) is
@@ -350,6 +435,38 @@ pub(crate) fn prune_sidecar_ledger(ledger: &HashSet<i32>, snapshot: &[ProcInfo])
         .collect::<Vec<_>>()
         .join("\n");
     let _ = std::fs::write(&path, format!("{body}\n"));
+}
+
+/// GODIK patch: the ledger contents with `pid` removed. `None` when nothing is
+/// left, so the caller removes the file (as `prune_sidecar_ledger` does).
+pub(crate) fn ledger_without(contents: &str, pid: i32) -> Option<String> {
+    let keep: Vec<&str> = contents
+        .lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty() && l.parse::<i32>().ok() != Some(pid))
+        .collect();
+    if keep.is_empty() {
+        None
+    } else {
+        Some(format!("{}\n", keep.join("\n")))
+    }
+}
+
+/// GODIK patch: drop a sidecar that was stopped cleanly from the ledger.
+/// Best-effort; a concurrent instance's PIDs are kept.
+pub(crate) fn forget_sidecar_pid(pid: i32) {
+    let path = sidecar_ledger_path();
+    let Ok(contents) = std::fs::read_to_string(&path) else {
+        return;
+    };
+    match ledger_without(&contents, pid) {
+        Some(body) => {
+            let _ = std::fs::write(&path, body);
+        }
+        None => {
+            let _ = std::fs::remove_file(&path);
+        }
+    }
 }
 
 /// Snapshot the process table, classify orphaned sidecar trees, and force-kill
@@ -747,5 +864,71 @@ mod tests {
         // Live sidecar (6001) must NOT be killed.
         assert!(!killset.contains(&6001));
         assert_eq!(killset.len(), 2);
+    }
+    // GODIK patch: the ledger helper keeps every other PID and empties to None.
+    #[test]
+    fn ledger_without_drops_only_the_stopped_sidecar() {
+        assert_eq!(
+            ledger_without("101\n202\n303\n", 202).as_deref(),
+            Some("101\n303\n")
+        );
+        assert_eq!(ledger_without("202\n", 202), None);
+        assert_eq!(ledger_without("", 202), None);
+        // Garbage and blank lines are tolerated; a different pid is untouched.
+        assert_eq!(
+            ledger_without(" 101 \n\nx\n", 202).as_deref(),
+            Some("101\nx\n")
+        );
+        // Substring PIDs must not match.
+        assert_eq!(ledger_without("2020\n20\n", 20).as_deref(), Some("2020\n"));
+    }
+
+    // GODIK patch regression: a group member that ignores SIGTERM must not
+    // survive the quit path when the leader itself exits cleanly on SIGTERM.
+    // The old `terminate_child` only escalates while the leader is alive, so
+    // this member outlived it.
+    #[cfg(unix)]
+    #[test]
+    fn quit_stop_kills_a_sigterm_ignoring_group_member() {
+        use std::io::BufRead;
+        let mut cmd = Command::new("/bin/sh");
+        cmd.arg("-c")
+            // The member ignores SIGTERM (an ignored signal stays ignored across
+            // exec); the leader exits 0 on SIGTERM.
+            .arg("(trap '' TERM; exec sleep 60) & echo $!; trap 'exit 0' TERM; wait")
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null());
+        cmd.process_group(0);
+        let mut child = cmd.spawn().expect("spawn test group");
+        let mut line = String::new();
+        std::io::BufReader::new(child.stdout.take().expect("stdout"))
+            .read_line(&mut line)
+            .expect("member pid");
+        let member: i32 = line.trim().parse().expect("member pid parses");
+        assert_eq!(
+            unsafe { libc::kill(member, 0) },
+            0,
+            "member must be running"
+        );
+
+        let started = std::time::Instant::now();
+        terminate_child_blocking(child, std::time::Duration::from_secs(2));
+        assert!(
+            started.elapsed() < std::time::Duration::from_secs(3),
+            "quit stop must stay bounded"
+        );
+
+        // SIGKILL is immediate; give init/launchd a moment to reap the orphan.
+        let gone = (0..80).any(|_| {
+            if unsafe { libc::kill(member, 0) } != 0 {
+                return true;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(25));
+            false
+        });
+        assert!(
+            gone,
+            "a SIGTERM-ignoring group member survived the quit stop"
+        );
     }
 }
