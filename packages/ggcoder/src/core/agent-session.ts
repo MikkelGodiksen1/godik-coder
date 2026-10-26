@@ -702,7 +702,15 @@ export class AgentSession {
   // message by identity. Index-based removal would race: the queue drains at
   // every turn boundary, so an index captured by the UI can point at a
   // different message (or past the end) by the time the cancel arrives.
-  private userQueue: Array<{ id: string; text: string; attachments: SessionAttachment[] }> = [];
+  // `kenSent` marks a Ken "Send to GG Coder" prompt (the app's button or the
+  // glasses via gg-bridge) so its user message gets the same `user_hint` a
+  // non-queued one gets, and a reload still shows it as Sent.
+  private userQueue: Array<{
+    id: string;
+    text: string;
+    attachments: SessionAttachment[];
+    kenSent?: true;
+  }> = [];
   private queueSeq = 0;
   /** Monotonic count of human-originated prompts; idle-wake budgets reset on it. */
   private humanPromptSeq = 0;
@@ -1824,6 +1832,7 @@ export class AgentSession {
     // agent sees them mid-loop instead of after it stops.
     if (this.userQueue.length > 0) {
       const queued = this.userQueue.splice(0);
+      this.recordQueuedKenSentHints(queued, environmentDelta ? 1 : 0);
       // The agent has now consumed these. Announce the new depth immediately so
       // clients can drop the "queued" affordance at the turn boundary rather
       // than holding it until the whole run ends — the message is already in
@@ -3686,9 +3695,18 @@ export class AgentSession {
   /** Queue a user message (optionally with attachments) to be injected mid-run
    *  as steering. Returns the new queue length. No-op semantics are the caller's
    *  concern. */
-  queueMessage(text: string, attachments: SessionAttachment[] = []): number {
+  queueMessage(
+    text: string,
+    attachments: SessionAttachment[] = [],
+    meta?: { kenSent?: boolean },
+  ): number {
     this.queueSeq += 1;
-    this.userQueue.push({ id: `q${this.queueSeq}`, text, attachments });
+    this.userQueue.push({
+      id: `q${this.queueSeq}`,
+      text,
+      attachments,
+      ...(meta?.kenSent === true ? { kenSent: true as const } : {}),
+    });
     // Instant interrupt: preempt running tools so the steer lands right away.
     for (const listener of [...this.steeringListeners]) listener();
     return this.userQueue.length;
@@ -3719,13 +3737,45 @@ export class AgentSession {
    *  Used by the sidecar to run a message that queued while autopilot was
    *  reviewing (no run in flight to steer it into) — unlike {@link drainQueue},
    *  attachments survive so queued media isn't silently dropped. */
-  takeNextQueuedMessage(): { text: string; attachments: SessionAttachment[] } | null {
+  takeNextQueuedMessage(): {
+    text: string;
+    attachments: SessionAttachment[];
+    kenSent?: true;
+  } | null {
     const next = this.userQueue.shift();
     if (next === undefined) return null;
     // Strip the internal queue id: it exists only so clients can cancel a
     // specific pending message, and callers here feed the result straight into
-    // a run.
-    return { text: next.text, attachments: next.attachments };
+    // a run. `kenSent` stays: the caller records the user_hint for the message
+    // its prompt is about to add.
+    return {
+      text: next.text,
+      attachments: next.attachments,
+      ...(next.kenSent ? { kenSent: next.kenSent } : {}),
+    };
+  }
+
+  /**
+   * Queued Ken prompts draining as mid-run steering: record the `user_hint`
+   * (kenSent) a non-queued Ken prompt gets, anchored on the user message each
+   * one becomes. The loop appends the returned steering right after its
+   * current messages, in order (after `leadingMessages` such as an environment
+   * update), so the i-th queued item lands at that non-system position.
+   * Best-effort, like every transcript marker: it never blocks or fails the run.
+   */
+  private recordQueuedKenSentHints(
+    queued: ReadonlyArray<{ kenSent?: true }>,
+    leadingMessages: number,
+  ): void {
+    if (!queued.some((m) => m.kenSent)) return;
+    const loop = this.activeLoopMessages ?? this.messages;
+    const before = loop.filter((m) => m.role !== "system").length + leadingMessages;
+    queued.forEach((m, i) => {
+      if (!m.kenSent) return;
+      void this.markers
+        .recordAppMarker("user_hint", { kenSent: true }, before + i + 1)
+        .catch(() => {});
+    });
   }
 
   /** Clear the queue, returning the combined text (to restore to the composer).

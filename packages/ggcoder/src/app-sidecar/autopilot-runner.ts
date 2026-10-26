@@ -336,6 +336,11 @@ export function createAutopilotRunner(ctx: AutopilotRunnerContext): AutopilotRun
           isWorkflowCommandText(next.text, await ctx.loadWorkflowCommandSpecs());
         const assistantsBefore = countAssistantMessages(ctx.session.getMessages());
         const messagesBefore = ctx.session.getMessages().length;
+        // A queued Ken prompt keeps its Sent label on reload: the same +1
+        // user_hint POST /prompt records for one that runs straight away.
+        if (next.kenSent) {
+          void ctx.session.persistAppMarker("user_hint", { kenSent: true }, 1).catch(() => {});
+        }
         await ctx.runAgent(
           next.text,
           async () => {

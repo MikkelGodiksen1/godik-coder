@@ -398,7 +398,7 @@ describe("prompt_accepted (real daemon, real event stream)", () => {
     expect(users[0]).not.toHaveProperty("kenSent");
   });
 
-  it("a Ken-sent prompt sent while a run is in flight: announced once as queued, before the queue snapshot; reload has one row each", async () => {
+  it("a Ken-sent prompt sent while a run is in flight: announced once as queued, before the queue snapshot; reload keeps it Sent", async () => {
     const window = await openWindow();
     const ends = count(window.events, "run_end");
     await post(window.session, "HOLD_IT first task");
@@ -456,8 +456,50 @@ describe("prompt_accepted (real daemon, real event stream)", () => {
     const lastQueued = lastOfType(window.events, "queued");
     expect(lastQueued?.data.count).toBe(0);
 
-    // Reload: exactly one row per prompt, in order.
+    // Reload: exactly one row per prompt, in order, the queued one still Ken-sent.
     const users = await historyUsers(window.session);
     expect(users.map((u) => u.text)).toEqual(["HOLD_IT first task", "Add a retry to the upload"]);
+    expect(users[0]).not.toHaveProperty("kenSent");
+    expect(users[1]).toMatchObject({ kenSent: true });
+  });
+
+  it("several prompts queued behind one run: each keeps its own kenSent (or none) after reload", async () => {
+    const window = await openWindow();
+    await post(window.session, "HOLD_IT first task");
+    await waitFor(() => heldRequests > 0, "the first run to reach the model");
+
+    // A click in this window (the app sends its own UUID), a plain prompt,
+    // and a Ken prompt from the glasses: the sidecar treats all three alike.
+    await post(window.session, "Add a retry to the upload", {
+      kenSent: true,
+      promptId: "3f1c2a9e-7b4d-4c1a-9e2f-5d6b7c8a9b0c",
+    });
+    await post(window.session, "Then run the linter");
+    await post(window.session, "Add a footer", { kenSent: true, promptId: "glasses-3" });
+    await waitFor(
+      () => lastOfType(window.events, "queued")?.data.count === 3,
+      "all three to queue",
+    );
+
+    releaseHeld?.();
+    await waitFor(
+      () =>
+        lastOfType(window.events, "queued")?.data.count === 0 &&
+        lastIndexOfType(window.events, "run_end") > lastIndexOfType(window.events, "run_start"),
+      "every run to settle",
+    );
+    await new Promise((r) => setTimeout(r, 500));
+    await waitFor(
+      () => lastIndexOfType(window.events, "run_end") > lastIndexOfType(window.events, "run_start"),
+      "the drained turn to settle",
+    );
+
+    const users = await historyUsers(window.session);
+    expect(users.map((u) => [u.text, u.kenSent === true])).toEqual([
+      ["HOLD_IT first task", false],
+      ["Add a retry to the upload", true],
+      ["Then run the linter", false],
+      ["Add a footer", true],
+    ]);
   });
 });

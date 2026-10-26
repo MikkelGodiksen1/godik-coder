@@ -189,9 +189,12 @@ describe("POST /prompt announces the accepted user prompt", () => {
 });
 
 /** Autopilot runner context: one cycle, then an empty or one-item queue. */
-function runnerContext(queue: Array<{ text: string; attachments: unknown[] }> = []) {
+function runnerContext(
+  queue: Array<{ text: string; attachments: unknown[]; kenSent?: boolean }> = [],
+) {
   const events: Broadcast[] = [];
   const labels: string[] = [];
+  const order: string[] = [];
   const ctx = {
     autopilotReviewing: false,
     broadcast: vi.fn((type: string, data: Record<string, unknown>) => events.push([type, data])),
@@ -199,9 +202,14 @@ function runnerContext(queue: Array<{ text: string; attachments: unknown[] }> = 
     cwd: "/tmp/prompt-accepted",
     gitBranch: "main",
     session: {
-      prompt: vi.fn(async () => {}),
+      prompt: vi.fn(async (text: string) => {
+        order.push(`prompt:${text}`);
+      }),
       promptWithAttachments: vi.fn(async () => {}),
       persistAutopilotMarker: vi.fn(async () => {}),
+      persistAppMarker: vi.fn(async (kind: string, data: unknown, offset?: number) => {
+        order.push(`marker:${kind}:${JSON.stringify(data)}:${offset}`);
+      }),
       getVerificationProblem: () => null,
       getMessages: () => [],
       getPlanMode: () => false,
@@ -241,7 +249,7 @@ function runnerContext(queue: Array<{ text: string; attachments: unknown[] }> = 
     deactivateApprovedPlan: vi.fn(),
     taskRunAll: false,
   } as unknown as AutopilotRunnerContext;
-  return { ctx, events, labels };
+  return { ctx, events, labels, order };
 }
 
 describe("runs nobody typed get no user-prompt event", () => {
@@ -262,5 +270,21 @@ describe("runs nobody typed get no user-prompt event", () => {
     expect(labels).toEqual(["Add a retry to the upload"]);
     // Its row went up when it queued (prompt_accepted queued: true).
     expect(accepted(events)).toEqual([]);
+  });
+
+  it("a queued Ken-sent prompt draining as its own turn records kenSent for its user message", async () => {
+    const { ctx, order } = runnerContext([
+      { text: "Add a retry to the upload", attachments: [], kenSent: true },
+      { text: "Then run the linter", attachments: [] },
+    ]);
+    ctx.autopilot = false;
+    await createAutopilotRunner(ctx).runStrandedQueue();
+    // Anchored +1 onto the message the prompt is about to add, like POST /prompt;
+    // the plain prompt gets no hint.
+    expect(order).toEqual([
+      'marker:user_hint:{"kenSent":true}:1',
+      "prompt:Add a retry to the upload",
+      "prompt:Then run the linter",
+    ]);
   });
 });

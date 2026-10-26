@@ -228,7 +228,11 @@ export function handlePromptRoutes(
           // path as a non-queued attachment prompt when it drains.
           const prepared =
             attachments.length > 0 ? await prepareAttachments(ctx.cwd, attachments) : [];
-          const count = ctx.session.queueMessage(text, prepared);
+          // kenSent rides the queue entry: the user_hint below is skipped for a
+          // queued prompt, so the session records it when the prompt drains.
+          const count = ctx.session.queueMessage(text, prepared, {
+            kenSent: meta?.kenSent === true,
+          });
           // Before the queue snapshot, so the row exists when the snapshot
           // acknowledges it (same order as a local queued send).
           ctx.broadcast(
