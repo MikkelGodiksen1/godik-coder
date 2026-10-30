@@ -146,7 +146,7 @@ const GoalPicker = lazy(() =>
 );
 import { BackButton } from "./BackButton";
 import { HomeScreen } from "./HomeScreen";
-import { RoyaleScreen } from "./RoyaleScreen";
+import { WorldScreen } from "./WorldScreen";
 import { SettingsModal } from "./SettingsModal";
 import { initialEntryView, type EntryView } from "./app-entry-view";
 import {
@@ -503,13 +503,40 @@ function App(): React.ReactElement {
   const [restoreChecked, setRestoreChecked] = useState(false);
   // Every window starts from the mode-neutral home screen before choosing Code or Chat.
   const [entryView, setEntryView] = useState<EntryView>(initialEntryView(isSecondaryWindow));
-  // GG Royale has faded in over Home (Home holds its Royale plate down until then).
-  const [royaleShown, setRoyaleShown] = useState(false);
+  // World has faded in over Home (Home holds its World plate down until then).
+  const [worldShown, setWorldShown] = useState(false);
   const [settingsTab, setSettingsTab] = useState<SettingsTabId>("general");
   // Re-open the matching session picker over an already-open workspace.
   const [showPicker, setShowPicker] = useState(false);
-  // GG Royale over a workspace (from the Deck's Royale key); Back returns here.
-  const [showRoyale, setShowRoyale] = useState(false);
+  // World over whatever this window shows (Home, a picker or a workspace); Back returns to it. ONE World layer for
+  // every screen (see worldLayer below), so switching screens under it (the in-game computer opening a project)
+  // never reloads the game.
+  const [showWorld, setShowWorld] = useState(false);
+  // The in-game computer: this window's own GG Coder over World (WorldScreen.tsx).
+  const [worldComputer, setWorldComputer] = useState(false);
+  // In the computer the app keeps its full-window layout and is scaled into the space between World's top bar and
+  // Stand up (.app-in-monitor reads --mon-tf).
+  const monitorOpen = showWorld && worldComputer;
+  useEffect(() => {
+    if (!monitorOpen) return;
+    const root = document.documentElement;
+    const fit = (): void => {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      const top = 52;
+      const bottom = 64;
+      const k = Math.max(0.5, Math.min((w - 40) / w, (h - top - bottom) / h));
+      // scaled about the window's centre (.app-in-monitor's transform-origin), then shifted into the free band
+      const dy = top + (h - top - bottom - k * h) / 2 - (h - k * h) / 2;
+      root.style.setProperty("--mon-tf", `translateY(${dy.toFixed(1)}px) scale(${k.toFixed(4)})`);
+    };
+    fit();
+    window.addEventListener("resize", fit);
+    return () => {
+      window.removeEventListener("resize", fit);
+      root.style.removeProperty("--mon-tf");
+    };
+  }, [monitorOpen]);
   // Bumped on each workspace/session choice to force re-hydration.
   const [hydrateNonce, setHydrateNonce] = useState(0);
   const { activity, handleActivityEvent } = useTaskActivity(hydrateNonce);
@@ -2572,103 +2599,132 @@ function App(): React.ReactElement {
     );
   }
 
+  // World (one layer for every screen, so changing screen under it never reloads the game) and the in-game
+  // computer: while it's open this window's GG Coder sits inside a monitor over World (.app-in-monitor).
+  // World's Back always lands on GG Coder's Home screen (owner), never on whatever the in-game computer was last
+  // showing. A session opened there keeps running and is one click away from Home.
+  const closeWorld = (): void =>
+    showScreen(() => {
+      setShowWorld(false);
+      setWorldShown(false);
+      setWorldComputer(false);
+      setShowPicker(false);
+      setNeedsProject(true);
+      setEntryView("home");
+    });
+  const onWorldComputer = (open: boolean): void => {
+    setWorldComputer(open);
+    // The computer always boots to GG Coder's Home screen (owner), whatever this window was showing: the same way
+    // the app's own Back gets there (a running session carries on underneath and is one click away again).
+    if (open) {
+      setShowPicker(false);
+      setNeedsProject(true);
+      setEntryView("home");
+    }
+  };
+  const inMonitor = monitorOpen ? " app-in-monitor" : "";
+  const worldLayer = showWorld ? (
+    <div className="world-overlay">
+      <WorldScreen
+        player={progress}
+        onShown={() => setWorldShown(true)}
+        onClose={closeWorld}
+        computer={worldComputer}
+        onComputer={onWorldComputer}
+      />
+    </div>
+  ) : null;
+
   if (needsProject) {
     return (
-      <div
-        className={`app${windowFocused ? " window-focused" : ""}`}
-        style={{ background: theme.background }}
-      >
-        {/* GG Royale opens OVER Home (as it does over a workspace), so Home
+      <>
+        <div
+          className={`app${windowFocused ? " window-focused" : ""}${inMonitor}`}
+          style={{ background: theme.background }}
+        >
+          {/* World opens OVER Home (as it does over a workspace), so Home
             stays put underneath while the game fades in, and Back fades
             straight back to it. */}
-        {entryView === "home" || entryView === "royale" ? (
-          <HomeScreen
-            onProjects={() =>
-              showScreen(() => {
-                setWorkspaceMode("code");
-                setEntryView("projects");
-              })
-            }
-            onGoals={() =>
-              showScreen(() => {
-                setWorkspaceMode("code");
-                setEntryView("goals");
-              })
-            }
-            onChat={() =>
-              showScreen(() => {
-                setWorkspaceMode("chat");
-                setEntryView("chats");
-              })
-            }
-            onMotion={() =>
-              showScreen(() => {
-                setWorkspaceMode("motion");
-                setEntryView("motion");
-              })
-            }
-            onRoyale={() => showScreen(() => setEntryView("royale"))}
-            royaleShown={royaleShown}
-            onSettings={(tab) =>
-              showScreen(() => {
-                setSettingsTab(tab ?? "general");
-                setEntryView("settings");
-              })
-            }
-            refreshSignal={homeRefreshSignal}
-          />
-        ) : entryView === "settings" ? (
-          <SettingsScreen
-            initialTab={settingsTab}
-            onClose={() =>
-              showScreen(() => {
-                setEntryView("home");
-                // Settings may have changed the folder or providers.
-                setHomeRefreshSignal((n) => n + 1);
-              })
-            }
-          />
-        ) : entryView === "goals" ? (
-          <Suspense fallback={null}>
-            <GoalPicker
-              onChosen={onProjectChosen}
-              onClose={() => showScreen(() => setEntryView("home"))}
+          {entryView === "home" || entryView === "world" ? (
+            <HomeScreen
+              onProjects={() =>
+                showScreen(() => {
+                  setWorkspaceMode("code");
+                  setEntryView("projects");
+                })
+              }
+              onGoals={() =>
+                showScreen(() => {
+                  setWorkspaceMode("code");
+                  setEntryView("goals");
+                })
+              }
+              onChat={() =>
+                showScreen(() => {
+                  setWorkspaceMode("chat");
+                  setEntryView("chats");
+                })
+              }
+              onMotion={() =>
+                showScreen(() => {
+                  setWorkspaceMode("motion");
+                  setEntryView("motion");
+                })
+              }
+              // On the in-game computer World is already open behind it: World just stands the player up.
+              onWorld={() =>
+                worldComputer ? setWorldComputer(false) : showScreen(() => setShowWorld(true))
+              }
+              worldShown={worldShown}
+              onSettings={(tab) =>
+                showScreen(() => {
+                  setSettingsTab(tab ?? "general");
+                  setEntryView("settings");
+                })
+              }
+              refreshSignal={homeRefreshSignal}
             />
-          </Suspense>
-        ) : entryView === "chats" ? (
-          <ChatPicker
-            onChosen={onProjectChosen}
-            onClose={() => showScreen(() => setEntryView("home"))}
-          />
-        ) : entryView === "motion" ? (
-          <ChatPicker
-            mode="motion"
-            onChosen={onProjectChosen}
-            onClose={() => showScreen(() => setEntryView("home"))}
-          />
-        ) : (
-          <ProjectPicker
-            onChosen={onProjectChosen}
-            // Every window can return to the mode-neutral home screen.
-            onClose={() => showScreen(() => setEntryView("home"))}
-          />
-        )}
-        {entryView === "royale" && (
-          <div className="royale-overlay">
-            <RoyaleScreen
-              onShown={() => setRoyaleShown(true)}
+          ) : entryView === "settings" ? (
+            <SettingsScreen
+              initialTab={settingsTab}
               onClose={() =>
                 showScreen(() => {
-                  setRoyaleShown(false);
                   setEntryView("home");
+                  // Settings may have changed the folder or providers.
+                  setHomeRefreshSignal((n) => n + 1);
                 })
               }
             />
-          </div>
-        )}
-        {showTraySettings && <SettingsModal onClose={closeTraySettings} />}
-        <Toaster />
-      </div>
+          ) : entryView === "goals" ? (
+            <Suspense fallback={null}>
+              <GoalPicker
+                onChosen={onProjectChosen}
+                onClose={() => showScreen(() => setEntryView("home"))}
+              />
+            </Suspense>
+          ) : entryView === "chats" ? (
+            <ChatPicker
+              onChosen={onProjectChosen}
+              onClose={() => showScreen(() => setEntryView("home"))}
+            />
+          ) : entryView === "motion" ? (
+            <ChatPicker
+              mode="motion"
+              onChosen={onProjectChosen}
+              onClose={() => showScreen(() => setEntryView("home"))}
+            />
+          ) : (
+            <ProjectPicker
+              onChosen={onProjectChosen}
+              // Every window can return to the mode-neutral home screen.
+              onClose={() => showScreen(() => setEntryView("home"))}
+            />
+          )}
+          {showTraySettings && <SettingsModal onClose={closeTraySettings} />}
+          <Toaster />
+        </div>
+        {worldLayer}
+      </>
     );
   }
 
@@ -2689,25 +2745,28 @@ function App(): React.ReactElement {
         }),
     };
     return (
-      <div
-        className={`app${windowFocused ? " window-focused" : ""}`}
-        style={{ background: theme.background }}
-      >
-        {workspaceMode === "chat" ? (
-          <ChatPicker initialAgent={state?.chatAgent ?? "general"} {...pickerProps} />
-        ) : workspaceMode === "motion" ? (
-          <ChatPicker mode="motion" {...pickerProps} />
-        ) : state?.goal ? (
-          <Suspense fallback={null}>
-            <GoalPicker {...pickerProps} />
-          </Suspense>
-        ) : (
-          <ProjectPicker initialProjectPath={state?.cwd ?? null} {...pickerProps} />
-        )}
-        {showTraySettings && <SettingsModal onClose={closeTraySettings} />}
-        {/* Tray Settings can toast a save failure over the picker. */}
-        <Toaster />
-      </div>
+      <>
+        <div
+          className={`app${windowFocused ? " window-focused" : ""}${inMonitor}`}
+          style={{ background: theme.background }}
+        >
+          {workspaceMode === "chat" ? (
+            <ChatPicker initialAgent={state?.chatAgent ?? "general"} {...pickerProps} />
+          ) : workspaceMode === "motion" ? (
+            <ChatPicker mode="motion" {...pickerProps} />
+          ) : state?.goal ? (
+            <Suspense fallback={null}>
+              <GoalPicker {...pickerProps} />
+            </Suspense>
+          ) : (
+            <ProjectPicker initialProjectPath={state?.cwd ?? null} {...pickerProps} />
+          )}
+          {showTraySettings && <SettingsModal onClose={closeTraySettings} />}
+          {/* Tray Settings can toast a save failure over the picker. */}
+          <Toaster />
+        </div>
+        {worldLayer}
+      </>
     );
   }
 
@@ -2729,611 +2788,608 @@ function App(): React.ReactElement {
     };
 
   return (
-    <div
-      className={`app${isFileDragOver ? " app-file-dragover" : ""}${windowFocused ? " window-focused" : ""}${goalWorldOpen ? " goal-world-open" : ""}`}
-      data-glow={glowState}
-      style={{ background: theme.background, ...glowStyle }}
-      onDragEnter={handleWindowDragEnter}
-      onDragOver={handleWindowDragOver}
-      onDragLeave={handleWindowDragLeave}
-      onDrop={handleWindowDrop}
-    >
-      {confettiNonce && <Confetti key={confettiNonce} />}
+    <>
+      <div
+        className={`app${isFileDragOver ? " app-file-dragover" : ""}${windowFocused ? " window-focused" : ""}${goalWorldOpen ? " goal-world-open" : ""}${inMonitor}`}
+        data-glow={glowState}
+        style={{ background: theme.background, ...glowStyle }}
+        onDragEnter={handleWindowDragEnter}
+        onDragOver={handleWindowDragOver}
+        onDragLeave={handleWindowDragLeave}
+        onDrop={handleWindowDrop}
+      >
+        {confettiNonce && <Confetti key={confettiNonce} />}
 
-      <WorkspaceHeader
-        ref={workspaceHeaderRef}
-        workspaceMode={workspaceMode}
-        cwd={state?.cwd}
-        goalName={state?.goal?.name ?? null}
-        gitBranch={state?.gitBranch}
-        gitDirtyFileCount={state?.gitDirtyFileCount}
-        gitHubIssues={state?.gitHubIssues}
-        gitHubPRs={state?.gitHubPRs}
-        additionalRoots={state?.additionalRoots}
-        subtitle={
-          workspaceMode === "chat"
-            ? state?.chatAgent === "therapist"
-              ? "Therapist"
-              : state?.chatAgent === "research"
-                ? "Research"
-                : "General"
-            : null
-        }
-        leading={<BackButton label={backLabel} onClick={goBack} />}
-        trailing={
-          <TitleBarActions
-            workspaceMode={workspaceMode}
-            isGoal={Boolean(state?.goal)}
-            goalView={goalView}
-            // No view transition: WebKit leaves the header's frost (backdrop
-            // blur) out of its snapshots, so it popped in after the crossfade.
-            onGoalViewChange={(view) => setGoalChatFor(view === "chat" ? activeGoalId : null)}
-            goalNeedsAnswer={goalWaitingOnUser}
-            goalTally={goalTally}
-            goalState={
-              state?.goal?.paused
-                ? "paused"
-                : running || (goalTally?.working ?? 0) > 0
-                  ? "running"
-                  : "stopped"
-            }
-            onGoalPauseChange={state?.goal?.phase === "active" ? setGoalPaused : undefined}
-            xpChips={xpChips}
-            running={running}
-            dirtyCount={state?.gitDirtyFileCount ?? 0}
-            needsGitInit={needsGitInit}
-            onInitGit={() => setShowInitGit(true)}
-            commitCommand={commitCommand}
-            hasCommit={hasCommit}
-            onCommit={() =>
-              submitText(
-                `/${commitCommand}`,
-                hasCommit ? "Committing\u2026" : "Setting up commits\u2026",
-              )
-            }
-          />
-        }
-      />
-
-      {/* Kept alive while hidden (Chat view), so switching back doesn't rebuild the farm. */}
-      {activeGoalId && (
-        <Activity mode={goalWorldOpen ? "visible" : "hidden"}>
-          <Suspense fallback={null}>
-            <GoalWorld
-              key={activeGoalId}
-              headerRef={workspaceHeaderRef}
-              goalId={activeGoalId}
+        <WorkspaceHeader
+          ref={workspaceHeaderRef}
+          workspaceMode={workspaceMode}
+          cwd={state?.cwd}
+          goalName={state?.goal?.name ?? null}
+          gitBranch={state?.gitBranch}
+          gitDirtyFileCount={state?.gitDirtyFileCount}
+          gitHubIssues={state?.gitHubIssues}
+          gitHubPRs={state?.gitHubPRs}
+          additionalRoots={state?.additionalRoots}
+          subtitle={
+            workspaceMode === "chat"
+              ? state?.chatAgent === "therapist"
+                ? "Therapist"
+                : state?.chatAgent === "research"
+                  ? "Research"
+                  : "General"
+              : null
+          }
+          leading={<BackButton label={backLabel} onClick={goBack} />}
+          trailing={
+            <TitleBarActions
+              workspaceMode={workspaceMode}
+              isGoal={Boolean(state?.goal)}
+              goalView={goalView}
+              // No view transition: WebKit leaves the header's frost (backdrop
+              // blur) out of its snapshots, so it popped in after the crossfade.
+              onGoalViewChange={(view) => setGoalChatFor(view === "chat" ? activeGoalId : null)}
+              goalNeedsAnswer={goalWaitingOnUser}
+              goalTally={goalTally}
+              goalState={
+                state?.goal?.paused
+                  ? "paused"
+                  : running || (goalTally?.working ?? 0) > 0
+                    ? "running"
+                    : "stopped"
+              }
+              onGoalPauseChange={state?.goal?.phase === "active" ? setGoalPaused : undefined}
+              xpChips={xpChips}
               running={running}
-              liveTools={liveToolFeed}
-              waitingOnUser={goalWaitingOnUser}
-              workers={goalWorkers}
-              ask={goalAskNotice}
-              kenSaid={kenSaid}
-              onShowChat={() => setGoalChatFor(activeGoalId)}
-              finish={shownGoalFinish}
-              onCloseFinish={() => setGoalFinish(null)}
-              kenStatus={kenStatus}
+              dirtyCount={state?.gitDirtyFileCount ?? 0}
+              needsGitInit={needsGitInit}
+              onInitGit={() => setShowInitGit(true)}
+              commitCommand={commitCommand}
+              hasCommit={hasCommit}
+              onCommit={() =>
+                submitText(
+                  `/${commitCommand}`,
+                  hasCommit ? "Committing\u2026" : "Setting up commits\u2026",
+                )
+              }
             />
-          </Suspense>
-        </Activity>
-      )}
+          }
+        />
 
-      {/* React owns chat visibility rather than a stylesheet override. Activity
+        {/* Kept alive while hidden (Chat view), so switching back doesn't rebuild the farm. */}
+        {activeGoalId && (
+          <Activity mode={goalWorldOpen ? "visible" : "hidden"}>
+            <Suspense fallback={null}>
+              <GoalWorld
+                key={activeGoalId}
+                headerRef={workspaceHeaderRef}
+                goalId={activeGoalId}
+                running={running}
+                liveTools={liveToolFeed}
+                waitingOnUser={goalWaitingOnUser}
+                workers={goalWorkers}
+                ask={goalAskNotice}
+                kenSaid={kenSaid}
+                onShowChat={() => setGoalChatFor(activeGoalId)}
+                finish={shownGoalFinish}
+                onCloseFinish={() => setGoalFinish(null)}
+                kenStatus={kenStatus}
+              />
+            </Suspense>
+          </Activity>
+        )}
+
+        {/* React owns chat visibility rather than a stylesheet override. Activity
           keeps the draft and transcript state, and suspends hidden child effects. */}
-      <Activity mode={goalWorldOpen ? "hidden" : "visible"}>
-        {/* Non-scrolling frame the same size as the chat viewport. The banner
+        <Activity mode={goalWorldOpen ? "hidden" : "visible"}>
+          {/* Non-scrolling frame the same size as the chat viewport. The banner
           lives HERE, not inside `.transcript` — `.transcript` scrolls, and an
           absolutely positioned child of a scrolling container is pinned to the
           top of the scrolled CONTENT, not the visible viewport, so in an
           existing session scrolled down it rendered far above what's on
           screen. Anchoring to this non-scrolling sibling keeps it pinned to
           what the user is actually looking at, at any scroll position. */}
-        <div ref={transcriptFrameRef} className="transcript-frame">
-          {workspaceMode === "code" && kenPowerBanner && (
-            <KenPowerBanner mode={kenPowerBanner} onDone={() => setKenPowerBanner(null)} />
-          )}
-          <div
-            className="transcript"
-            ref={attachTranscript}
-            onScroll={onTranscriptScroll}
-            onWheel={onTranscriptWheel}
-          >
-            {!hydrated && items.length === 0 ? (
-              <TranscriptSkeleton />
-            ) : (
-              <>
-                {items.length === 0 &&
-                  (connectError !== null ? (
-                    <div className="picker-empty transcript-reveal" role="alert">
-                      <span>Couldn't connect to the agent.</span>
-                      <span style={{ color: theme.textDim }}>{connectError}</span>
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-ghost"
-                        onClick={() => {
-                          // Restart the failed start first so the re-hydrate
-                          // waits on a fresh attempt, not the recorded failure.
-                          void retryWindowSession()
-                            .catch((e: unknown) =>
-                              toast(
-                                `Couldn't restart the agent: ${e instanceof Error ? e.message : String(e)}`,
-                                "error",
-                              ),
-                            )
-                            .finally(() => setHydrateNonce((n) => n + 1));
-                        }}
-                      >
-                        Try again
-                      </button>
-                    </div>
-                  ) : status === "ready" ? (
-                    <WakeScreen
-                      chat={workspaceMode === "chat"}
-                      motion={workspaceMode === "motion"}
-                      goals={Boolean(state?.goal)}
-                    />
-                  ) : emptyTranscriptStatus(status) ? (
-                    <div className="line transcript-reveal" style={{ color: theme.textDim }}>
-                      {`\u273b ${emptyTranscriptStatus(status)}`}
-                    </div>
-                  ) : null)}
-                <PromptSendProvider value={sendKenRecommendedPrompt}>
-                  <LiveTextContext.Provider value={liveText}>
-                    {visibleItems.flatMap((it) => {
-                      const transcriptRow = (
-                        <TranscriptRow
-                          key={it.id}
-                          item={it}
-                          view={chatView}
-                          animateIn={it.id >= liveFromId}
-                          consumeEntrance={entrances.consume}
-                          kenTalking={it.id === talkingKenId}
-                          errorActive={it.id === currentErrorId}
-                          errorModelPicker={
-                            it.kind === "error" && it.id === currentErrorId ? (
-                              <ModelSelect
-                                models={models}
-                                currentModel={
-                                  it.scope === "ken_error" || it.scope === "autopilot_error"
-                                    ? (state?.kenModel ?? state?.model ?? "")
-                                    : (state?.model ?? "")
-                                }
-                                onSelect={
-                                  it.scope === "ken_error" || it.scope === "autopilot_error"
-                                    ? onSelectKenModel
-                                    : onSelectModel
-                                }
-                                disabled={running || kenRunning || autopilotReviewing}
-                                title={
-                                  it.scope === "ken_error" || it.scope === "autopilot_error"
-                                    ? "Switch Ken's model"
-                                    : "Switch model"
-                                }
-                                label={
-                                  it.reason === "usage_limit" ? "Switch provider" : "Choose model"
-                                }
-                                color={theme.primary}
-                              />
-                            ) : undefined
-                          }
-                          onContentGrow={maybeScrollToBottom}
-                          onAskAnswer={answerAsk}
-                          onAskType={typeAskInstead}
-                          onRuleSuggestion={ruleSuggestionAction}
-                        />
-                      );
-                      const row =
-                        it.kind === "ken" ? (
-                          <PromptSentProvider key={it.id} value={sentAfterKen.get(it.id) ?? []}>
-                            {transcriptRow}
-                          </PromptSentProvider>
-                        ) : (
-                          transcriptRow
+          <div ref={transcriptFrameRef} className="transcript-frame">
+            {workspaceMode === "code" && kenPowerBanner && (
+              <KenPowerBanner mode={kenPowerBanner} onDone={() => setKenPowerBanner(null)} />
+            )}
+            <div
+              className="transcript"
+              ref={attachTranscript}
+              onScroll={onTranscriptScroll}
+              onWheel={onTranscriptWheel}
+            >
+              {!hydrated && items.length === 0 ? (
+                <TranscriptSkeleton />
+              ) : (
+                <>
+                  {items.length === 0 &&
+                    (connectError !== null ? (
+                      <div className="picker-empty transcript-reveal" role="alert">
+                        <span>Couldn't connect to the agent.</span>
+                        <span style={{ color: theme.textDim }}>{connectError}</span>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-ghost"
+                          onClick={() => {
+                            // Restart the failed start first so the re-hydrate
+                            // waits on a fresh attempt, not the recorded failure.
+                            void retryWindowSession()
+                              .catch((e: unknown) =>
+                                toast(
+                                  `Couldn't restart the agent: ${e instanceof Error ? e.message : String(e)}`,
+                                  "error",
+                                ),
+                              )
+                              .finally(() => setHydrateNonce((n) => n + 1));
+                          }}
+                        >
+                          Try again
+                        </button>
+                      </div>
+                    ) : status === "ready" ? (
+                      <WakeScreen
+                        chat={workspaceMode === "chat"}
+                        motion={workspaceMode === "motion"}
+                        goals={Boolean(state?.goal)}
+                      />
+                    ) : emptyTranscriptStatus(status) ? (
+                      <div className="line transcript-reveal" style={{ color: theme.textDim }}>
+                        {`\u273b ${emptyTranscriptStatus(status)}`}
+                      </div>
+                    ) : null)}
+                  <PromptSendProvider value={sendKenRecommendedPrompt}>
+                    <LiveTextContext.Provider value={liveText}>
+                      {visibleItems.flatMap((it) => {
+                        const transcriptRow = (
+                          <TranscriptRow
+                            key={it.id}
+                            item={it}
+                            view={chatView}
+                            animateIn={it.id >= liveFromId}
+                            consumeEntrance={entrances.consume}
+                            kenTalking={it.id === talkingKenId}
+                            errorActive={it.id === currentErrorId}
+                            errorModelPicker={
+                              it.kind === "error" && it.id === currentErrorId ? (
+                                <ModelSelect
+                                  models={models}
+                                  currentModel={
+                                    it.scope === "ken_error" || it.scope === "autopilot_error"
+                                      ? (state?.kenModel ?? state?.model ?? "")
+                                      : (state?.model ?? "")
+                                  }
+                                  onSelect={
+                                    it.scope === "ken_error" || it.scope === "autopilot_error"
+                                      ? onSelectKenModel
+                                      : onSelectModel
+                                  }
+                                  disabled={running || kenRunning || autopilotReviewing}
+                                  title={
+                                    it.scope === "ken_error" || it.scope === "autopilot_error"
+                                      ? "Switch Ken's model"
+                                      : "Switch model"
+                                  }
+                                  label={
+                                    it.reason === "usage_limit" ? "Switch provider" : "Choose model"
+                                  }
+                                  color={theme.primary}
+                                />
+                              ) : undefined
+                            }
+                            onContentGrow={maybeScrollToBottom}
+                            onAskAnswer={answerAsk}
+                            onAskType={typeAskInstead}
+                            onRuleSuggestion={ruleSuggestionAction}
+                          />
                         );
-                      // Zero-height landing spot for "You have new chats". A flat
-                      // keyed list, so rows never remount when it comes and goes.
-                      return it.id === firstNewId
-                        ? [
-                            <div
-                              key="new-marker"
-                              ref={newMarkerRef}
-                              className="transcript-new-marker"
-                              aria-hidden="true"
-                            />,
-                            row,
-                          ]
-                        : [row];
-                    })}
-                  </LiveTextContext.Provider>
-                </PromptSendProvider>
-              </>
+                        const row =
+                          it.kind === "ken" ? (
+                            <PromptSentProvider key={it.id} value={sentAfterKen.get(it.id) ?? []}>
+                              {transcriptRow}
+                            </PromptSentProvider>
+                          ) : (
+                            transcriptRow
+                          );
+                        // Zero-height landing spot for "You have new chats". A flat
+                        // keyed list, so rows never remount when it comes and goes.
+                        return it.id === firstNewId
+                          ? [
+                              <div
+                                key="new-marker"
+                                ref={newMarkerRef}
+                                className="transcript-new-marker"
+                                aria-hidden="true"
+                              />,
+                              row,
+                            ]
+                          : [row];
+                      })}
+                    </LiveTextContext.Provider>
+                  </PromptSendProvider>
+                </>
+              )}
+            </div>
+            {items.length > 0 && (
+              <TranscriptJumpControls
+                away={!following}
+                hasNew={firstNewId !== null}
+                askAt={askPlace === "above" || askPlace === "below" ? askPlace : null}
+                onScrollToBottom={jumpToLatest}
+                onJumpToNew={jumpToNew}
+                onJumpToAsk={jumpToAsk}
+              />
             )}
           </div>
-          {items.length > 0 && (
-            <TranscriptJumpControls
-              away={!following}
-              hasNew={firstNewId !== null}
-              askAt={askPlace === "above" || askPlace === "below" ? askPlace : null}
-              onScrollToBottom={jumpToLatest}
-              onJumpToNew={jumpToNew}
-              onJumpToAsk={jumpToAsk}
-            />
-          )}
-        </div>
 
-        {/* The dock: everything below the conversation, floating over its
+          {/* The dock: everything below the conversation, floating over its
           bottom edge so messages scroll on behind it through a frost (the
           title bar's, mirrored). The transcript reserves the dock's height as
           padding (--dock-h, kept current by a ResizeObserver). */}
-        <div ref={dockRef} className="dock">
-          {/* Sub-agents walk on top of the pinned region as critters; the lane
+          <div ref={dockRef} className="dock">
+            {/* Sub-agents walk on top of the pinned region as critters; the lane
           opens (pushing the chat up) only while one is out. */}
-          <CritterFloor groups={critterGroups} />
-          <div ref={liveRegionRef} className="liveregion">
-            {/* Motion's starting points sit just above the deck and go away once
+            <CritterFloor groups={critterGroups} />
+            <div ref={liveRegionRef} className="liveregion">
+              {/* Motion's starting points sit just above the deck and go away once
             the conversation has its first message. */}
-            {workspaceMode === "motion" && hydrated && items.length === 0 && !running && (
-              <MotionStarters onPick={fillComposer} />
-            )}
-            {!toolsHidden && <LiveToolPanel entries={liveToolFeed} />}
-          </div>
+              {workspaceMode === "motion" && hydrated && items.length === 0 && !running && (
+                <MotionStarters onPick={fillComposer} />
+              )}
+              {!toolsHidden && <LiveToolPanel entries={liveToolFeed} />}
+            </div>
 
-          <Deck
-            state={state}
-            hydrated={hydrated}
-            // A Goal works in a git repo too: its branch key opens the Git panel.
-            showGit={workspaceMode === "code"}
-            panel={deckPanel}
-            onPanelChange={setDeckPanel}
-            mentor={workspaceMode === "code" ? { active: kenActive, onToggle: toggleMentor } : null}
-            maxGas={workspaceMode === "code" ? { active: maxGas, onToggle: toggleMaxGas } : null}
-            autopilot={
-              workspaceMode === "code"
-                ? {
-                    active: state?.autopilot ?? false,
-                    disabled: running || autopilotReviewing,
-                    onToggle: () => changeAutopilot(!(state?.autopilot ?? false)),
-                  }
-                : null
-            }
-            running={running}
-            contextPct={contextPct}
-            models={models}
-            modelsFailed={modelsFailed}
-            onSelectModel={onSelectModel}
-            second={
-              state?.goal
-                ? {
-                    name: "Critters",
-                    followLabel: "GG Goals",
-                    model: state.goal.critterModel ?? state.model,
-                    following: !state.goal.critterModel,
-                    disabled: false,
-                    onSelect: onSelectCritterModel,
-                  }
-                : workspaceMode === "code" && state
-                  ? {
-                      name: "Ken",
-                      followLabel: "GG",
-                      model: state.kenModel ?? state.model,
-                      following: !state.kenModelOverride,
-                      disabled: running || kenRunning || autopilotReviewing,
-                      onSelect: onSelectKenModel,
-                    }
-                  : null
-            }
-            tasks={tasks}
-            schedules={schedules}
-            onStopSchedule={stopSchedule}
-            projectHealth={projectHealth}
-            onReviewHealth={reviewProjectHealth}
-            tools={{
-              notes: {
-                title: "Notes",
-                meta: "Saved on this Mac",
-                body: (
-                  <NotesModal
-                    value={notes}
-                    onChange={handleNotesChange}
-                    onClose={() => closeDeckPanel("notes")}
-                  />
-                ),
-              },
-              todo:
+            <Deck
+              state={state}
+              hydrated={hydrated}
+              // A Goal works in a git repo too: its branch key opens the Git panel.
+              showGit={workspaceMode === "code"}
+              panel={deckPanel}
+              onPanelChange={setDeckPanel}
+              mentor={
+                workspaceMode === "code" ? { active: kenActive, onToggle: toggleMentor } : null
+              }
+              maxGas={workspaceMode === "code" ? { active: maxGas, onToggle: toggleMaxGas } : null}
+              autopilot={
                 workspaceMode === "code"
                   ? {
-                      title: "Tasks",
-                      meta: `${projectTasks.filter((t) => t.status !== "done").length} pending`,
-                      body: (
-                        <TasksModal
-                          tasks={projectTasks}
-                          running={running}
-                          onRun={handleRunTask}
-                          onRunAll={handleRunAllTasks}
-                          onDelete={handleDeleteTask}
-                          onClose={() => closeDeckPanel("todo")}
-                        />
-                      ),
+                      active: state?.autopilot ?? false,
+                      disabled: running || autopilotReviewing,
+                      onToggle: () => changeAutopilot(!(state?.autopilot ?? false)),
                     }
-                  : undefined,
-              checklist:
-                workspaceMode === "code" && !state?.goal
+                  : null
+              }
+              running={running}
+              contextPct={contextPct}
+              models={models}
+              modelsFailed={modelsFailed}
+              onSelectModel={onSelectModel}
+              second={
+                state?.goal
                   ? {
-                      title: "Checklist",
-                      meta:
-                        checklistLoad.kind === "ready"
-                          ? `${checklistLoad.snapshot.items.filter((i) => i.status === "passed").length} of ${checklistLoad.snapshot.items.length} passing`
-                          : undefined,
+                      name: "Critters",
+                      followLabel: "GG Goals",
+                      model: state.goal.critterModel ?? state.model,
+                      following: !state.goal.critterModel,
+                      disabled: false,
+                      onSelect: onSelectCritterModel,
+                    }
+                  : workspaceMode === "code" && state
+                    ? {
+                        name: "Ken",
+                        followLabel: "GG",
+                        model: state.kenModel ?? state.model,
+                        following: !state.kenModelOverride,
+                        disabled: running || kenRunning || autopilotReviewing,
+                        onSelect: onSelectKenModel,
+                      }
+                    : null
+              }
+              tasks={tasks}
+              schedules={schedules}
+              onStopSchedule={stopSchedule}
+              projectHealth={projectHealth}
+              onReviewHealth={reviewProjectHealth}
+              tools={{
+                notes: {
+                  title: "Notes",
+                  meta: "Saved on this Mac",
+                  body: (
+                    <NotesModal
+                      value={notes}
+                      onChange={handleNotesChange}
+                      onClose={() => closeDeckPanel("notes")}
+                    />
+                  ),
+                },
+                todo:
+                  workspaceMode === "code"
+                    ? {
+                        title: "Tasks",
+                        meta: `${projectTasks.filter((t) => t.status !== "done").length} pending`,
+                        body: (
+                          <TasksModal
+                            tasks={projectTasks}
+                            running={running}
+                            onRun={handleRunTask}
+                            onRunAll={handleRunAllTasks}
+                            onDelete={handleDeleteTask}
+                            onClose={() => closeDeckPanel("todo")}
+                          />
+                        ),
+                      }
+                    : undefined,
+                checklist:
+                  workspaceMode === "code" && !state?.goal
+                    ? {
+                        title: "Checklist",
+                        meta:
+                          checklistLoad.kind === "ready"
+                            ? `${checklistLoad.snapshot.items.filter((i) => i.status === "passed").length} of ${checklistLoad.snapshot.items.length} passing`
+                            : undefined,
+                        body: (
+                          <ChecklistScreen
+                            load={checklistLoad}
+                            running={running || checklistRunId !== null}
+                            activeId={checklistRunId}
+                            notice={checklistNotice}
+                            onRun={handleRunChecklistItem}
+                            onRetry={() => {
+                              setChecklistLoad({ kind: "loading" });
+                              void refreshChecklist();
+                            }}
+                          />
+                        ),
+                      }
+                    : undefined,
+                // Goal windows show the attached project's score too (Usage →
+                // Project Health), so the breakdown must open there as well.
+                health:
+                  workspaceMode === "code"
+                    ? {
+                        title: "Project Health",
+                        body: (
+                          <ProjectHealthPanel
+                            health={projectHealth}
+                            onReview={reviewProjectHealth}
+                            onDone={() => closeDeckPanel("health")}
+                          />
+                        ),
+                      }
+                    : undefined,
+                goal: state?.goal
+                  ? {
+                      title: "Goal settings",
                       body: (
-                        <ChecklistScreen
-                          load={checklistLoad}
-                          running={running || checklistRunId !== null}
-                          activeId={checklistRunId}
-                          notice={checklistNotice}
-                          onRun={handleRunChecklistItem}
-                          onRetry={() => {
-                            setChecklistLoad({ kind: "loading" });
-                            void refreshChecklist();
+                        <GoalSettingsModal
+                          context={state.goal.context ?? []}
+                          instructions={state.goal.instructions ?? ""}
+                          busy={running}
+                          onClose={() => closeDeckPanel("goal")}
+                          onSaved={(next) => {
+                            setState((s) => (s?.goal ? { ...s, goal: { ...s.goal, ...next } } : s));
+                            // Newly attached repos bring their own slash commands.
+                            refreshCommands();
                           }}
                         />
                       ),
                     }
                   : undefined,
-              // Goal windows show the attached project's score too (Usage →
-              // Project Health), so the breakdown must open there as well.
-              health:
-                workspaceMode === "code"
-                  ? {
-                      title: "Project Health",
-                      body: (
-                        <ProjectHealthPanel
-                          health={projectHealth}
-                          onReview={reviewProjectHealth}
-                          onDone={() => closeDeckPanel("health")}
-                        />
-                      ),
-                    }
+                scorecard: progress
+                  ? { title: "Scorecard", body: <ScorecardPanel snapshot={progress} /> }
                   : undefined,
-              goal: state?.goal
-                ? {
-                    title: "Goal settings",
-                    body: (
-                      <GoalSettingsModal
-                        context={state.goal.context ?? []}
-                        instructions={state.goal.instructions ?? ""}
-                        busy={running}
-                        onClose={() => closeDeckPanel("goal")}
-                        onSaved={(next) => {
-                          setState((s) => (s?.goal ? { ...s, goal: { ...s.goal, ...next } } : s));
-                          // Newly attached repos bring their own slash commands.
-                          refreshCommands();
-                        }}
-                      />
-                    ),
-                  }
-                : undefined,
-              scorecard: progress
-                ? { title: "Scorecard", body: <ScorecardPanel snapshot={progress} /> }
-                : undefined,
-              brain:
-                workspaceMode === "chat"
-                  ? {
-                      title: "Brain",
-                      body: <MemoryModal onClose={() => closeDeckPanel("brain")} />,
-                    }
-                  : undefined,
-            }}
-            progress={progress}
-            trophies={trophies.snapshot}
-            onOpenRoyale={() => showScreen(() => setShowRoyale(true))}
-            usageExtras={
-              windowTotal > 1 &&
-              windowIndex !== null && (
-                <span
-                  className="deck-pm"
-                  title={`Window ${windowIndex} of ${windowTotal} · ⌘\` to cycle`}
-                >
-                  Window {windowIndex} of {windowTotal}
-                </span>
-              )
-            }
-            menu={
-              <DeckMenu
-                workspaceMode={workspaceMode}
-                isGoal={Boolean(state?.goal)}
-                running={running}
-                autopilot={state?.autopilot ?? false}
-                autopilotReviewing={autopilotReviewing}
-                onAutopilotChange={changeAutopilot}
-                onNewSession={closeDeckThen(() => setConfirmNewSession(true))}
-                onOpenNotes={() => setDeckPanel("notes")}
-                onOpenMemories={() => setDeckPanel("brain")}
-                projectTasks={projectTasks}
-                onOpenTasks={openTasks}
-                showChecklist={showChecklist}
-                onOpenChecklist={openChecklist}
-                hasHealth={projectHealth !== null}
-                onOpenHealth={() => setDeckPanel("health")}
-                onOpenRadio={() => setDeckPanel("radio")}
-                onOpenGoalSettings={state?.goal ? () => setDeckPanel("goal") : undefined}
-                canExport={items.length > 0}
-                exporting={exporting}
-                onExport={closeDeckThen(() => void exportTranscript())}
-                onArrange={() => setToolsHiddenPersisted(true)}
-                onBack={closeDeckThen(goBack)}
-                backLabel={backLabel}
-              />
-            }
-            status={
-              /* The deck's status line is whoever is working: a manual @Ken
+                brain:
+                  workspaceMode === "chat"
+                    ? {
+                        title: "Brain",
+                        body: <MemoryModal onClose={() => closeDeckPanel("brain")} />,
+                      }
+                    : undefined,
+              }}
+              progress={progress}
+              trophies={trophies.snapshot}
+              onOpenWorld={() => showScreen(() => setShowWorld(true))}
+              usageExtras={
+                windowTotal > 1 &&
+                windowIndex !== null && (
+                  <span
+                    className="deck-pm"
+                    title={`Window ${windowIndex} of ${windowTotal} · ⌘\` to cycle`}
+                  >
+                    Window {windowIndex} of {windowTotal}
+                  </span>
+                )
+              }
+              menu={
+                <DeckMenu
+                  workspaceMode={workspaceMode}
+                  isGoal={Boolean(state?.goal)}
+                  running={running}
+                  autopilot={state?.autopilot ?? false}
+                  autopilotReviewing={autopilotReviewing}
+                  onAutopilotChange={changeAutopilot}
+                  onNewSession={closeDeckThen(() => setConfirmNewSession(true))}
+                  onOpenNotes={() => setDeckPanel("notes")}
+                  onOpenMemories={() => setDeckPanel("brain")}
+                  projectTasks={projectTasks}
+                  onOpenTasks={openTasks}
+                  showChecklist={showChecklist}
+                  onOpenChecklist={openChecklist}
+                  hasHealth={projectHealth !== null}
+                  onOpenHealth={() => setDeckPanel("health")}
+                  onOpenRadio={() => setDeckPanel("radio")}
+                  onOpenGoalSettings={state?.goal ? () => setDeckPanel("goal") : undefined}
+                  canExport={items.length > 0}
+                  exporting={exporting}
+                  onExport={closeDeckThen(() => void exportTranscript())}
+                  onArrange={() => setToolsHiddenPersisted(true)}
+                  onBack={closeDeckThen(goBack)}
+                  backLabel={backLabel}
+                />
+              }
+              status={
+                /* The deck's status line is whoever is working: a manual @Ken
                  reply shows Ken's bar there in place of GG's (an automatic
                  review stays in GG's task row). */
-              workspaceMode === "code" && kenRunning && !running && !autopilotReviewing ? (
-                <KenActivityBar
-                  runStartTs={kenRunStartTs}
-                  tokens={kenTokens}
-                  isThinking={kenIsThinking}
-                  thinkingStartTs={kenThinkingStartTs}
-                  thinkingAccumMs={kenThinkingAccumMs}
-                  onCancel={() => void cancelKen()}
-                />
-              ) : (
-                <ActivityBar
+                workspaceMode === "code" && kenRunning && !running && !autopilotReviewing ? (
+                  <KenActivityBar
+                    runStartTs={kenRunStartTs}
+                    tokens={kenTokens}
+                    isThinking={kenIsThinking}
+                    thinkingStartTs={kenThinkingStartTs}
+                    thinkingAccumMs={kenThinkingAccumMs}
+                    onCancel={() => void cancelKen()}
+                  />
+                ) : (
+                  <ActivityBar
+                    running={running}
+                    runStartedAt={runStartedAt}
+                    activity={barActivity}
+                    cancelling={cancelling}
+                    tokens={tokens}
+                    doneStatus={doneStatus}
+                    isThinking={isThinking}
+                    thinkingStartTs={thinkingStartTs}
+                    thinkingAccumMs={thinkingAccumMs}
+                    planTotal={workspaceMode !== "code" ? 0 : planTotal}
+                    planDone={workspaceMode !== "code" ? 0 : Math.min(planDone.size, planTotal)}
+                    onCancel={requestCancel}
+                    toolsHidden={toolsHidden}
+                    hasToolFeed={liveToolFeed.length > 0}
+                    onToggleTools={toggleTools}
+                  />
+                )
+              }
+              composer={
+                <Composer
+                  workspaceMode={workspaceMode}
+                  state={state}
+                  composerRef={composerRef}
+                  isFileDragOver={isFileDragOver}
+                  scheduleInvalid={scheduleInvalid}
+                  scheduleDraft={scheduleDraft}
                   running={running}
-                  runStartedAt={runStartedAt}
-                  activity={barActivity}
+                  kenRunning={kenRunning}
+                  autopilotReviewing={autopilotReviewing}
                   cancelling={cancelling}
-                  tokens={tokens}
-                  doneStatus={doneStatus}
-                  isThinking={isThinking}
-                  thinkingStartTs={thinkingStartTs}
-                  thinkingAccumMs={thinkingAccumMs}
-                  planTotal={workspaceMode !== "code" ? 0 : planTotal}
-                  planDone={workspaceMode !== "code" ? 0 : Math.min(planDone.size, planTotal)}
-                  onCancel={requestCancel}
-                  toolsHidden={toolsHidden}
-                  hasToolFeed={liveToolFeed.length > 0}
-                  onToggleTools={toggleTools}
+                  sendDisabled={sendDisabled}
+                  input={input}
+                  setInput={setInput}
+                  caret={caret}
+                  setCaret={setCaret}
+                  fillScheduleInterval={fillScheduleInterval}
+                  slashOpen={slashOpen}
+                  slashMatches={slashMatches}
+                  clampedSlashIndex={clampedSlashIndex}
+                  pickSlashCommand={pickSlashCommand}
+                  setSlashIndex={setSlashIndex}
+                  mentionOpen={mentionOpen}
+                  fileMatches={fileMatches}
+                  clampedFileIndex={clampedFileIndex}
+                  mention={mention}
+                  setMention={setMention}
+                  pickMentionFile={pickMentionFile}
+                  setFileIndex={setFileIndex}
+                  updateMention={updateMention}
+                  attachments={attachments}
+                  attachmentsLoading={attachmentsLoading}
+                  removeAttachment={removeAttachment}
+                  addFiles={addFiles}
+                  fileInputRef={fileInputRef}
+                  mentionedPaths={mentionedPaths}
+                  removeMentionChip={removeMentionChip}
+                  visibleQueuedMessages={visibleQueuedMessages}
+                  sendCount={sendCount}
+                  handleCancelQueued={handleCancelQueued}
+                  enhanceAnim={enhanceAnim}
+                  onEnhanceAnimDone={onEnhanceAnimDone}
+                  enhancement={enhancement}
+                  setEnhancement={setEnhancement}
+                  enhancing={enhancing}
+                  enhanceHintVisible={enhanceHintVisible}
+                  runEnhance={runEnhance}
+                  kenActive={kenActive}
+                  kenInputParts={kenInputParts}
+                  attachInput={attachInput}
+                  displayPlaceholder={displayPlaceholder}
+                  lastKeystrokeAtRef={lastKeystrokeAtRef}
+                  historyIndex={historyIndex}
+                  setHistoryIndex={setHistoryIndex}
+                  navigateHistory={navigateHistory}
+                  submit={submit}
+                  requestCancel={requestCancel}
                 />
-              )
-            }
-            composer={
-              <Composer
-                workspaceMode={workspaceMode}
-                state={state}
-                composerRef={composerRef}
-                isFileDragOver={isFileDragOver}
-                scheduleInvalid={scheduleInvalid}
-                scheduleDraft={scheduleDraft}
-                running={running}
-                kenRunning={kenRunning}
-                autopilotReviewing={autopilotReviewing}
-                cancelling={cancelling}
-                sendDisabled={sendDisabled}
-                input={input}
-                setInput={setInput}
-                caret={caret}
-                setCaret={setCaret}
-                fillScheduleInterval={fillScheduleInterval}
-                slashOpen={slashOpen}
-                slashMatches={slashMatches}
-                clampedSlashIndex={clampedSlashIndex}
-                pickSlashCommand={pickSlashCommand}
-                setSlashIndex={setSlashIndex}
-                mentionOpen={mentionOpen}
-                fileMatches={fileMatches}
-                clampedFileIndex={clampedFileIndex}
-                mention={mention}
-                setMention={setMention}
-                pickMentionFile={pickMentionFile}
-                setFileIndex={setFileIndex}
-                updateMention={updateMention}
-                attachments={attachments}
-                attachmentsLoading={attachmentsLoading}
-                removeAttachment={removeAttachment}
-                addFiles={addFiles}
-                fileInputRef={fileInputRef}
-                mentionedPaths={mentionedPaths}
-                removeMentionChip={removeMentionChip}
-                visibleQueuedMessages={visibleQueuedMessages}
-                sendCount={sendCount}
-                handleCancelQueued={handleCancelQueued}
-                enhanceAnim={enhanceAnim}
-                onEnhanceAnimDone={onEnhanceAnimDone}
-                enhancement={enhancement}
-                setEnhancement={setEnhancement}
-                enhancing={enhancing}
-                enhanceHintVisible={enhanceHintVisible}
-                runEnhance={runEnhance}
-                kenActive={kenActive}
-                kenInputParts={kenInputParts}
-                attachInput={attachInput}
-                displayPlaceholder={displayPlaceholder}
-                lastKeystrokeAtRef={lastKeystrokeAtRef}
-                historyIndex={historyIndex}
-                setHistoryIndex={setHistoryIndex}
-                navigateHistory={navigateHistory}
-                submit={submit}
-                requestCancel={requestCancel}
-              />
-            }
+              }
+            />
+
+            <UpdateBanner appUpdate={appUpdate} />
+          </div>
+        </Activity>
+
+        {workspaceMode === "code" && showInitGit && (
+          <InitGitModal
+            defaultName={defaultRepoName}
+            onClose={() => setShowInitGit(false)}
+            onInitialize={(prompt) => {
+              setShowInitGit(false);
+              submitText(prompt, "Initializing Git\u2026");
+            }}
           />
+        )}
 
-          <UpdateBanner appUpdate={appUpdate} />
-        </div>
-      </Activity>
+        {confirmNewSession && (
+          <ConfirmModal
+            title={workspaceMode === "chat" ? "New Chat" : "New Session"}
+            // Nothing is cleared: `newSession()` writes a NEW session file and
+            // leaves the old one on disk, still listed and re-openable. Saying
+            // "will be cleared" made a safe action read as destructive.
+            message="Start fresh? This conversation stays saved."
+            confirmLabel={workspaceMode === "chat" ? "New Chat" : "New Session"}
+            busy={newSessionBusy}
+            onConfirm={() => void startNewSession()}
+            onClose={() => setConfirmNewSession(false)}
+          />
+        )}
 
-      {workspaceMode === "code" && showInitGit && (
-        <InitGitModal
-          defaultName={defaultRepoName}
-          onClose={() => setShowInitGit(false)}
-          onInitialize={(prompt) => {
-            setShowInitGit(false);
-            submitText(prompt, "Initializing Git\u2026");
-          }}
-        />
-      )}
-
-      {confirmNewSession && (
-        <ConfirmModal
-          title={workspaceMode === "chat" ? "New Chat" : "New Session"}
-          // Nothing is cleared: `newSession()` writes a NEW session file and
-          // leaves the old one on disk, still listed and re-openable. Saying
-          // "will be cleared" made a safe action read as destructive.
-          message="Start fresh? This conversation stays saved."
-          confirmLabel={workspaceMode === "chat" ? "New Chat" : "New Session"}
-          busy={newSessionBusy}
-          onConfirm={() => void startNewSession()}
-          onClose={() => setConfirmNewSession(false)}
-        />
-      )}
-
-      {/* Always mounted: an MCP server can ask for input at any moment, in any
+        {/* Always mounted: an MCP server can ask for input at any moment, in any
           workspace mode, and its tool call stays blocked until we answer. */}
-      <McpElicitModal />
+        <McpElicitModal />
 
-      {workspaceMode === "code" && planReview !== null && (
-        <PlanReviewModal
-          key={planReviewAttempt}
-          content={planReview}
-          // Autopilot Ken reviews submitted plans himself; the indicator tells
-          // the user, but manual Accept/Reject stays live and always wins.
-          kenReviewing={autopilotReviewing}
-          onAccept={acceptPlan}
-          onFeedback={sendPlanFeedback}
-          onReject={rejectPlan}
-        />
-      )}
+        {workspaceMode === "code" && planReview !== null && (
+          <PlanReviewModal
+            key={planReviewAttempt}
+            content={planReview}
+            // Autopilot Ken reviews submitted plans himself; the indicator tells
+            // the user, but manual Accept/Reject stays live and always wins.
+            kenReviewing={autopilotReviewing}
+            onAccept={acceptPlan}
+            onFeedback={sendPlanFeedback}
+            onReject={rejectPlan}
+          />
+        )}
 
-      {/* GG Royale over this workspace, full window. The session keeps running
-          underneath; Back comes straight back to it. */}
-      {showRoyale && (
-        <div className="royale-overlay">
-          <RoyaleScreen onClose={() => showScreen(() => setShowRoyale(false))} />
-        </div>
-      )}
-
-      {/* Settings reached from the menu-bar tray. Rendered in every view branch
+        {/* Settings reached from the menu-bar tray. Rendered in every view branch
           (Home, picker, workspace) because the tray targets a WINDOW and can't
           know which of the three it is showing. */}
-      {showTraySettings && <SettingsModal onClose={closeTraySettings} />}
+        {showTraySettings && <SettingsModal onClose={closeTraySettings} />}
 
-      {/* Workspace toasts (saved transcript, Remote on/off, rank-up) need their
+        {/* Workspace toasts (saved transcript, Remote on/off, rank-up) need their
           own host: the one in the Home/Settings branch isn't mounted here. */}
-      <Toaster />
+        <Toaster />
 
-      {/* One trophy at a time, in the order earned; it files itself into the
+        {/* One trophy at a time, in the order earned; it files itself into the
           deck's trophies key, so it only plays where the deck is. */}
-      {trophies.queue[0] && (
-        <TrophyUnlock
-          key={trophies.queue[0].id}
-          trophy={trophies.queue[0]}
-          snapshot={trophies.snapshot}
-          onOpenTrophies={() => setDeckPanel("trophies")}
-          onDone={trophies.shift}
-        />
-      )}
-    </div>
+        {trophies.queue[0] && (
+          <TrophyUnlock
+            key={trophies.queue[0].id}
+            trophy={trophies.queue[0]}
+            snapshot={trophies.snapshot}
+            onOpenTrophies={() => setDeckPanel("trophies")}
+            onDone={trophies.shift}
+          />
+        )}
+      </div>
+      {worldLayer}
+    </>
   );
 }
 
