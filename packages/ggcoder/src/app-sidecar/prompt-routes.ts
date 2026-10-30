@@ -15,6 +15,7 @@ import { readBody, json } from "./http.js";
 import { type AppAttachment, prepareAttachments } from "./attachments.js";
 import { getModel } from "../core/model-registry.js";
 import { saveAutopilot } from "./app-settings.js";
+import { appendAutopilotRule, normalizeRuleLine } from "../core/autopilot-rule-suggestions.js";
 import { lastAssistantText, buildKenContext } from "./ken-context.js";
 import { buildGoalBoard } from "../core/goal-board.js";
 import { goalsRoot } from "../core/goals-store.js";
@@ -315,6 +316,10 @@ export function handlePromptRoutes(
         // Fresh user turn: clear any cancel flag left from a prior cycle so this
         // turn's autopilot review can run.
         ctx.autopilotCancelled = false;
+        // GODIK CODER: a new prompt drops any pending rule suggestion; a reply
+        // to an Autopilot HUMAN stop may produce a new one (never scheduled runs).
+        const humanStop = ctx.ruleSuggestions.takeHumanStop();
+        const answersHumanStop = meta?.scheduled === true ? null : humanStop;
         // A typed message while a plan modal/review is pending (reject,
         // feedback, anything) supersedes the pending plan — the bump also
         // invalidates any in-flight Ken plan review.
@@ -352,6 +357,9 @@ export function handlePromptRoutes(
           },
           () => ctx.autopilot,
         );
+        if (answersHumanStop && ctx.autopilot) {
+          await ctx.suggestRuleFromReply(answersHumanStop, text);
+        }
         // After the user's run settles, kick off Ken's auto-review loop — but
         // only when the turn is actually reviewable (shouldStartAutopilotCycle):
         // workflow commands (/compare, /expand, …) end with reports or
@@ -547,6 +555,47 @@ export function handlePromptRoutes(
       log("INFO", "app-sidecar", "autopilot toggled", { enabled: String(enabled) });
       ctx.broadcast("autopilot", { autopilot: enabled });
       json(res, 200, { autopilot: enabled });
+    });
+    return true;
+  }
+
+  // GODIK CODER (v2): the user clicked Save on a rule suggestion. Appends one
+  // line to .gg/autopilot-rules.md under a file lock — only for the suggestion
+  // still pending (a cancel or new prompt since then makes it stale).
+  if (method === "POST" && url === "/autopilot/rules/append") {
+    if (ctx.mode !== "code") {
+      json(res, 404, { error: "Autopilot rules are only available in GG Coder." });
+      return true;
+    }
+    void readBody(req, res).then(async (raw) => {
+      if (raw === null) return;
+      let id: string;
+      let text: string;
+      try {
+        const body = JSON.parse(raw) as { id?: unknown; text?: unknown };
+        id = typeof body.id === "string" ? body.id : "";
+        text = typeof body.text === "string" ? body.text : "";
+      } catch {
+        json(res, 400, { error: "invalid JSON body" });
+        return;
+      }
+      if (!normalizeRuleLine(text)) {
+        json(res, 400, { error: "A rule must be one line of at most 500 characters." });
+        return;
+      }
+      const suggestion = ctx.ruleSuggestions.take(id);
+      if (!suggestion) {
+        json(res, 409, { error: "This suggestion is no longer pending." });
+        return;
+      }
+      try {
+        const line = await appendAutopilotRule(ctx.cwd, text);
+        log("INFO", "app-sidecar", "autopilot rule saved", { id });
+        json(res, 200, { ok: true, line });
+      } catch (err) {
+        ctx.ruleSuggestions.restore(suggestion);
+        json(res, 500, { error: err instanceof Error ? err.message : String(err) });
+      }
     });
     return true;
   }

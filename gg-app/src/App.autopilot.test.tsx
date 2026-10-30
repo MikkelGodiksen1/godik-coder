@@ -38,6 +38,7 @@ afterEach(() => {
 interface Window {
   emit: (type: string, data: Record<string, unknown>) => void;
   toggles: ReturnType<typeof vi.fn>;
+  saves: ReturnType<typeof vi.fn>;
 }
 
 async function setup(history: HistoryEntry[] = [], autopilot = false): Promise<Window> {
@@ -49,6 +50,7 @@ async function setup(history: HistoryEntry[] = [], autopilot = false): Promise<W
     };
   });
   const toggles = vi.fn();
+  const saves = vi.fn();
   const state: AgentState = {
     cwd: "/workspaces/autopilot",
     mode: "code",
@@ -79,6 +81,11 @@ async function setup(history: HistoryEntry[] = [], autopilot = false): Promise<W
         toggles(enabled);
         return { autopilot: enabled };
       }
+      case "agent_autopilot_rule_save": {
+        const { id, text } = payload as { id: string; text: string };
+        saves(id, text);
+        return { ok: true, line: `- ${text}` };
+      }
       case "plugin:log|log":
         return null;
       default:
@@ -93,7 +100,7 @@ async function setup(history: HistoryEntry[] = [], autopilot = false): Promise<W
       for (const listener of listeners) listener({ type, data } as SidecarEvent);
     });
   };
-  return { emit, toggles };
+  return { emit, toggles, saves };
 }
 
 describe("deck Autopilot key", () => {
@@ -147,5 +154,66 @@ describe("Autopilot prompted bubble", () => {
       },
     ]);
     expect(await screen.findByText(/Your rule "lint red" fired\./)).toBeTruthy();
+  });
+});
+
+describe("Ken's rule suggestion card", () => {
+  const RULE = "if the tests have not run, send: run the tests and fix what fails";
+  const offer = (emit: Window["emit"]): void =>
+    emit("autopilot_rule_suggestion", { id: "rule-1-1", text: RULE });
+
+  it("renders the proposed rule with Save rule, Edit and Dismiss", async () => {
+    const { emit, saves } = await setup([], true);
+    offer(emit);
+    const card = await screen.findByRole("region", { name: "Rule suggestion" });
+    expect(card.textContent).toContain("Make this an Autopilot rule?");
+    expect(card.textContent).toContain(RULE);
+    for (const name of ["Save rule", "Edit", "Dismiss"]) {
+      expect(screen.getByRole("button", { name })).toBeTruthy();
+    }
+    expect(saves).not.toHaveBeenCalled();
+  });
+
+  it("Save sends the rule through the wrapper and shows it saved", async () => {
+    const { emit, saves } = await setup([], true);
+    offer(emit);
+    fireEvent.click(await screen.findByRole("button", { name: "Save rule" }));
+    await waitFor(() => expect(saves).toHaveBeenCalledExactlyOnceWith("rule-1-1", RULE));
+    expect(await screen.findByText("Saved to .gg/autopilot-rules.md")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Save rule" })).toBeNull();
+  });
+
+  it("Edit lets the user change the rule before saving", async () => {
+    const { emit, saves } = await setup([], true);
+    offer(emit);
+    fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Rule text" }), {
+      target: { value: "if lint fails, send: fix lint" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save rule" }));
+    await waitFor(() =>
+      expect(saves).toHaveBeenCalledExactlyOnceWith("rule-1-1", "if lint fails, send: fix lint"),
+    );
+  });
+
+  it("Dismiss takes the card down and saves nothing", async () => {
+    const { emit, saves } = await setup([], true);
+    offer(emit);
+    fireEvent.click(await screen.findByRole("button", { name: "Dismiss" }));
+    await waitFor(() =>
+      expect(screen.queryByRole("region", { name: "Rule suggestion" })).toBeNull(),
+    );
+    expect(saves).not.toHaveBeenCalled();
+  });
+
+  it("a cleared suggestion (new prompt or Stop) takes the card down", async () => {
+    const { emit, saves } = await setup([], true);
+    offer(emit);
+    await screen.findByRole("region", { name: "Rule suggestion" });
+    emit("autopilot_rule_suggestion_cleared", { id: "rule-1-1" });
+    await waitFor(() =>
+      expect(screen.queryByRole("region", { name: "Rule suggestion" })).toBeNull(),
+    );
+    expect(saves).not.toHaveBeenCalled();
   });
 });

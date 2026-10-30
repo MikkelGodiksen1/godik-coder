@@ -996,6 +996,29 @@ export async function setAutopilot(enabled: boolean): Promise<boolean> {
   }
 }
 
+/** GODIK CODER: Save on an Autopilot rule suggestion. The sidecar appends one
+ *  line to the project's `.gg/autopilot-rules.md`, only while the suggestion is
+ *  still pending (a new prompt or Stop since then makes it stale). */
+export type SaveAutopilotRuleResult = { ok: true; line: string } | { ok: false; error: string };
+
+export async function saveAutopilotRule(
+  id: string,
+  text: string,
+): Promise<SaveAutopilotRuleResult> {
+  try {
+    await waitForReady();
+    const res = await invoke<{ ok?: boolean; line?: string }>("agent_autopilot_rule_save", {
+      id,
+      text,
+    });
+    return { ok: true, line: typeof res.line === "string" ? res.line : `- ${text.trim()}` };
+  } catch (e) {
+    const error = typeof e === "string" ? e : e instanceof Error ? e.message : String(e);
+    await logError(`agent_autopilot_rule_save failed: ${error}`);
+    return { ok: false, error };
+  }
+}
+
 /**
  * Accept the pending plan: bakes its `## Steps` into the agent's system prompt
  * so it emits `[DONE:n]` progress markers as it implements each step (which the

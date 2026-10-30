@@ -166,6 +166,7 @@ pub fn run() {
             commands::agent::agent_ken_prompt,
             commands::agent::agent_ken_cancel,
             commands::agent::agent_autopilot_set,
+            commands::agent::agent_autopilot_rule_save,
             commands::agent::agent_accept_plan,
             commands::agent::agent_new_session,
             commands::agent::agent_history,

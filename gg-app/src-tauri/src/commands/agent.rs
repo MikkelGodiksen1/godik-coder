@@ -859,6 +859,33 @@ pub(crate) async fn agent_autopilot_set(
     sidecar_json(res).await
 }
 
+/// GODIK CODER: the JSON body for saving an Autopilot rule suggestion.
+pub(crate) fn autopilot_rule_save_body(id: &str, text: &str) -> serde_json::Value {
+    serde_json::json!({ "id": id, "text": text })
+}
+
+/// Proxy: Save on an Autopilot rule suggestion. The sidecar appends one line
+/// to the project's `.gg/autopilot-rules.md`, only for the suggestion still
+/// pending in THIS window's session; returns `{ ok, line }`.
+#[tauri::command]
+pub(crate) async fn agent_autopilot_rule_save(
+    webview: WebviewWindow,
+    client: State<'_, reqwest::Client>,
+    id: String,
+    text: String,
+) -> Result<serde_json::Value, String> {
+    let port = port_for(&webview).ok_or("daemon not ready")?;
+    let gg_sid = session_for(&webview).ok_or("session not ready")?;
+    let res = client
+        .post(format!("{}/autopilot/rules/append", sidecar_base(port)))
+        .header("x-gg-session", &gg_sid)
+        .json(&autopilot_rule_save_body(&id, &text))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    sidecar_json(res).await
+}
+
 /// Proxy: list workflow (prompt-template) slash commands.
 #[tauri::command]
 pub(crate) async fn agent_commands(
@@ -1098,6 +1125,15 @@ pub(crate) async fn agent_remove_plugin(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn autopilot_rule_save_body_carries_id_and_text_verbatim() {
+        let body = autopilot_rule_save_body("rule-1-1", "if \"x\", send: y");
+        assert_eq!(
+            body,
+            serde_json::json!({ "id": "rule-1-1", "text": "if \"x\", send: y" })
+        );
+    }
 
     #[test]
     fn cancel_response_accepts_acknowledged_success() {

@@ -29,6 +29,7 @@ import {
   sendKenPrompt,
   cancelKen,
   setAutopilot,
+  saveAutopilotRule,
   cancel,
   newSession,
   listModels,
@@ -183,6 +184,7 @@ import { DeckMenu, TitleBarActions } from "./WorkspaceHeaderActions";
 import { nextDockHeight } from "./dock-height";
 import { finishEntrances } from "./finish-entrances";
 import { Deck, type DeckPanelId } from "./Deck";
+import type { RuleSuggestionAction } from "./RuleSuggestionCard";
 import { ProjectHealthPanel } from "./ProjectHealthBadge";
 import { useChecklist } from "./useChecklist";
 import { useProjectNotes } from "./useProjectNotes";
@@ -1895,6 +1897,31 @@ function App(): React.ReactElement {
     [setItems, stickToBottomRef, windowRef],
   );
 
+  // GODIK CODER: Save / Dismiss on Ken's Autopilot rule suggestion card. Only
+  // Save writes (one line in .gg/autopilot-rules.md, via the sidecar); Dismiss
+  // takes the card down and writes nothing.
+  const ruleSuggestionAction = useCallback(
+    (itemId: number, action: RuleSuggestionAction) => {
+      if (action.type === "dismiss") {
+        setItems((prev) => prev.filter((it) => it.id !== itemId));
+        return;
+      }
+      const update = (patch: Partial<Extract<Item, { kind: "rule_suggestion" }>>): void =>
+        setItems((prev) =>
+          prev.map((it) =>
+            it.id === itemId && it.kind === "rule_suggestion" ? { ...it, ...patch } : it,
+          ),
+        );
+      update({ status: "saving", error: undefined });
+      void saveAutopilotRule(action.suggestionId, action.text).then((result) =>
+        result.ok
+          ? update({ status: "saved", text: result.line.replace(/^- /, "") })
+          : update({ status: "error", error: result.error }),
+      );
+    },
+    [setItems],
+  );
+
   // "Something else" on a question: send the user to the composer they already
   // type in (seeded, when they got here by typing a character) instead of a
   // second input inside the transcript.
@@ -2892,6 +2919,7 @@ function App(): React.ReactElement {
                           onContentGrow={maybeScrollToBottom}
                           onAskAnswer={answerAsk}
                           onAskType={typeAskInstead}
+                          onRuleSuggestion={ruleSuggestionAction}
                         />
                       );
                       const row =

@@ -1,4 +1,5 @@
 import type { JiwaStore } from "../chat-agents/jiwa.js";
+import type { AutopilotRuleSuggestions, HumanStop } from "../core/autopilot-rule-suggestions.js";
 import type { MemoryStore } from "../chat-agents/memory.js";
 import type { AgentSession } from "../core/agent-session.js";
 import type { AskUserBridge } from "../core/ask-user.js";
@@ -86,6 +87,10 @@ export interface SessionRouteContext {
   readonly reenterPlanModeForRevision: () => Promise<void>;
   pendingPlanPath: string | null;
   readonly runAutopilotCycle: (originalRequest: string) => Promise<void>;
+  /** GODIK CODER: Autopilot rule suggestions (v2) for this window. */
+  readonly ruleSuggestions: AutopilotRuleSuggestions;
+  /** One Ken call proposing a rule from the user's reply to a HUMAN stop. */
+  readonly suggestRuleFromReply: (stop: HumanStop, reply: string) => Promise<void>;
   readonly runStrandedQueue: () => Promise<void>;
   readonly offerPendingPlan: () => void;
   kenRunning: boolean;

@@ -24,6 +24,7 @@ vi.mock("../core/autopilot-cycle.js", async (importOriginal) => ({
 
 const { handlePromptRoutes } = await import("./prompt-routes.js");
 const { createAutopilotRunner } = await import("./autopilot-runner.js");
+const { AutopilotRuleSuggestions } = await import("../core/autopilot-rule-suggestions.js");
 
 afterEach(() => {
   vi.clearAllMocks();
@@ -76,6 +77,8 @@ function promptContext(running = false) {
     runAgent,
     runAutopilotCycle: vi.fn(async () => {}),
     runStrandedQueue: vi.fn(async () => {}),
+    ruleSuggestions: new AutopilotRuleSuggestions(() => {}),
+    suggestRuleFromReply: vi.fn(async () => {}),
     broadcast: vi.fn((type: string, data: Record<string, unknown>) => {
       events.push([type, data]);
       order.push(type);
@@ -248,6 +251,7 @@ function runnerContext(
     offerPendingPlan: vi.fn(),
     deactivateApprovedPlan: vi.fn(),
     taskRunAll: false,
+    ruleSuggestions: new AutopilotRuleSuggestions(() => {}),
   } as unknown as AutopilotRunnerContext;
   return { ctx, events, labels, order };
 }

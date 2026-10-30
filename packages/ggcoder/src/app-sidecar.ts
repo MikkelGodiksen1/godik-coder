@@ -155,6 +155,7 @@ import type { SessionRouteContext } from "./app-sidecar/route-context.js";
 import { createHfPullManager } from "./app-sidecar/hf-pull-manager.js";
 import { keepAwake } from "./app-sidecar/keep-awake.js";
 import { createAutopilotRunner } from "./app-sidecar/autopilot-runner.js";
+import { AutopilotRuleSuggestions } from "./core/autopilot-rule-suggestions.js";
 
 /** Limit for re-reading git state in the background when git missed the usual 2 s. */
 const SLOW_GIT_READ_TIMEOUT_MS = 15_000;
@@ -1745,6 +1746,8 @@ async function createSession(
   // tools. Created lazily on the first autopilot cycle.
   let kenAutoSession: AgentSession | null = null;
   let kenAutoAbort = new AbortController();
+  // GODIK CODER: rule suggestions learned from replies to HUMAN stops (v2).
+  const ruleSuggestions = new AutopilotRuleSuggestions(broadcast);
   let pendingKenAutoModel: { provider: Provider; model: string } | null = null;
 
   async function syncKenAutoModel(provider: Provider, requested: string): Promise<void> {
@@ -1806,6 +1809,7 @@ async function createSession(
     // Stop a run-all sweep and every async child through AgentSession's signal.
     taskRunAll = false;
     autopilotCancelled = true;
+    ruleSuggestions.clear();
     kenAutoAbort.abort();
   }
 
@@ -2013,7 +2017,8 @@ async function createSession(
   let taskRunAll = false;
 
   // Moved to app-sidecar/autopilot-runner.ts
-  const { runAutopilotCycle, runStrandedQueue, runTasks } = createAutopilotRunner({
+  const autopilotRunner = createAutopilotRunner({
+    ruleSuggestions,
     get autopilotReviewing() {
       return autopilotReviewing;
     },
@@ -2165,6 +2170,7 @@ async function createSession(
       taskRunAll = v;
     },
   });
+  const { runAutopilotCycle, runStrandedQueue, runTasks, suggestRuleFromReply } = autopilotRunner;
 
   // ── Idle wake for background alerts ────────────────────────
   // A background task that fails, or a child agent that finishes, after the
@@ -2505,6 +2511,8 @@ async function createSession(
       pendingPlanPath = v;
     },
     runAutopilotCycle,
+    ruleSuggestions,
+    suggestRuleFromReply,
     runStrandedQueue,
     offerPendingPlan,
     get kenRunning() {

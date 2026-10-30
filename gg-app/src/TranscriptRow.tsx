@@ -1,5 +1,6 @@
 import { memo, useLayoutEffect, useRef, useState } from "react";
 import { AtIcon } from "@phosphor-icons/react";
+import { RuleSuggestionCard, type RuleSuggestionAction } from "./RuleSuggestionCard";
 import { theme } from "./theme";
 import { ChatErrorNotice } from "./ChatErrorNotice";
 import { openImageDataUrl, openProjectPath } from "./agent";
@@ -146,6 +147,7 @@ export const TranscriptRow = memo(function TranscriptRow({
   onContentGrow,
   onAskAnswer,
   onAskType,
+  onRuleSuggestion,
 }: {
   item: Item;
   view: { readonly visible: boolean };
@@ -163,6 +165,7 @@ export const TranscriptRow = memo(function TranscriptRow({
     delta: Record<string, string | string[]>,
   ) => void;
   onAskType?: (itemId: number, promptId: string, questionId: string, seed?: string) => void;
+  onRuleSuggestion?: (itemId: number, action: RuleSuggestionAction) => void;
 }): React.ReactElement | null {
   const entranceRef = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
@@ -187,6 +190,7 @@ export const TranscriptRow = memo(function TranscriptRow({
       onContentGrow={onContentGrow}
       onAskAnswer={onAskAnswer}
       onAskType={onAskType}
+      onRuleSuggestion={onRuleSuggestion}
     />
   );
   if (!animateIn) return row;
@@ -206,6 +210,7 @@ function TranscriptRowBody({
   onContentGrow,
   onAskAnswer,
   onAskType,
+  onRuleSuggestion,
 }: {
   item: Item;
   /** This is the Ken reply currently streaming in, so his face talks. */
@@ -221,8 +226,12 @@ function TranscriptRowBody({
   ) => void;
   /** Answer this question by typing in the composer instead of clicking. */
   onAskType?: (itemId: number, promptId: string, questionId: string, seed?: string) => void;
+  /** GODIK CODER: Save or Dismiss on Ken's rule suggestion card. */
+  onRuleSuggestion?: (itemId: number, action: RuleSuggestionAction) => void;
 }): React.ReactElement | null {
   switch (item.kind) {
+    case "rule_suggestion":
+      return <RuleSuggestionCard key={item.id} item={item} onAction={onRuleSuggestion} />;
     case "user":
       if (item.kenSent) {
         // Sent from a Ken "Send to GG Coder" button: show a shimmering "Sent to GG

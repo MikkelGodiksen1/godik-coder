@@ -108,6 +108,16 @@ export type Item =
       rule?: string;
       /** Stable seed from persisted marker data so resumed all-clear copy doesn't flicker. */
       copySeed?: string;
+    }
+  // GODIK CODER: Ken proposes an Autopilot rule from the user's reply to a
+  // HUMAN stop. Live only (never persisted); Save writes, Dismiss removes.
+  | {
+      kind: "rule_suggestion";
+      id: number;
+      suggestionId: string;
+      text: string;
+      status: "open" | "saving" | "saved" | "error";
+      error?: string;
     };
 
 export interface TranscriptImage {

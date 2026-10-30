@@ -99,6 +99,27 @@ export function useAutopilot(opts: {
           setAutopilotReviewing(false);
           pushMarker("capped");
           return true;
+        // GODIK CODER: Ken proposes a rule from the user's reply (v2).
+        case "autopilot_rule_suggestion": {
+          const suggestionId = typeof d.id === "string" ? d.id : "";
+          const text = typeof d.text === "string" ? d.text.trim() : "";
+          if (!suggestionId || !text) return true;
+          setItems((prev) => [
+            ...prev,
+            { kind: "rule_suggestion", id: nextId(), suggestionId, text, status: "open" },
+          ]);
+          return true;
+        }
+        // A new prompt or Stop made it stale: take the card down (a saved
+        // one stays as the confirmation).
+        case "autopilot_rule_suggestion_cleared":
+          setItems((prev) =>
+            prev.filter(
+              (it) =>
+                it.kind !== "rule_suggestion" || it.suggestionId !== d.id || it.status === "saved",
+            ),
+          );
+          return true;
         // Ken approved a submitted plan. The plan state (modal, step-count
         // seeding, the plan_approved marker) lives in useAgentEvents, so only
         // stop the spinner here and return false so the main handler still

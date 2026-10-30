@@ -17,6 +17,11 @@ import type { RunOutcome } from "../core/session-manager.js";
 import { autopilotMarkerCopySeed } from "../core/session-history.js";
 import { readAutopilotRules, trustRuleTag } from "../core/autopilot-rules.js";
 import {
+  buildRuleSuggestionPrompt,
+  type AutopilotRuleSuggestions,
+  type HumanStop,
+} from "../core/autopilot-rule-suggestions.js";
+import {
   loadTasksSync,
   pruneDoneTasksSync,
   getNextPendingTask,
@@ -79,6 +84,8 @@ export interface AutopilotRunnerContext {
   readonly offerPendingPlan: () => void;
   readonly deactivateApprovedPlan: () => void;
   taskRunAll: boolean;
+  /** GODIK CODER: Autopilot rule suggestions (v2) for this window. */
+  readonly ruleSuggestions: AutopilotRuleSuggestions;
 }
 
 export interface AutopilotRunnerContextApi {
@@ -88,6 +95,7 @@ export interface AutopilotRunnerContextApi {
   runStrandedQueue: () => Promise<void>;
   runTaskById: (taskId: string) => Promise<boolean>;
   runTasks: (startId: string | null, all: boolean) => Promise<void>;
+  suggestRuleFromReply: (stop: HumanStop, reply: string) => Promise<void>;
 }
 
 export function createAutopilotRunner(ctx: AutopilotRunnerContext): AutopilotRunnerContextApi {
@@ -303,6 +311,8 @@ export function createAutopilotRunner(ctx: AutopilotRunnerContext): AutopilotRun
           }
           ctx.broadcast(event.type, event.data);
           if (event.type === "autopilot_human") {
+            // The user's next reply may teach Autopilot a rule (v2).
+            ctx.ruleSuggestions.noteHumanStop({ reason: event.data.reason, originalRequest });
             void ctx.session.persistAutopilotMarker("human", { reason: event.data.reason });
           } else if (event.type === "autopilot_capped") {
             void ctx.session.persistAutopilotMarker("capped");
@@ -320,6 +330,42 @@ export function createAutopilotRunner(ctx: AutopilotRunnerContext): AutopilotRun
       queueMicrotask(() => void runStrandedQueue());
     }
   }
+  // GODIK CODER (v2): one Autopilot Ken call, outside any cycle and never a
+  // round, that turns the user's reply to a HUMAN stop into a proposed rule.
+  // Offered to the webview only; nothing is written until the user saves it.
+  // A cancel, abort or new prompt makes the call stale (ruleSuggestions.clear).
+  async function suggestRuleFromReply(stop: HumanStop, reply: string): Promise<void> {
+    if (!reply.trim() || ctx.autopilotCancelled) return;
+    const token = ctx.ruleSuggestions.begin();
+    ctx.autopilotReviewing = true;
+    try {
+      const ken = await ctx.ensureKenAutoSession();
+      // A fresh reviewer: the suggestion never sees (or leaves) cycle history.
+      await ken.newSession().catch(() => {});
+      await ken.prompt(
+        buildRuleSuggestionPrompt({
+          stop,
+          reply,
+          existingRules: await readAutopilotRules(ctx.cwd),
+        }),
+      );
+      if (ctx.autopilotCancelled) return;
+      const offered = ctx.ruleSuggestions.offer(token, lastAssistantText(ken.getMessages()));
+      log("INFO", "app-sidecar", "autopilot rule suggestion", {
+        offered: String(offered !== null),
+      });
+    } catch (err) {
+      // Best-effort: a failed suggestion never blocks the user's turn.
+      log("WARN", "app-sidecar", "autopilot rule suggestion failed", { err: String(err) });
+    } finally {
+      ctx.autopilotReviewing = false;
+      await ctx.kenAutoSession?.newSession().catch(() => {});
+      const pending = ctx.pendingKenAutoModel;
+      ctx.pendingKenAutoModel = null;
+      if (pending) await ctx.syncKenAutoModel(pending.provider, pending.model);
+    }
+  }
+
   async function runStrandedQueue(): Promise<void> {
     if (ctx.drainingStrandedQueue) return;
     ctx.drainingStrandedQueue = true;
@@ -338,6 +384,7 @@ export function createAutopilotRunner(ctx: AutopilotRunnerContext): AutopilotRun
         // turn — otherwise an earlier Stop silently disables Ken for this turn.
         ctx.clearPendingPlan();
         ctx.autopilotCancelled = false;
+        const humanStop = ctx.ruleSuggestions.takeHumanStop();
         const workflowCommand =
           next.attachments.length === 0 &&
           isWorkflowCommandText(next.text, await ctx.loadWorkflowCommandSpecs());
@@ -359,6 +406,7 @@ export function createAutopilotRunner(ctx: AutopilotRunnerContext): AutopilotRun
           },
           () => ctx.autopilot,
         );
+        if (humanStop && ctx.autopilot) await suggestRuleFromReply(humanStop, next.text);
         const decision = shouldStartAutopilotCycle({
           enabled: ctx.autopilot,
           cancelled: ctx.autopilotCancelled,
@@ -447,5 +495,6 @@ export function createAutopilotRunner(ctx: AutopilotRunnerContext): AutopilotRun
     runStrandedQueue,
     runTaskById,
     runTasks,
+    suggestRuleFromReply,
   };
 }

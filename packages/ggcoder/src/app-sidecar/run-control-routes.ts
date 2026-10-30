@@ -400,6 +400,8 @@ export function handleRunControlRoutes(
       // ownership invokes the full abort hook exactly once through lifecycle.
       ctx.taskRunAll = false;
       ctx.autopilotCancelled = true;
+      // Stop also drops a pending rule suggestion (and one still in flight).
+      ctx.ruleSuggestions.clear();
       if (!ctx.runLifecycle.running) {
         ctx.kenAutoAbort.abort();
         ctx.kenAutoAbort = new AbortController();
@@ -458,6 +460,7 @@ export function handleRunControlRoutes(
         ctx.deactivateApprovedPlan();
         ctx.injectedAutopilotPrompts = [];
         ctx.clearPendingPlan();
+        ctx.ruleSuggestions.reset();
         ctx.broadcast("session_reset", {});
         // The new conversation's file, so a daemon restart reopens it.
         json(res, 200, { ok: true, sessionPath: ctx.session.getState().sessionPath ?? null });

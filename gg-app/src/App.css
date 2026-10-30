@@ -7148,6 +7148,92 @@ select {
   cursor: default;
   opacity: 0.85;
 }
+
+/* GODIK CODER: Ken's "make this an Autopilot rule?" card. Same neutral card
+   and buttons as his runnable-prompt block; Ken's colour only on the title
+   and the primary action. */
+.rule-suggestion {
+  display: grid;
+  gap: var(--space-5);
+  margin: 0.6em 0;
+  padding: var(--space-6) var(--space-7);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface-1);
+}
+.rule-suggestion-title {
+  margin: 0;
+  color: var(--ken);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+.rule-suggestion-title.rule-suggestion-saved {
+  color: var(--success);
+}
+.rule-suggestion-text {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.92em;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.rule-suggestion-input {
+  min-height: 4.5em;
+  padding: var(--space-4) var(--space-5);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.92em;
+  line-height: 1.5;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-button);
+  resize: vertical;
+}
+.rule-suggestion-error {
+  margin: 0;
+  color: var(--error);
+  font-size: var(--fs-sm);
+}
+.rule-suggestion-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+.rule-suggestion-actions button {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 11px;
+  color: var(--text-dim);
+  font-family: var(--sans);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  line-height: 1;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-button);
+  cursor: pointer;
+  transition:
+    color var(--t-fast),
+    border-color var(--t-fast),
+    background var(--t-fast);
+}
+.rule-suggestion-actions .rule-suggestion-save {
+  color: var(--ken);
+}
+.rule-suggestion-actions button:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  background: var(--surface-1);
+}
+.rule-suggestion-actions button[aria-pressed="true"] {
+  border-color: var(--ken);
+}
+.rule-suggestion-actions button:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
 /* Tables scroll sideways inside their own frame (Markdown.tsx ScrollTable)
    rather than squeezing. The chat breaks long words anywhere so prose never
    overflows, but inside a table that let the browser shrink short columns to
