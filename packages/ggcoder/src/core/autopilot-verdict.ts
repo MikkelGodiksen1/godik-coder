@@ -38,7 +38,8 @@
  */
 
 export type AutopilotVerdict =
-  | { kind: "prompt"; body: string }
+  /** `rule` names the user's autopilot rule Ken applied (`PROMPT RULE: <name>`). */
+  | { kind: "prompt"; body: string; rule?: string }
   | { kind: "all_clear"; evidenceLimitation?: "corpus_unverified" }
   | { kind: "ignore" }
   | { kind: "human"; reason: string };
@@ -50,6 +51,26 @@ const RAW_REASON_CAP = 500;
 export const CORPUS_UNVERIFIED_REASON = "Not cross-checked against real-world implementations.";
 
 const DEFAULT_HUMAN_REASON = "Ken flagged this for a human but gave no reason.";
+
+/** Longest rule name kept from a `PROMPT RULE: <name>` tag. */
+export const AUTOPILOT_RULE_NAME_MAX_CHARS = 60;
+
+/** `PROMPT RULE: <name>` (also `PROMPT: RULE - <name>`, `PROMPT RULE #<name>`).
+ *  The separator after RULE is required, so a body like "PROMPT: Rule out the
+ *  flake" stays a plain prompt. */
+const RULE_TAG_RE = /^PROMPT\s*[:-]?\s*RULE\s*[:#-]\s*(.*)$/i;
+
+/** The rule name from a tag, without wrapping quotes/brackets, capped. */
+function cleanRuleName(raw: string): string {
+  const name = raw
+    .trim()
+    .replace(/^["'`<[(]+/, "")
+    .replace(/["'`>\])]+$/, "")
+    .trim();
+  return name.length > AUTOPILOT_RULE_NAME_MAX_CHARS
+    ? name.slice(0, AUTOPILOT_RULE_NAME_MAX_CHARS).trimEnd()
+    : name;
+}
 
 /** Strip a leading/trailing ``` fence (optionally ```prompt) Ken may have wrapped
  *  the prompt body in out of chat habit. */
@@ -186,6 +207,17 @@ export function parseAutopilotVerdict(reply: string): AutopilotVerdict {
   }
 
   if (collapsed === "PROMPT" || collapsed.startsWith("PROMPT")) {
+    // A user rule fired: the tag names the rule, the body is ONLY the lines
+    // below it (never the tag itself). No body → stop, never a blind loop.
+    const tag = RULE_TAG_RE.exec(keywordLine);
+    if (tag) {
+      const body = stripPromptFence(rest);
+      if (!body) {
+        return { kind: "human", reason: "Ken said a rule fired but gave no prompt." };
+      }
+      const rule = cleanRuleName(tag[1] ?? "");
+      return rule ? { kind: "prompt", body, rule } : { kind: "prompt", body };
+    }
     // Prefer the body on the following lines; if the keyword line itself carried
     // inline text after "PROMPT:", fall back to that.
     let body = stripPromptFence(rest);

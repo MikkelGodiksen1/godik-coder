@@ -278,3 +278,23 @@ describe("buildKenSystemPrompt / buildKenAutopilotSystemPrompt — project conte
     }
   });
 });
+
+describe("buildKenAutopilotSystemPrompt — user autopilot rules stay out", () => {
+  it("is byte-identical with and without .gg/autopilot-rules.md", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "ken-prompt-rules-"));
+    try {
+      const before = await buildKenAutopilotSystemPrompt(dir);
+      await fs.mkdir(path.join(dir, ".gg"), { recursive: true });
+      await fs.writeFile(
+        path.join(dir, ".gg", "autopilot-rules.md"),
+        "- if tests are red, send: UNIQUE-RULE-TEXT",
+      );
+      const after = await buildKenAutopilotSystemPrompt(dir);
+      expect(after).toBe(before);
+      expect(after).not.toContain("UNIQUE-RULE-TEXT");
+      expect(after).not.toContain("## User autopilot rules");
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  });
+});

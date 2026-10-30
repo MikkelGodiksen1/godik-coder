@@ -310,9 +310,15 @@ function TranscriptRowBody({
       // stable id, so it never flickers on re-render) instead of always
       // repeating the exact same sentence turn after turn.
       const copy: Record<Extract<Item, { kind: "autopilot" }>["phase"], string> = {
-        prompted: item.body?.trim()
-          ? `Sending GG Coder back in:\n\n${item.body.trim()}`
-          : "Sending GG Coder back in for another pass.",
+        prompted: [
+          // GODIK CODER: name the user's rule when one fired.
+          item.rule?.trim() ? `Your rule "${item.rule.trim()}" fired.` : "",
+          item.body?.trim()
+            ? `Sending GG Coder back in:\n\n${item.body.trim()}`
+            : "Sending GG Coder back in for another pass.",
+        ]
+          .filter(Boolean)
+          .join(" "),
         done: [allClearCopy(item.copySeed, item.id), item.reason?.trim()]
           .filter(Boolean)
           .join("\n\n"),

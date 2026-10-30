@@ -118,8 +118,9 @@ export interface AutopilotCycleDeps {
    *  in read-only plan mode first, so revising can't start editing code. */
   runPrompt: (body: string, opts?: { planRevision?: boolean }) => Promise<void>;
   /** Called BEFORE runPrompt: record the injected body (digest labeling) and
-   *  broadcast the autopilot_prompted marker. */
-  onInjected: (body: string, round: number) => void;
+   *  broadcast the autopilot_prompted marker. `rule` names the user's autopilot
+   *  rule Ken applied (work-review PROMPTs only). */
+  onInjected: (body: string, round: number, rule?: string) => void;
   /** Broadcast one of the cycle's terminal SSE frames. */
   emit: (event: AutopilotCycleEmit) => void;
 }
@@ -223,7 +224,7 @@ export async function driveAutopilotCycle(deps: AutopilotCycleDeps): Promise<voi
       deps.emit({ type: "autopilot_human", data: { reason: verdict.reason } });
       return;
     }
-    deps.onInjected(verdict.body, round);
+    deps.onInjected(verdict.body, round, verdict.rule);
     await deps.runPrompt(verdict.body);
     if (deps.isCancelled()) return;
   }

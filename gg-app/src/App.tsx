@@ -1194,6 +1194,7 @@ function App(): React.ReactElement {
                   phase: h.autopilot.phase,
                   reason: h.autopilot.reason,
                   body: h.autopilot.body,
+                  rule: h.autopilot.rule,
                   copySeed: h.autopilot.copySeed,
                 };
               if (h.role !== "user") return { kind: h.role, id: nextId(), text: h.text };
@@ -1487,6 +1488,12 @@ function App(): React.ReactElement {
   function toggleMaxGas(): void {
     setDeckPanel(null);
     setMaxGas((on) => !on);
+  }
+  // GODIK CODER: one Autopilot switch for the ⋯ menu and the deck's rail key.
+  function changeAutopilot(next: boolean): void {
+    setState((s) => (s ? { ...s, autopilot: next } : s));
+    void setAutopilot(next);
+    setKenPowerBanner(next ? "on" : "off");
   }
   const clampedFileIndex = fileMatches.length > 0 ? fileIndex % fileMatches.length : 0;
   // Footer background-tasks indicator only shows while something is actually
@@ -2952,6 +2959,15 @@ function App(): React.ReactElement {
             onPanelChange={setDeckPanel}
             mentor={workspaceMode === "code" ? { active: kenActive, onToggle: toggleMentor } : null}
             maxGas={workspaceMode === "code" ? { active: maxGas, onToggle: toggleMaxGas } : null}
+            autopilot={
+              workspaceMode === "code"
+                ? {
+                    active: state?.autopilot ?? false,
+                    disabled: running || autopilotReviewing,
+                    onToggle: () => changeAutopilot(!(state?.autopilot ?? false)),
+                  }
+                : null
+            }
             running={running}
             contextPct={contextPct}
             models={models}
@@ -3100,11 +3116,7 @@ function App(): React.ReactElement {
                 running={running}
                 autopilot={state?.autopilot ?? false}
                 autopilotReviewing={autopilotReviewing}
-                onAutopilotChange={(next) => {
-                  setState((s) => (s ? { ...s, autopilot: next } : s));
-                  void setAutopilot(next);
-                  setKenPowerBanner(next ? "on" : "off");
-                }}
+                onAutopilotChange={changeAutopilot}
                 onNewSession={closeDeckThen(() => setConfirmNewSession(true))}
                 onOpenNotes={() => setDeckPanel("notes")}
                 onOpenMemories={() => setDeckPanel("brain")}

@@ -537,6 +537,28 @@ function autopilotEntry(
 describe("SessionManager.getAutopilotMarkers", () => {
   const manager = new SessionManager("/unused");
 
+  it("keeps the user rule on a prompted marker and drops a non-string rule", () => {
+    const entries: SessionEntry[] = [
+      autopilotEntry("a1", {
+        version: 1,
+        phase: "prompted",
+        body: "fix the failing test",
+        rule: "tests red",
+        afterMessageCount: 0,
+      }),
+      autopilotEntry("a2", {
+        version: 1,
+        phase: "prompted",
+        body: "b",
+        rule: 7,
+        afterMessageCount: 1,
+      }),
+    ];
+    const markers = manager.getAutopilotMarkers(entries);
+    expect(markers[0]).toMatchObject({ phase: "prompted", rule: "tests red" });
+    expect(markers[1]).not.toHaveProperty("rule");
+  });
+
   it("reads valid autopilot markers in file order", () => {
     const entries: SessionEntry[] = [
       autopilotEntry("a1", { version: 1, phase: "prompted", body: "fix X", afterMessageCount: 0 }),

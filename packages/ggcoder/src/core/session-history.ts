@@ -176,6 +176,7 @@ function markerKey(marker: AutopilotMarkerPayload): string {
     afterMessageCount: marker.afterMessageCount,
     reason: marker.reason ?? null,
     body: marker.body ?? null,
+    rule: marker.rule ?? null,
   });
 }
 

@@ -106,6 +106,9 @@ export interface DeckProps {
   mentor?: { active: boolean; onToggle: () => void } | null;
   /** GODIK CODER: the Max Gas key beside Mentor; null hides it. */
   maxGas?: { active: boolean; onToggle: () => void } | null;
+  /** GODIK CODER: the Autopilot key beside Max Gas (code only); null hides it.
+   *  Disabled while a run or review is active, like the ⋯ menu's switch. */
+  autopilot?: { active: boolean; disabled: boolean; onToggle: () => void } | null;
 }
 
 /**
@@ -245,6 +248,7 @@ function Rail({
   toggle,
   mentor,
   maxGas,
+  autopilot,
 }: DeckProps & {
   radio: Radio;
   toggle: (id: DeckPanelId, event: React.MouseEvent<HTMLElement>) => void;
@@ -365,6 +369,22 @@ function Rail({
           onClick={maxGas.onToggle}
         >
           <span className="rail-label">Max Gas</span>
+        </button>
+      )}
+      {autopilot && (
+        <button
+          type="button"
+          className="key rail-key autopilot-key"
+          title={
+            autopilot.active
+              ? "Autopilot on: Ken reviews each turn (rules in .gg/autopilot-rules.md)"
+              : "Autopilot: let Ken review and steer each turn"
+          }
+          aria-pressed={autopilot.active}
+          disabled={autopilot.disabled}
+          onClick={autopilot.onToggle}
+        >
+          <span className="rail-label">Autopilot</span>
         </button>
       )}
       <span className="deck-spacer" />

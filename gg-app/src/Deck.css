@@ -702,6 +702,14 @@
   background: color-mix(in srgb, var(--warning) 22%, transparent);
   box-shadow: inset 0 0 0 1px var(--warning);
 }
+/* GODIK CODER: Autopilot is Ken steering on his own: the app accent, filled while on. */
+.key.autopilot-key {
+  color: var(--primary);
+}
+.key.autopilot-key[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--primary) 22%, transparent);
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
 .deck-flag.max-gas-flag {
   color: var(--warning);
 }

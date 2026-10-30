@@ -623,3 +623,39 @@ describe("driveAutopilotCycle — plan branch", () => {
     ]);
   });
 });
+
+describe("driveAutopilotCycle — user autopilot rules", () => {
+  it("passes the fired rule to onInjected with the PROMPT body", async () => {
+    const calls: Array<[string, number, string | undefined]> = [];
+    const deps = makeDeps(
+      [{ kind: "prompt", body: "fix the failing test", rule: "tests red" }, { kind: "all_clear" }],
+      { onInjected: (body, round, rule) => calls.push([body, round, rule]) },
+    );
+    await driveAutopilotCycle(deps);
+    expect(calls).toEqual([["fix the failing test", 1, "tests red"]]);
+    expect(deps.ran).toEqual(["fix the failing test"]);
+    expect(deps.emitted).toEqual([{ type: "autopilot_done", data: {} }]);
+  });
+
+  it("the verify-checks injection never carries a rule", async () => {
+    let unverified = true;
+    const calls: Array<[string, number, string | undefined]> = [];
+    const deps = makeDeps([{ kind: "all_clear" }], {
+      verificationProblem: () => (unverified ? "Unverified: no checks ran" : null),
+      runPrompt: async () => {
+        unverified = false;
+      },
+      onInjected: (body, round, rule) => calls.push([body, round, rule]),
+    });
+    await driveAutopilotCycle(deps);
+    expect(calls).toEqual([[AUTOPILOT_VERIFY_PROMPT, 1, undefined]]);
+  });
+
+  it("a rule that keeps firing is still bounded by maxRounds", async () => {
+    const fire = { kind: "prompt" as const, body: "rerun", rule: "tests red" };
+    const deps = makeDeps([fire, fire, fire, fire]);
+    await driveAutopilotCycle(deps);
+    expect(deps.ran).toEqual(["rerun", "rerun", "rerun"]);
+    expect(deps.emitted).toEqual([{ type: "autopilot_capped", data: { rounds: 3 } }]);
+  });
+});

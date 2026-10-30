@@ -104,6 +104,8 @@ export type Item =
       phase: "prompted" | "done" | "human" | "capped" | "plan_approved";
       reason?: string;
       body?: string;
+      /** GODIK CODER: the user's autopilot rule that fired (prompted only). */
+      rule?: string;
       /** Stable seed from persisted marker data so resumed all-clear copy doesn't flicker. */
       copySeed?: string;
     };

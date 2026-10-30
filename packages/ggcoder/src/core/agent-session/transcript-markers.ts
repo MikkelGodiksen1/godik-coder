@@ -126,7 +126,7 @@ export class TranscriptMarkers {
 
   async recordAutopilotMarker(
     phase: AutopilotMarkerPayload["phase"],
-    extra: { reason?: string; body?: string } | undefined,
+    extra: { reason?: string; body?: string; rule?: string } | undefined,
     afterMessageCount: number,
   ): Promise<void> {
     const payload: AutopilotMarkerPayload = {
@@ -135,6 +135,7 @@ export class TranscriptMarkers {
       afterMessageCount,
       ...(extra?.reason !== undefined ? { reason: extra.reason } : {}),
       ...(extra?.body !== undefined ? { body: extra.body } : {}),
+      ...(extra?.rule ? { rule: extra.rule } : {}),
     };
     this.autopilotMarkers.push(payload);
     await this.append(AUTOPILOT_MARKER_CUSTOM_KIND, payload);

@@ -241,3 +241,51 @@ describe("parseAutopilotVerdict", () => {
     if (v.kind === "human") expect(v.reason.length).toBeGreaterThan(0);
   });
 });
+
+describe("parseAutopilotVerdict — user rule tag", () => {
+  it("reads the rule name from PROMPT RULE and keeps the tag out of the body", () => {
+    expect(
+      parseAutopilotVerdict("PROMPT RULE: tests red\nFix the failing test and rerun it"),
+    ).toEqual({ kind: "prompt", rule: "tests red", body: "Fix the failing test and rerun it" });
+  });
+
+  it("strips quotes around the rule name and caps its length", () => {
+    const v = parseAutopilotVerdict(`PROMPT RULE: "${"r".repeat(80)}"\nDo it`);
+    expect(v).toEqual({ kind: "prompt", rule: "r".repeat(60), body: "Do it" });
+  });
+
+  it("a plain PROMPT has no rule", () => {
+    const v = parseAutopilotVerdict("PROMPT\nAdd a test.");
+    expect(v).toEqual({ kind: "prompt", body: "Add a test." });
+    expect("rule" in v).toBe(false);
+  });
+
+  it("an inline body starting with the word Rule stays a plain prompt", () => {
+    expect(parseAutopilotVerdict("PROMPT: Rule out the flaky retry, then rerun")).toEqual({
+      kind: "prompt",
+      body: "Rule out the flaky retry, then rerun",
+    });
+  });
+
+  it("keeps the tag on a PROMPT buried after prose", () => {
+    expect(
+      parseAutopilotVerdict("The build is red.\nPROMPT RULE: build red\nFix the build"),
+    ).toEqual({ kind: "prompt", rule: "build red", body: "Fix the build" });
+  });
+
+  it("a rule tag with no body becomes HUMAN", () => {
+    expect(parseAutopilotVerdict("PROMPT RULE: tests red").kind).toBe("human");
+    expect(parseAutopilotVerdict("PROMPT RULE: tests red\n\n").kind).toBe("human");
+  });
+
+  it("a buried HUMAN still wins over a buried rule prompt", () => {
+    const v = parseAutopilotVerdict(
+      "Tests are red.\nPROMPT RULE: tests red\nFix it\nHUMAN\nThe fix needs a paid API key.",
+    );
+    expect(v).toEqual({ kind: "human", reason: "The fix needs a paid API key." });
+  });
+
+  it("a rule tag never turns ALL_CLEAR into a prompt", () => {
+    expect(parseAutopilotVerdict("ALL_CLEAR RULE: tests red")).toEqual({ kind: "all_clear" });
+  });
+});

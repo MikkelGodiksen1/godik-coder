@@ -168,6 +168,7 @@ export function handleHistoryRoutes(
               phase: marker.phase,
               ...(marker.reason !== undefined ? { reason: marker.reason } : {}),
               ...(marker.body !== undefined ? { body: marker.body } : {}),
+              ...(marker.rule !== undefined ? { rule: marker.rule } : {}),
               copySeed: marker.copySeed,
             },
           });

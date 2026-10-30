@@ -38,7 +38,7 @@ export function useAutopilot(opts: {
   const pushMarker = useCallback(
     (
       phase: "prompted" | "done" | "human" | "capped",
-      extra?: { reason?: string; body?: string; copySeed?: string },
+      extra?: { reason?: string; body?: string; rule?: string; copySeed?: string },
     ) => {
       setItems((prev) => [
         ...prev,
@@ -48,6 +48,7 @@ export function useAutopilot(opts: {
           phase,
           reason: extra?.reason,
           body: extra?.body,
+          ...(extra?.rule ? { rule: extra.rule } : {}),
           copySeed: extra?.copySeed,
         },
       ]);
@@ -68,6 +69,7 @@ export function useAutopilot(opts: {
           setAutopilotReviewing(false);
           pushMarker("prompted", {
             body: typeof d.body === "string" ? d.body : undefined,
+            rule: typeof d.rule === "string" && d.rule.trim() ? d.rule.trim() : undefined,
           });
           // Let useAgentEvents also see the frame so it can close a stale plan
           // modal when this prompt is Ken's plan-revision feedback.

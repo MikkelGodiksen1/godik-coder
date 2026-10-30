@@ -4379,7 +4379,7 @@ export class AgentSession {
 
   async persistAutopilotMarker(
     phase: AutopilotMarkerPayload["phase"],
-    extra?: { reason?: string; body?: string },
+    extra?: { reason?: string; body?: string; rule?: string },
   ): Promise<void> {
     await this.markers.recordAutopilotMarker(phase, extra, this.persistedTranscriptCount());
   }

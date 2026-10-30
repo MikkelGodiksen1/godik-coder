@@ -21,6 +21,7 @@ import { matchExpandedCommand, type WorkflowCommandSpec } from "./autopilot-gate
 import { AUTOPILOT_INJECTION_PREAMBLE } from "./autopilot-cycle.js";
 import { collectVerificationEvidence, type VerificationEvidence } from "./verification-evidence.js";
 import { editTargetPaths } from "../tools/edit-targets.js";
+import { renderAutopilotRulesSection } from "./autopilot-rules.js";
 
 /** How many of the most recent build-session messages to inline verbatim. */
 export const KEN_RECENT_MESSAGE_LIMIT = 20;
@@ -353,8 +354,27 @@ export type KenAutopilotContextInput = Omit<KenDigestInput, "question">;
  * {@link AUTOPILOT_REVIEW_INSTRUCTION} as the trailing task, so Ken reviews the
  * transcript instead of answering a user. Pure — no I/O.
  */
-export function buildKenAutopilotContext(input: KenAutopilotContextInput): string {
-  return renderDigest({ ...input, question: AUTOPILOT_REVIEW_INSTRUCTION }, AUTOPILOT_FRAMING);
+export function buildKenAutopilotContext(
+  input: KenAutopilotContextInput & { autopilotRules?: string },
+): string {
+  const { autopilotRules, ...rest } = input;
+  const digest = renderDigest(
+    { ...rest, question: AUTOPILOT_REVIEW_INSTRUCTION },
+    AUTOPILOT_FRAMING,
+  );
+  // GODIK CODER: the user's rules (.gg/autopilot-rules.md) sit right before the
+  // task, in the per-review digest only — never the cached system prompt.
+  return spliceBeforeTask(digest, renderAutopilotRulesSection(autopilotRules ?? ""));
+}
+
+/** Insert a section right before the trailing task section (always the last
+ *  one renderDigest appends); "" leaves the digest untouched. */
+function spliceBeforeTask(digest: string, section: string): string {
+  if (!section) return digest;
+  const marker = `\n\n${AUTOPILOT_FRAMING.questionHeading}\n`;
+  const idx = digest.lastIndexOf(marker);
+  if (idx === -1) return `${digest}\n\n${section}`;
+  return `${digest.slice(0, idx)}\n\n${section}${digest.slice(idx)}`;
 }
 
 /** Max chars of the inlined plan markdown in a plan-review digest. Plans are
@@ -395,12 +415,7 @@ export function buildKenAutopilotPlanContext(
     AUTOPILOT_FRAMING,
   );
   const planSection = `## Plan under review\n${capContext(planContent.trim(), PLAN_CONTENT_CAP, "plan")}`;
-  // Insert the plan section right before the trailing task section (always
-  // the last one renderDigest appends).
-  const marker = `\n\n${AUTOPILOT_FRAMING.questionHeading}\n`;
-  const idx = digest.lastIndexOf(marker);
-  if (idx === -1) return `${digest}\n\n${planSection}`;
-  return `${digest.slice(0, idx)}\n\n${planSection}${digest.slice(idx)}`;
+  return spliceBeforeTask(digest, planSection);
 }
 
 /**

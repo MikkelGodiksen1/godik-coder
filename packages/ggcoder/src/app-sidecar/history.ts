@@ -23,6 +23,8 @@ export interface HistoryEntryForWire {
     phase: "prompted" | "done" | "human" | "capped" | "plan_approved";
     reason?: string;
     body?: string;
+    /** GODIK CODER: the user's autopilot rule that produced a `prompted` marker. */
+    rule?: string;
     /** Stable seed derived from persisted marker data for deterministic all-clear copy. */
     copySeed?: string;
   };

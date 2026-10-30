@@ -200,6 +200,8 @@ export interface AutopilotMarkerPayload extends RecordedPosition {
   phase: "prompted" | "done" | "human" | "capped" | "plan_approved";
   reason?: string;
   body?: string;
+  /** GODIK CODER: the user's autopilot rule that produced a `prompted` marker. */
+  rule?: string;
   afterMessageCount: number;
 }
 
@@ -1676,6 +1678,7 @@ export class SessionManager {
               phase,
               ...(typeof p.reason === "string" ? { reason: p.reason } : {}),
               ...(typeof p.body === "string" ? { body: p.body } : {}),
+              ...(typeof p.rule === "string" && p.rule ? { rule: p.rule } : {}),
               afterMessageCount: typeof p.afterMessageCount === "number" ? p.afterMessageCount : 0,
               recordedAfterMessageCount,
             },

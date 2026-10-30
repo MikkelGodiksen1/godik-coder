@@ -870,3 +870,40 @@ describe("buildKenDigest ask_user", () => {
     expect(block.length).toBeLessThan(1600);
   });
 });
+
+describe("buildKenAutopilotContext — user autopilot rules", () => {
+  const input = {
+    cwd: "/proj",
+    gitBranch: "main",
+    platform: "darwin",
+    messages: [{ role: "user", content: "add a login form" }] as Message[],
+  };
+  const RULES = "- if tests are red, send: fix the failing test and rerun it";
+
+  it("puts the rules section right before the task", () => {
+    const digest = buildKenAutopilotContext({ ...input, autopilotRules: RULES });
+    const at = digest.indexOf("## User autopilot rules");
+    expect(at).toBeGreaterThan(-1);
+    expect(digest).toContain(RULES);
+    expect(at).toBeLessThan(digest.indexOf("## Your task"));
+    expect(digest.indexOf(RULES)).toBeLessThan(digest.indexOf("## Your task"));
+  });
+
+  it("leaves the digest unchanged without rules", () => {
+    const plain = buildKenAutopilotContext(input);
+    expect(plain).not.toContain("## User autopilot rules");
+    expect(buildKenAutopilotContext({ ...input, autopilotRules: "" })).toBe(plain);
+    expect(buildKenAutopilotContext({ ...input, autopilotRules: " \n" })).toBe(plain);
+  });
+
+  it("never reaches the plan digest", () => {
+    const digest = buildKenAutopilotPlanContext({
+      ...input,
+      planContent: "# Plan",
+      // Even a caller that passes rules along must not leak them into a plan review.
+      ...({ autopilotRules: RULES } as Record<string, unknown>),
+    });
+    expect(digest).not.toContain("## User autopilot rules");
+    expect(digest).not.toContain(RULES);
+  });
+});

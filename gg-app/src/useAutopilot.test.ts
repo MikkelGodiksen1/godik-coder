@@ -82,3 +82,42 @@ describe("Autopilot errors", () => {
     expect(vi.mocked(playSound)).toHaveBeenCalledWith("error");
   });
 });
+
+describe("Autopilot prompted marker with a user rule", () => {
+  function hook(): { items: () => Item[]; handle: (type: string, data: unknown) => void } {
+    let items: Item[] = [];
+    let id = 0;
+    const { result } = renderHook(() =>
+      useAutopilot({
+        setItems: (update) => {
+          items = typeof update === "function" ? update(items) : update;
+        },
+        nextId: () => ++id,
+      }),
+    );
+    return {
+      items: () => items,
+      handle: (type, data) => {
+        act(() => {
+          result.current.handleAutopilotEvent({ type, data } as never);
+        });
+      },
+    };
+  }
+
+  it("carries the fired rule onto the marker", () => {
+    const h = hook();
+    h.handle("autopilot_prompted", { round: 1, body: "fix it", rule: " tests red " });
+    expect(h.items()).toEqual([
+      expect.objectContaining({ kind: "autopilot", phase: "prompted", rule: "tests red" }),
+    ]);
+  });
+
+  it("leaves rule off when the frame has none or a non-string", () => {
+    const h = hook();
+    h.handle("autopilot_prompted", { round: 1, body: "fix it" });
+    h.handle("autopilot_prompted", { round: 2, body: "fix more", rule: 7 });
+    expect(h.items()).toHaveLength(2);
+    for (const item of h.items()) expect(item).not.toHaveProperty("rule");
+  });
+});

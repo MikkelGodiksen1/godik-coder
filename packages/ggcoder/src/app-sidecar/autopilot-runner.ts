@@ -15,6 +15,7 @@ import {
 import { driveAutopilotCycle, frameAutopilotInjection } from "../core/autopilot-cycle.js";
 import type { RunOutcome } from "../core/session-manager.js";
 import { autopilotMarkerCopySeed } from "../core/session-history.js";
+import { readAutopilotRules, trustRuleTag } from "../core/autopilot-rules.js";
 import {
   loadTasksSync,
   pruneDoneTasksSync,
@@ -101,6 +102,8 @@ export function createAutopilotRunner(ctx: AutopilotRunnerContext): AutopilotRun
     ctx.broadcast("autopilot_review_start", {});
     try {
       const ken = await ctx.ensureKenAutoSession();
+      // GODIK CODER: the user's rules, read fresh so an edit applies next review.
+      const autopilotRules = await readAutopilotRules(ctx.cwd);
       const digest = buildKenAutopilotContext({
         cwd: ctx.cwd,
         gitBranch: ctx.gitBranch,
@@ -110,9 +113,13 @@ export function createAutopilotRunner(ctx: AutopilotRunnerContext): AutopilotRun
         originalRequest,
         injectedPrompts: [...ctx.injectedAutopilotPrompts],
         workflowCommands: await ctx.loadWorkflowCommandSpecs(),
+        autopilotRules,
       });
       await ken.prompt(digest);
-      return parseAutopilotVerdict(lastAssistantText(ken.getMessages()));
+      return trustRuleTag(
+        parseAutopilotVerdict(lastAssistantText(ken.getMessages())),
+        autopilotRules,
+      );
     } catch (err) {
       if (!ctx.autopilotCancelled)
         ctx.broadcastError("autopilot_error", "autopilot review failed", err);
@@ -254,7 +261,7 @@ export function createAutopilotRunner(ctx: AutopilotRunnerContext): AutopilotRun
         // prompt body), then feed GG Coder bracketed by runAgent so the run
         // streams normally; the shared finally never re-triggers autopilot,
         // so this can't recurse.
-        onInjected: (body, round) => {
+        onInjected: (body, round, rule) => {
           // A revision injection supersedes the pending plan — if the run
           // resubmits via exit_plan, onExitPlan re-sets it (no-op for work-
           // branch injections, where nothing is pending).
@@ -264,8 +271,8 @@ export function createAutopilotRunner(ctx: AutopilotRunnerContext): AutopilotRun
           // The webview marker + persisted body stay the CLEAN prompt so the UI
           // shows Ken's actual instruction, not the autopilot preamble.
           ctx.injectedAutopilotPrompts.push(frameAutopilotInjection(body));
-          ctx.broadcast("autopilot_prompted", { round, body });
-          void ctx.session.persistAutopilotMarker("prompted", { body });
+          ctx.broadcast("autopilot_prompted", rule ? { round, body, rule } : { round, body });
+          void ctx.session.persistAutopilotMarker("prompted", rule ? { body, rule } : { body });
         },
         // Autopilot-injected run: GG Coder receives the framed prompt (no human
         // is watching this turn) while run_start keeps the clean label.
