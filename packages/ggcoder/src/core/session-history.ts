@@ -7,7 +7,7 @@ import type {
 } from "./session-manager.js";
 import { STEERING_PREFIX, NOTIFICATION_PREFIX } from "./steering.js";
 import { matchPromptCommand } from "./prompt-command-expansion.js";
-import { AUTOPILOT_INJECTION_PREAMBLE } from "./autopilot-cycle.js";
+import { autopilotPreambleOf } from "./autopilot-cycle.js";
 
 export type HistoryMessageVisibility = "transcript" | "hidden" | "summary";
 
@@ -372,16 +372,15 @@ function isNotification(text: string): boolean {
  *  on resume the raw session message must render the same clean instruction, not
  *  the machine-facing preamble. */
 function stripAutopilotPreamble(text: string): string {
-  return hasAutopilotPreamble(text)
-    ? text.slice(AUTOPILOT_INJECTION_PREAMBLE.length).trimStart()
-    : text;
+  const preamble = autopilotPreambleOf(text);
+  return preamble ? text.slice(preamble.length).trimStart() : text;
 }
 
 /** Whether a persisted user message was injected by autopilot rather than typed
  *  by a human. frameAutopilotInjection adds this preamble to every injected
  *  build run, and nothing else produces it. */
 function hasAutopilotPreamble(text: string): boolean {
-  return text.startsWith(AUTOPILOT_INJECTION_PREAMBLE);
+  return autopilotPreambleOf(text) !== undefined;
 }
 
 function stripAttachedFilesBlock(text: string): string {

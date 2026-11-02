@@ -1,4 +1,4 @@
-import { MENTOR_HANDLE } from "./mentor";
+import { brandText } from "./brand";
 import type { CSSProperties } from "react";
 import type { ChangelogEntry } from "./changelog";
 import { PlateButton } from "./PlateButton";
@@ -46,12 +46,12 @@ const HIGHLIGHT_TERMS = [
   "Autopilot",
   "Scorecard",
   "Enhance",
-  MENTOR_HANDLE,
+  "@Ken",
   "Radio",
   "Windows",
   "Notes",
   "MCP",
-] as const;
+].map(brandText);
 
 function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

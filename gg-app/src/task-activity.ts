@@ -1,4 +1,4 @@
-import { MENTOR_NAME } from "./mentor";
+import { MENTOR_NAME } from "./brand";
 import type { SidecarEvent } from "./agent";
 
 export type TaskPhase =

@@ -1,3 +1,4 @@
+import { CODER_NAME } from "./brand.js";
 import {
   agentLoop,
   isAbortError,
@@ -240,7 +241,7 @@ export function outputCapForRequest(options: {
  * refused here, so the reason must not name one of them.
  */
 export function paidModelRefusal(modelName: string): string {
-  return `${modelName} spends real money, so it can't be switched to from chat. Switch to it in the GG Coder app or CLI, where you confirm it.`;
+  return `${modelName} spends real money, so it can't be switched to from chat. Switch to it in the ${CODER_NAME} app or CLI, where you confirm it.`;
 }
 
 /**

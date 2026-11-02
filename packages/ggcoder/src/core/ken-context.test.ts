@@ -10,7 +10,7 @@ import {
   INJECTED_PROMPT_LABEL,
 } from "./ken-context.js";
 import { USER_INSTRUCTIONS_HEADER } from "./autopilot-gate.js";
-import { frameAutopilotInjection } from "./autopilot-cycle.js";
+import { AUTOPILOT_INJECTION_PREAMBLES, frameAutopilotInjection } from "./autopilot-cycle.js";
 import { PROMPT_COMMANDS } from "./prompt-commands.js";
 import { createTools } from "../tools/index.js";
 import type { Message } from "@kenkaiiii/gg-ai";
@@ -184,6 +184,17 @@ describe("buildKenDigest", () => {
       expect(digest).not.toContain("SUGGESTED:");
       expect(digest).not.toContain("Context incomplete");
     }
+  });
+
+  it("labels an injected prompt from a pre-rebrand session as injected", () => {
+    const legacy = AUTOPILOT_INJECTION_PREAMBLES[1] ?? "";
+    expect(legacy.startsWith("[Autopilot] This turn was triggered by Ken, GG Coder's")).toBe(true);
+    const digest = buildKenDigest({
+      ...base,
+      messages: [{ role: "user", content: `${legacy}\n\nAdd analytics.` }],
+    });
+    expect(digest).toContain(INJECTED_PROMPT_LABEL);
+    expect(digest).not.toContain("**User:**");
   });
 
   it("does not retain injected prompts as user decisions after restart", () => {
@@ -566,7 +577,7 @@ describe("buildKenDigest", () => {
     expect(AUTOPILOT_REVIEW_INSTRUCTION).toContain("safe for GC to do without new information");
     expect(AUTOPILOT_REVIEW_INSTRUCTION).toContain("use PROMPT with the next concrete follow-up");
     expect(AUTOPILOT_REVIEW_INSTRUCTION).toContain("Original user request");
-    expect(AUTOPILOT_REVIEW_INSTRUCTION).toContain("Ken autopilot (injected)");
+    expect(AUTOPILOT_REVIEW_INSTRUCTION).toContain("Godik autopilot (injected)");
   });
 
   it("buildKenAutopilotPlanContext inlines the plan section + plan instruction", () => {

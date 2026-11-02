@@ -1,4 +1,4 @@
-import { CODER_NAME } from "./mentor";
+import { CODER_NAME } from "./brand";
 import { useEffect, useState } from "react";
 import { open as openFolderDialog } from "@tauri-apps/plugin-dialog";
 import { XIcon } from "@phosphor-icons/react";

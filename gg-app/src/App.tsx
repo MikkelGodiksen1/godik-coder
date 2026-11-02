@@ -13,7 +13,8 @@ import {
 import { createChatLayoutMotion } from "./chat-layout-motion";
 import { open } from "@tauri-apps/plugin-dialog";
 import { theme } from "./theme";
-import { CODER_NAME, MENTOR_HANDLE, MENTOR_NAME, toggleMentorPrefix } from "./mentor";
+import { toggleMentorPrefix } from "./mentor";
+import { CODER_NAME, GOALS_NAME, MENTOR_HANDLE, MENTOR_NAME } from "./brand";
 import { wrapMaxGas } from "./max-gas";
 import { activeChatErrorId, readChatError } from "./chat-error";
 import { showScreen } from "./view-transition";
@@ -1978,7 +1979,7 @@ function App(): React.ReactElement {
             // Nothing was cut short: the goal had simply finished.
             if (!resumed && !state?.goal?.paused) {
               toast(
-                "Nothing to carry on: the goal finished. Tell GG Goals what's next in the chat.",
+                `Nothing to carry on: the goal finished. Tell ${GOALS_NAME} what's next in the chat.`,
               );
             }
           });
@@ -3067,7 +3068,7 @@ function App(): React.ReactElement {
                 state?.goal
                   ? {
                       name: "Critters",
-                      followLabel: "GG Goals",
+                      followLabel: GOALS_NAME,
                       model: state.goal.critterModel ?? state.model,
                       following: !state.goal.critterModel,
                       disabled: false,

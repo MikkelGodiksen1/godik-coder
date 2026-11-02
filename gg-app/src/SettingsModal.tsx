@@ -1,4 +1,4 @@
-import { CODER_NAME } from "./mentor";
+import { CODER_NAME } from "./brand";
 import { useEffect, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { theme } from "./theme";

@@ -36,7 +36,7 @@ if ! git merge --no-edit upstream/main; then
   echo "STOP: merge conflicts. These files need fixing:" >&2
   git diff --name-only --diff-filter=U | sed 's/^/  - /' >&2
   echo >&2
-  echo "Fix them, then: git add <files> && git commit" >&2
+  echo "Resolve them as GODIK.md describes ('Merging an upstream tag'), then: git add <files> && git commit" >&2
   echo "Or give up on this merge with: git merge --abort" >&2
   exit 1
 fi

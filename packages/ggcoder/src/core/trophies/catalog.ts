@@ -6,7 +6,6 @@
 // Ids are stored in ~/.gg/trophies.json: never rename or reuse one. Copy is
 // shown in the app: plain words, no em dashes.
 
-import { MENTOR_HANDLE, MENTOR_NAME } from "../mentor-name.js";
 import { MORE_TROPHIES } from "./catalog-more.js";
 import type { TrophyCategory, TrophyCategoryView, TrophyDef } from "./types.js";
 
@@ -133,8 +132,8 @@ const DEFS: readonly TrophyDef[] = [
     title: "Second opinion",
     tier: "bronze",
     category: "flow",
-    description: `${MENTOR_NAME} is a mentor who reads along and gives advice without touching your code.`,
-    hint: `Start a message with ${MENTOR_HANDLE}.`,
+    description: "Ken Kai is a mentor who reads along and gives advice without touching your code.",
+    hint: "Start a message with @Ken.",
     stat: count("kenQuestions"),
     goal: 1,
   },
@@ -165,7 +164,8 @@ const DEFS: readonly TrophyDef[] = [
     title: "Hands free",
     tier: "silver",
     category: "flow",
-    description: `With Autopilot on, ${MENTOR_NAME} reviews GG's work after each run, and GG keeps going until it passes.`,
+    description:
+      "With Autopilot on, Ken reviews GG's work after each run, and GG keeps going until it passes.",
     hint: "Turn on Autopilot in the More menu, then give GG a task.",
     stat: count("autopilotReviews"),
     goal: 1,
@@ -196,8 +196,8 @@ const DEFS: readonly TrophyDef[] = [
     title: "Mentored",
     tier: "gold",
     category: "flow",
-    description: `Fifty questions to ${MENTOR_NAME}. You know where to go for a straight answer.`,
-    hint: `Ask ${MENTOR_NAME} 50 times.`,
+    description: "Fifty questions to Ken Kai. You know where to go for a straight answer.",
+    hint: "Ask Ken 50 times.",
     stat: count("kenQuestions"),
     goal: 50,
   },

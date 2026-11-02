@@ -1,3 +1,4 @@
+import { CODER_NAME } from "./brand.js";
 import type { Message, ToolResultContent } from "@kenkaiiii/gg-ai";
 import {
   getHistoryMessageVisibility,
@@ -385,7 +386,7 @@ export function sessionToMarkdown(
       flushPending();
       rows++;
       out.push("");
-      out.push("## ✨ GG Coder");
+      out.push(`## ✨ ${CODER_NAME}`);
       out.push("");
       out.push(blockText.trim());
     }

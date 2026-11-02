@@ -40,7 +40,7 @@ describe("project 'don't install' list", () => {
       [
         BLOCKLIST_START,
         "## Blocked packages",
-        "GG Coder's safety checks blocked these. Never install or run them; use another version or package.",
+        "GC's safety checks blocked these. Never install or run them; use another version or package.",
         "- npm `chalk@5.6.1`: known malware (MAL-2025-46969)",
         BLOCKLIST_END,
         "",

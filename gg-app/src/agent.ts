@@ -3,6 +3,7 @@
 // sidecar's plain-HTTP endpoints directly (mixed-content). Rust proxies for us:
 //   - invoke("agent_state" | "agent_prompt" | "agent_cancel")
 //   - listen("agent-event")  ← forwarded SSE frames
+import { APP_NAME, CHAT_NAME, GOALS_NAME, MOTION_NAME } from "./brand";
 import { invoke } from "@tauri-apps/api/core";
 import type { ChatErrorData } from "./chat-error";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
@@ -98,8 +99,8 @@ export type ChatAgentId = "general" | "therapist" | "research";
  * window is a code-mode session whose agent is GG Goals.
  */
 export function workspaceProductName(mode: WorkspaceMode, isGoal = false): string {
-  if (isGoal) return "GG Goals";
-  return mode === "chat" ? "GG Chat" : mode === "motion" ? "GG Motion" : "GODIK CODER";
+  if (isGoal) return GOALS_NAME;
+  return mode === "chat" ? CHAT_NAME : mode === "motion" ? MOTION_NAME : APP_NAME;
 }
 
 export type MemoryCategory =

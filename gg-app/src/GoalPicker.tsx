@@ -1,4 +1,4 @@
-import { CODER_NAME } from "./mentor";
+import { CODER_NAME, GOALS_NAME } from "./brand";
 import { useEffect, useState } from "react";
 import { TrashIcon } from "@phosphor-icons/react";
 import { theme } from "./theme";
@@ -58,7 +58,7 @@ function GoalStatusPill({ status }: { status: GoalSummary["status"] }): React.Re
       <Badge
         className="goal-status-running"
         color="var(--success)"
-        title="GG Goals is working on this now"
+        title={`${GOALS_NAME} is working on this now`}
       >
         Running now
       </Badge>

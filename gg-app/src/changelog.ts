@@ -216,7 +216,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     version: "0.91.1",
     date: "2026-10-14",
     items: [
-      "The `About` tab now looks the way I built it. Little Godik sits beside his intro instead of stretching across the whole page, with your buttons right next to him.",
+      "The `About` tab now looks the way I built it. Little Ken sits beside his intro instead of stretching across the whole page, with your buttons right next to him.",
       "The `CI` status in your Git panel finally matches everything around it. It is the same size as `Open on GitHub` and lines up neatly beside it.",
     ],
   },
@@ -225,7 +225,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     date: "2026-10-14",
     items: [
       "Updates now arrive like a level up in an arcade. A pixel `Update` key pops up on your home screen and along the bottom of your window, turns into an XP bar with the little builder running across it while it downloads, and bursts into pixels at `100%`. I also fixed the old button going see-through when you pressed it.",
-      "Say hi in the new `About` tab at the end of Settings. Little Godik introduces himself, and a calendar shows every desktop release so far, one square per day. Point at any day to see what changed, and find me on `Skool` and YouTube right there.",
+      "Say hi in the new `About` tab at the end of Settings. Little Ken introduces himself, and a calendar shows every desktop release so far, one square per day. Point at any day to see what changed, and find me on `Skool` and YouTube right there.",
       "Settings feels a whole lot smoother. The tabs glide over in one easy motion instead of hopping around, and every page opens fully loaded, so you never catch it flickering half-ready first.",
       "The `What's new` window now matches your theme. Its stories sit on the same cards as the rest of the app, so everything reads clearly in both `Light` and `Dark`.",
       "Home got a tidy up. `Goals` wears a little Beta tag, and your version number now sits right beside What's new.",
@@ -235,7 +235,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     version: "0.90.1",
     date: "2026-10-14",
     items: [
-      "Tables and code finally get room to breathe. `Tables`, `code blocks` and Godik's prompt blocks now stretch across the whole chat, so columns stop squishing and long lines stop wrapping into a mess, while your reading text stays at a comfy width.",
+      "Tables and code finally get room to breathe. `Tables`, `code blocks` and Ken's prompt blocks now stretch across the whole chat, so columns stop squishing and long lines stop wrapping into a mess, while your reading text stays at a comfy width.",
     ],
   },
   {
@@ -293,8 +293,8 @@ export const CHANGELOG: ChangelogEntry[] = [
     version: "0.87.1",
     date: "2026-10-12",
     items: [
-      "`Goals` now end every stretch of work with a proper end-of-level card right on the farm. You get Godik's face, his parting line and the score: time, workers, turns and tokens written, plus one tap to `Read summary in Chat`. Goal windows also show the branch, CI and Project Health of the project you attached, so you always know where the work landed.",
-      "Updates now arrive with a little parade. A frog, a bee and an axolotl hop on a strip of meadow beside `Godik just updated GG Coder!`, then march along the grass as the download fills. The ready chime plays once per update instead of once per window, and a run that fails now plays the error cue instead of the happy done sound, so you can tell what happened without looking.",
+      "`Goals` now end every stretch of work with a proper end-of-level card right on the farm. You get Ken's face, his parting line and the score: time, workers, turns and tokens written, plus one tap to `Read summary in Chat`. Goal windows also show the branch, CI and Project Health of the project you attached, so you always know where the work landed.",
+      "Updates now arrive with a little parade. A frog, a bee and an axolotl hop on a strip of meadow beside `Ken just updated GG Coder!`, then march along the grass as the download fills. The ready chime plays once per update instead of once per window, and a run that fails now plays the error cue instead of the happy done sound, so you can tell what happened without looking.",
       "Changing your projects folder in Settings no longer wipes everything else. Your saved models, `Autopilot` picks, hidden projects and local endpoints all stay exactly where you left them.",
       "Switch languages mid-chat and the agent keeps up. The moment a new language shows up in your project, it picks up the right coding style, and its helper agents get the same guidance, all without throwing away the conversation's cache.",
       "Sending a message feels calmer. File chips and the cache notice now clear in the same beat as your send, so the chat stops jumping up and back down.",
@@ -358,7 +358,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     date: "2026-10-07",
     items: [
       "Plans never get stuck in limbo again. Whether `Autopilot` approves, hands a plan back to you or hits a snag, the `Accept` box now shows up the moment the plan is truly yours, and it even comes back after a reload. If an accept can't go through, I tell you why and let you try again instead of silently doing nothing.",
-      "Planning got sharper and safer. If your agent drafts a plan but forgets to submit it, I nudge it to finish the job, and when you or Godik send feedback it revises in `read-only` mode, so no code gets touched until you approve.",
+      "Planning got sharper and safer. If your agent drafts a plan but forgets to submit it, I nudge it to finish the job, and when you or Ken send feedback it revises in `read-only` mode, so no code gets touched until you approve.",
     ],
   },
   {
@@ -476,9 +476,9 @@ export const CHANGELOG: ChangelogEntry[] = [
     version: "0.75.0",
     date: "2026-10-02",
     items: [
-      "Godik finally has a face. His replies now open with a little animated pixel portrait of me that blinks and talks while he types. Flip `Autopilot` on and he wakes up with a happy hop, flip it off and he nods off with a sleepy `z`.",
+      "Ken finally has a face. His replies now open with a little animated pixel portrait of me that blinks and talks while he types. Flip `Autopilot` on and he wakes up with a happy hop, flip it off and he nods off with a sleepy `z`.",
       "Your home screen is alive. The whole critter crew now beams in along the bottom on a fresh world every visit, from a sunny `meadow` to a beach, a desert, snow or deep `space`. Watch them wander, meet up and play, and give one a click to make it jump.",
-      "`Autopilot` reviews are sharper and never quietly stall. Godik now sees exactly which files changed before he signs off, and he tells you plainly when he couldn't double-check against real-world code. I also fixed a check that could leave finished work stuck on `Unverified` and stop him reviewing altogether.",
+      "`Autopilot` reviews are sharper and never quietly stall. Ken now sees exactly which files changed before he signs off, and he tells you plainly when he couldn't double-check against real-world code. I also fixed a check that could leave finished work stuck on `Unverified` and stop him reviewing altogether.",
     ],
   },
   {
@@ -584,7 +584,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       "GG Coder feels alive now. Your messages rise into the chat, tool steps slide in as they run, popups and menus fade away instead of vanishing, and every screen change glides with a soft `crossfade`. Hit `Show full output` on a long code block and it grows open smoothly instead of jumping.",
       "Reviewing a plan is a proper moment now. The `YOUR PLAN` banner draws itself in line by line, your plan rises in underneath, and a stray Enter can never approve it by accident. It's fully keyboard friendly, so Tab stays right where your decision is.",
       "Errors wait for you now. They stay on screen until you close them, and any notice holds still while you hover it, so nothing important slips past while you're looking away.",
-      "A calmer, cleaner look. The top bar keeps `/commit` as the one standout action, Godik's replies read in easy normal text with his signature teal stripe, and your project list is tidier with neat, lined-up times.",
+      "A calmer, cleaner look. The top bar keeps `/commit` as the one standout action, Ken's replies read in easy normal text with his signature teal stripe, and your project list is tidier with neat, lined-up times.",
     ],
   },
   {
@@ -668,7 +668,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     date: "2026-09-20",
     items: [
       "Know what's happening without reading the whole chat. I rebuilt the `activity bar` with short, color-coded statuses and smooth transitions, so `Needs you` and `Not verified` stand out even after the work stops.",
-      "I tightened `Godik` and `Autopilot` reviews around what you actually asked for. Your latest decisions stay in focus, and reviews check for unfinished work without chasing endless optional improvements.",
+      "I tightened `Ken` and `Autopilot` reviews around what you actually asked for. Your latest decisions stay in focus, and reviews check for unfinished work without chasing endless optional improvements.",
       "Your `slash commands` now listen to what you ask this time. I fixed custom instructions getting lost behind template defaults, so your chosen scope and format take priority.",
     ],
   },
@@ -706,7 +706,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     version: "0.64.4",
     date: "2026-09-15",
     items: [
-      "You can spot active work at a glance now. I gave `Agent is working…` and `Godik` animated orbs and shimmering labels, plus a moving glow around your input and `Stop` button while the action happens.",
+      "You can spot active work at a glance now. I gave `Agent is working…` and `Ken` animated orbs and shimmering labels, plus a moving glow around your input and `Stop` button while the action happens.",
       "I gave `Send`, `Enhance?`, and your New and Commit actions a liquid-metal finish. Your New and Commit buttons keep their familiar colors, with a little extra shine where you reach most.",
     ],
   },
@@ -1046,15 +1046,15 @@ export const CHANGELOG: ChangelogEntry[] = [
     date: "2026-08-23",
     items: [
       "GG Coder gets to the point now. Its answers had quietly grown into walls of text you stopped reading, because the length limit let bullet lists slide straight past it. I closed that loophole with one hard `120 word` budget nothing escapes, capped every bullet at a single line, and told it to skip the file names and jargon unless you actually need to open something. Same answers, a third of the reading.",
-      "`Godik` now catches bad plans before a single line gets written. He used to wave through anything that looked reasonable, so a wonky design only showed itself once the code existed and cost you real time to unpick. Now he asks what you would ask: does every step deserve to be there, is anything split in the wrong place, does that order actually matter, and what happens on the paths nobody thought about. He still refuses to nitpick taste, so he only speaks up when something is genuinely off.",
+      "`Ken` now catches bad plans before a single line gets written. He used to wave through anything that looked reasonable, so a wonky design only showed itself once the code existed and cost you real time to unpick. Now he asks what you would ask: does every step deserve to be there, is anything split in the wrong place, does that order actually matter, and what happens on the paths nobody thought about. He still refuses to nitpick taste, so he only speaks up when something is genuinely off.",
     ],
   },
   {
     version: "0.53.3",
     date: "2026-08-23",
     items: [
-      "`Autopilot` is back, and it is bulletproof. Yesterday's build had a bug that killed every single review the instant it started, so Godik never got to check your work and you just got an error. I found it, crushed it, and locked it down with a test so it can never come back.",
-      "Your settings no longer lie to you mid task. The `Godik` model picker and the `Thinking` level looked clickable while GG Coder was working, but changing them did nothing to the run you were watching. Now they dim politely and tell you exactly why, so what you see is always what you get.",
+      "`Autopilot` is back, and it is bulletproof. Yesterday's build had a bug that killed every single review the instant it started, so Ken never got to check your work and you just got an error. I found it, crushed it, and locked it down with a test so it can never come back.",
+      "Your settings no longer lie to you mid task. The `Ken` model picker and the `Thinking` level looked clickable while GG Coder was working, but changing them did nothing to the run you were watching. Now they dim politely and tell you exactly why, so what you see is always what you get.",
     ],
   },
   {
@@ -1468,7 +1468,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     version: "0.33.1",
     date: "2026-07-28",
     items: [
-      "Reopen a chat and everything sits exactly where it happened. Errors, `Godik` verdicts and plan banners used to pile up at the bottom of long conversations, sometimes `900` messages below where they belong. I went through every one of your saved chats and fixed the lot, old ones included.",
+      "Reopen a chat and everything sits exactly where it happened. Errors, `Ken` verdicts and plan banners used to pile up at the bottom of long conversations, sometimes `900` messages below where they belong. I went through every one of your saved chats and fixed the lot, old ones included.",
       "No more seeing the same thing twice. When `Autopilot` hands me a job, reopening that chat used to show its instruction again as raw text underneath. Now you get the one clean handoff, exactly like you saw it live.",
       "Your slash commands stay looking like commands. Reopen a chat and `/release` is still a neat little chip instead of the giant prompt hiding behind it, even after you have edited that command since.",
     ],
@@ -1744,7 +1744,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [
       "Your token bill on OpenAI models just took a serious haircut. I capped how much raw tool output a single turn can dump into context, so those runaway `400K` token spikes from parallel file reads are gone for good.",
       "Long sessions now clean up after themselves. I quietly drop stale file reads and ancient command output the moment newer versions exist, keeping conversations lean, cutting rebilled context by up to `60%`, and pushing full compaction much further away.",
-      "`Autopilot` stopped double-checking itself. When Godik reviews your work he now owns the whole verification, so runs finish faster with one clean verdict instead of two overlapping reviews.",
+      "`Autopilot` stopped double-checking itself. When Ken reviews your work he now owns the whole verification, so runs finish faster with one clean verdict instead of two overlapping reviews.",
     ],
   },
   {
@@ -1953,8 +1953,8 @@ export const CHANGELOG: ChangelogEntry[] = [
     version: "0.14.9",
     date: "2026-07-06",
     items: [
-      "Your session list is yours again. Godik's silent autopilot reviews were quietly leaving behind a fake 2-message session every few minutes, burying your real work under a wall of clones. I plugged the leak for good, so what you see in the picker is exactly what you built. Nothing else.",
-      "`Autopilot` got tougher to derail. I made Godik's handoffs land even when they arrive wrapped in chatter, then tightened his reviews so cycles run leaner and stall less.",
+      "Your session list is yours again. Ken's silent autopilot reviews were quietly leaving behind a fake 2-message session every few minutes, burying your real work under a wall of clones. I plugged the leak for good, so what you see in the picker is exactly what you built. Nothing else.",
+      "`Autopilot` got tougher to derail. I made Ken's handoffs land even when they arrive wrapped in chatter, then tightened his reviews so cycles run leaner and stall less.",
     ],
   },
   {
@@ -1969,7 +1969,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     date: "2026-07-05",
     items: [
       "Your machine breathes easier now. `GG Coder` hunts down leftover built-in and custom tool helpers on startup, so closed projects stop quietly eating your memory for days.",
-      "Godik gives sharper advice. He now knows exactly what GG Coder can do under the hood, so his guidance is grounded in the real tools at hand instead of guesses, and his handoffs back to the agent come through clean.",
+      "Ken gives sharper advice. He now knows exactly what GG Coder can do under the hood, so his guidance is grounded in the real tools at hand instead of guesses, and his handoffs back to the agent come through clean.",
     ],
   },
   {
@@ -2055,7 +2055,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     date: "2026-07-02",
     items: [
       "`Autopilot` is calmer and harder to fool. I judge GG Coder against your original request, stop inventing work after the job is done, and call you in instead of answering real questions or plan decisions on your behalf.",
-      "Godik gets his own model switch. Pin me to a different brain or let me follow GG Coder, right from the footer.",
+      "Ken gets his own model switch. Pin me to a different brain or let me follow GG Coder, right from the footer.",
       "Queued messages land cleaner now. If you send one while I am reviewing and there is no live run to steer, I treat it as a fresh turn instead of mixing it into the next unrelated job.",
     ],
   },
@@ -2085,7 +2085,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     version: "0.11.0",
     date: "2026-07-02",
     items: [
-      "Meet `Autopilot`. I review every finished job, send broken work straight back with a sharp fix, call clear work done, and tap you for real judgment calls, all while a live Godik status and in-chat verdict show exactly what I am doing.",
+      "Meet `Autopilot`. I review every finished job, send broken work straight back with a sharp fix, call clear work done, and tap you for real judgment calls, all while a live Ken status and in-chat verdict show exactly what I am doing.",
       "Your workspace tidies itself. The second a task is done it slips out of your Tasks list on its own, so all you ever see is what still needs doing. No more hunting for the checkbox.",
       "Un-minimizing one window now brings the whole crew back. Click a single GG Coder window back up and its siblings rise with it, so you are never left digging through the dock for the rest.",
     ],
@@ -2146,14 +2146,14 @@ export const CHANGELOG: ChangelogEntry[] = [
     version: "0.7.1",
     date: "2026-06-30",
     items: [
-      "`@Mentor` is easier to remember and stays in sync. Helpful hints rotate into the input, and every model switch carries over so his advice comes from the same brain you chose for GG Coder.",
+      "`@Ken` is easier to remember and stays in sync. Helpful hints rotate into the input, and every model switch carries over so his advice comes from the same brain you chose for GG Coder.",
     ],
   },
   {
     version: "0.7.0",
     date: "2026-06-30",
     items: [
-      "Say hey to `@Mentor`, your research-first mentor inside the app. I check real code and live docs, challenge shaky plans, recommend tools with taste, turn advice into one-click `Send to GG Coder` prompts, and keep our chats waiting for you after a restart.",
+      "Say hey to `@Ken`, your research-first mentor inside the app. I check real code and live docs, challenge shaky plans, recommend tools with taste, turn advice into one-click `Send to GG Coder` prompts, and keep our chats waiting for you after a restart.",
     ],
   },
   {

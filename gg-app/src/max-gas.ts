@@ -6,7 +6,7 @@
  * App/Deck wiring stays a few lines and upstream merges stay clean.
  */
 
-import { CODER_NAME, MENTOR_NAME } from "./mentor";
+import { CODER_NAME, MENTOR_NAME } from "./brand";
 
 /** The short header Ken reads first: what to produce and the limits to keep. */
 export const MAX_GAS_INSTRUCTION = `MAX GAS REQUEST FOR ${MENTOR_NAME.toUpperCase()}

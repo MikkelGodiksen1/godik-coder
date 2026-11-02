@@ -1,3 +1,4 @@
+import { CODER_NAME } from "../brand.js";
 import type { AgentToolCallEndEvent, AgentToolCallStartEvent } from "@kenkaiiii/gg-agent";
 import { autoBackgroundedId, REVIEW_REJECTED_BEFORE_START } from "../../tools/bash.js";
 import { editTargetPaths } from "../../tools/edit-targets.js";
@@ -107,7 +108,7 @@ export class VerificationTracker {
     } else {
       this.gate.recordRejectedCheck(
         check.command,
-        "GG re-ran this check on its own and it did not pass",
+        `${CODER_NAME} re-ran this check on its own and it did not pass`,
       );
     }
   }

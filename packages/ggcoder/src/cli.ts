@@ -24,6 +24,7 @@ process.on("unhandledRejection", (reason) => {
 // Drain ALL performance entries to prevent unbounded memory growth.
 // Node emits entries for marks, measures, resource timing (HTTP), DNS, net, etc.
 // Without clearing, these accumulate across every LLM call and tool execution.
+import { CODER_NAME, MAKER_NAME } from "./core/brand.js";
 import { PerformanceObserver, performance } from "node:perf_hooks";
 {
   const allTypes = PerformanceObserver.supportedEntryTypes.filter(
@@ -133,7 +134,7 @@ function printHelp(): void {
   // Banner — matches the interactive TUI banner layout
   console.log();
   for (const row of renderLogoBlock([
-    primary.bold("GG Coder") + dim(` v${CLI_VERSION}`) + dim(" · By ") + bold("Ken Kai"),
+    primary.bold(CODER_NAME) + dim(` v${CLI_VERSION}`) + dim(" · By ") + bold("Ken Kai"),
     dim("AI coding agent"),
   ])) {
     console.log(row);
@@ -1075,10 +1076,10 @@ async function runTelegramSetup(): Promise<void> {
   // Banner
   console.log();
   for (const row of renderLogoBlock([
-    chalk.hex("#60a5fa").bold("GG Coder") +
+    chalk.hex("#60a5fa").bold(CODER_NAME) +
       chalk.hex("#6b7280")(` v${CLI_VERSION}`) +
       chalk.hex("#6b7280")(" · By ") +
-      chalk.white.bold("Ken Kai"),
+      chalk.white.bold(MAKER_NAME),
     chalk.hex("#a78bfa")("Telegram Setup"),
     chalk.hex("#6b7280")("Remote Control"),
   ])) {
@@ -1350,10 +1351,10 @@ async function runAgentHomeLogin(): Promise<void> {
   // Banner
   console.log();
   for (const row of renderLogoBlock([
-    chalk.hex("#60a5fa").bold("GG Coder") +
+    chalk.hex("#60a5fa").bold(CODER_NAME) +
       chalk.hex("#6b7280")(` v${CLI_VERSION}`) +
       chalk.hex("#6b7280")(" \u00b7 By ") +
-      chalk.white.bold("Ken Kai"),
+      chalk.white.bold(MAKER_NAME),
     chalk.hex("#a78bfa")("Agent Home Setup"),
     chalk.hex("#6b7280")("Remote Control via iOS"),
   ])) {

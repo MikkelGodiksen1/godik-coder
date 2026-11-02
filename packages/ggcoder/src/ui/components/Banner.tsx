@@ -1,6 +1,7 @@
 import React from "react";
 import { Box, Text } from "ink";
 import { useTheme } from "../theme/theme.js";
+import { CODER_NAME, MAKER_NAME } from "../../core/brand.js";
 import { getModel } from "../../core/model-registry.js";
 import { useTerminalSize } from "../hooks/useTerminalSize.js";
 import type { Provider } from "@kenkaiiii/gg-ai";
@@ -88,7 +89,7 @@ export function Banner({ version, model, cwd }: BannerProps) {
       <Box>
         <Text>{LEFT_PAD}</Text>
         <Text color={theme.primary} bold>
-          GG Coder
+          {CODER_NAME}
         </Text>
         <Text color={theme.textDim}> v{version}</Text>
       </Box>
@@ -112,12 +113,12 @@ export function Banner({ version, model, cwd }: BannerProps) {
     <Box flexDirection="column">
       <Box>
         <Text color={theme.primary} bold>
-          GG Coder
+          {CODER_NAME}
         </Text>
         <Text color={theme.textDim}> v{version}</Text>
         <Text color={theme.textDim}> · By </Text>
         <Text color={theme.text} bold>
-          Ken Kai
+          {MAKER_NAME}
         </Text>
       </Box>
       <Box>

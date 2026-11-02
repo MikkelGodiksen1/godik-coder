@@ -1,4 +1,4 @@
-import { MENTOR_NAME } from "./mentor";
+import { MENTOR_NAME } from "./brand";
 import { useEffect, useRef } from "react";
 import { drawKenPortrait } from "./goal-ken-portrait";
 

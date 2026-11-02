@@ -3,6 +3,7 @@
 // tool feed, and every worker it brought in from the transcript's sub-agent
 // groups. Pure, so the world view and its tests share one mapping.
 
+import { GOALS_NAME } from "./brand";
 import type { FloorAgent } from "./critter-floor";
 import type { KenMark } from "./goal-ken-status";
 import { toolKindOf } from "./critter-tool-kind";
@@ -171,7 +172,7 @@ function coordinator(input: WorldInput): WorldAgent {
   const base = {
     key: COORDINATOR_KEY,
     agentName: undefined,
-    name: "GG Goals",
+    name: GOALS_NAME,
     coordinator: true,
   };
   if (input.waitingOnUser) {
@@ -243,7 +244,7 @@ export function previewCrowd(now: number): WorldAgent[] {
   const coordinator: WorldAgent = {
     key: COORDINATOR_KEY,
     agentName: undefined,
-    name: "GG Goals",
+    name: GOALS_NAME,
     coordinator: true,
     status: "working",
     kind: "delegate",

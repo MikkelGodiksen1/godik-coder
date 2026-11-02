@@ -1,4 +1,4 @@
-import { MENTOR_NAME } from "../core/mentor-name.js";
+import { MENTOR_NAME } from "../core/brand.js";
 import type http from "node:http";
 import type { Provider, ThinkingLevel } from "@kenkaiiii/gg-ai";
 import { findProbedModel, parseLocalModelId } from "@kenkaiiii/gg-core";

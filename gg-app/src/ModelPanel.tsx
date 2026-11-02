@@ -1,4 +1,4 @@
-import { CODER_NAME, MENTOR_NAME } from "./mentor";
+import { CODER_NAME, MENTOR_NAME } from "./brand";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { setThinkingLevel, type AgentState, type ModelOption } from "./agent";
 import { PanelHead } from "./DeckPanelHead";

@@ -65,7 +65,7 @@ describe("GG Goals agent", () => {
     const opts = optionsOf(session);
 
     expect(opts.agentPrompt).toBe(buildGoalsAgentPrompt(g));
-    expect(opts.agentPrompt?.startsWith("You are GG Goals")).toBe(true);
+    expect(opts.agentPrompt?.startsWith("You are GC Goals")).toBe(true);
     expect(opts.agentPrompt).toContain("Find remote roles in Malaysia");
     expect(opts.agentPrompt).toContain(GOAL_START_OPTION);
     expect(opts.agentRole).toBe("primary");

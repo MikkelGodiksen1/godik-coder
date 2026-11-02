@@ -36,7 +36,7 @@
  * "prompt the user" can never match). HUMAN wins over PROMPT when both appear
  * — recovering a stop is always safe, recovering an action must lose ties.
  */
-import { MENTOR_NAME } from "./mentor-name.js";
+import { MENTOR_NAME } from "./brand.js";
 
 export type AutopilotVerdict =
   /** `rule` names the user's autopilot rule Ken applied (`PROMPT RULE: <name>`). */

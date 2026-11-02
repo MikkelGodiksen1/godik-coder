@@ -1,10 +1,10 @@
 // Presentation only: these phrases never decide the outcome or its colour.
 // Keep each pool semantically equivalent, short, and stable for one request.
-import { MENTOR_NAME } from "./mentor";
+import { CODER_NAME, MENTOR_NAME } from "./brand";
 
 export const OUTCOME_PHRASES: Record<string, readonly string[]> = {
   "Response ready": [
-    "Answer ready. GG.",
+    `Answer ready. ${CODER_NAME}.`,
     "Your answer is ready",
     "Answer’s all yours",
     "Fresh answer, ready",
@@ -13,7 +13,7 @@ export const OUTCOME_PHRASES: Record<string, readonly string[]> = {
   ],
   "Findings ready": [
     "Findings, fresh in",
-    "Findings ready. GG.",
+    `Findings ready. ${CODER_NAME}.`,
     "Notes ready to read",
     "Here’s the rundown",
     "Findings on the table",
@@ -21,7 +21,7 @@ export const OUTCOME_PHRASES: Record<string, readonly string[]> = {
   ],
   "Changes saved": [
     "Edits in. Have a look",
-    "Changes saved. GG.",
+    `Changes saved. ${CODER_NAME}.`,
     "Edits ready to review",
     "Changes on the page",
     "Edits are on the board",
@@ -47,7 +47,7 @@ export const OUTCOME_PHRASES: Record<string, readonly string[]> = {
     "Checks passed. Nice.",
     "Checks came back green",
     "Green checks. Lovely.",
-    "Checks passed. GG.",
+    `Checks passed. ${CODER_NAME}.`,
     "Checks looking good",
     "Checks green this time",
   ],

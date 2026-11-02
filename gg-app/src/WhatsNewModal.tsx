@@ -47,7 +47,7 @@ export function WhatsNewModal(): null {
         // Only upgrades need the history. Ordinary launches and fresh installs
         // must not load it into every workspace just to check its length.
         if (seen !== null) {
-          const { CHANGELOG } = await import("./changelog");
+          const { CHANGELOG } = await import("./changelog-brand");
           if (cancelled || CHANGELOG.length === 0) return;
         }
         // Persist before opening so a re-check never re-opens it.

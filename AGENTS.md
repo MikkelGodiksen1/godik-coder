@@ -63,3 +63,10 @@ Desktop coding workspace (code / chat / motion modes): a React+Tauri app drives 
 - **Release via `/release` (`.gg/commands/release.md`).** Changesets fixed group (gg-ai, gg-agent, gg-core, ggcoder): `changeset version` → build → commit → `changeset publish` (tags target HEAD) → push tags. Every npm release also needs a desktop release: `pnpm --filter gg-app bump …` (package.json, tauri.conf.json, Cargo.toml, Cargo.lock), prepend `gg-app/src/changelog.ts`, push `v<version>` last.
 - A `v*` tag must be on `origin/main`; it publishes a non-draft release + updater `latest.json` for Apple-silicon macOS and Windows only (Linux AppImage hangs in CI). Preflight fails closed if any signing secret in the `desktop-production` environment is missing.
 <!-- gg:init:end -->
+
+## GODIK CODER fork
+
+This repo is the GODIK CODER whitelabel fork of GG Coder. Before merging upstream,
+renaming anything or touching user-visible text, read `GODIK.md`: display names
+come from `brand.ts` (Godik / GC), internal `ken*`/`gg*` identifiers stay as
+upstream named them, and `gg-app/src/brand.test.ts` guards the app's labels.

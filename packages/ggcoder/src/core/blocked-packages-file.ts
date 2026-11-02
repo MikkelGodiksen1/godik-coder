@@ -10,6 +10,7 @@
  * injected instructions. Never touched mid-prompt: the running session already
  * knows from the block message, and nothing re-renders the cached prompt.
  */
+import { CODER_NAME } from "./brand.js";
 import { constants as fsConstants } from "node:fs";
 import fsp from "node:fs/promises";
 import os from "node:os";
@@ -21,7 +22,7 @@ export const BLOCKLIST_START = "<!-- gg-safe:blocked-packages:start -->";
 export const BLOCKLIST_END = "<!-- gg-safe:blocked-packages:end -->";
 const HEADER = [
   "## Blocked packages",
-  "GG Coder's safety checks blocked these. Never install or run them; use another version or package.",
+  `${CODER_NAME}'s safety checks blocked these. Never install or run them; use another version or package.`,
 ];
 /** Newest entries kept; older ones fall off the top. */
 const MAX_ENTRIES = 30;

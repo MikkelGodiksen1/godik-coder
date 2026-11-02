@@ -1,3 +1,4 @@
+import { GOALS_NAME } from "./brand";
 import { useState } from "react";
 import { theme } from "./theme";
 import { Modal } from "./Modal";
@@ -73,7 +74,7 @@ export function GoalSettingsModal({
         <div className="modal-hint" style={{ color: theme.textDim }}>
           {busy
             ? "The goal is working. Pause it to change its settings."
-            : "GG Goals picks up the change on its next step."}
+            : `${GOALS_NAME} picks up the change on its next step.`}
         </div>
       </div>
       {error && (

@@ -6,14 +6,9 @@
  * Sending clears the draft, so the composer goes back to normal after one
  * message.
  */
-/** The mentor's visible handle. `@ken` still works as a typed alias. */
-export const MENTOR_HANDLE = "@Mentor";
+import { MENTOR_HANDLE } from "./brand";
 
-/** The mentor's display name. Internal ids keep "ken" for conflict-free upstream merges. */
-export const MENTOR_NAME = "Godik";
-
-/** The coding agent's display name (upstream calls it GG / GG Coder). */
-export const CODER_NAME = "GC";
+// `@ken` still works as a typed alias for MENTOR_HANDLE.
 
 /** The question the Mentor key fills in when the composer is empty. */
 export const MENTOR_DEFAULT_QUESTION = "hvad siger du?";

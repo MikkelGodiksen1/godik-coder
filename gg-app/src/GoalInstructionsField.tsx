@@ -1,3 +1,4 @@
+import { GOALS_NAME } from "./brand";
 import { useId } from "react";
 import { theme } from "./theme";
 
@@ -50,7 +51,7 @@ export function GoalInstructionsField({
         onChange={(e) => onChange(e.target.value)}
       />
       <div id={hintId} className="modal-hint" style={{ color: theme.textDim }}>
-        Rules for the whole goal. GG Goals and its workers follow them throughout.
+        {`Rules for the whole goal. ${GOALS_NAME} and its workers follow them throughout.`}
       </div>
     </>
   );

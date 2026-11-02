@@ -159,7 +159,7 @@ describe("sessionToMarkdown", () => {
     ];
     const md = sessionToMarkdown(meta, messages);
     expect(md).toContain("## 🧑‍💻 You\n\nhello there");
-    expect(md).toContain("## ✨ GG Coder\n\nhi back");
+    expect(md).toContain("## ✨ GC\n\nhi back");
     // The system prompt is ours, never the user's to share.
     expect(md).not.toContain("SECRET SYSTEM PROMPT");
   });
@@ -175,7 +175,7 @@ describe("sessionToMarkdown", () => {
       },
     ];
     const md = sessionToMarkdown(meta, messages);
-    expect(md.match(/## ✨ GG Coder/g)).toHaveLength(2);
+    expect(md.match(/## ✨ GC/g)).toHaveLength(2);
   });
 
   it("pairs tool calls with their results in a collapsed details block at full", () => {

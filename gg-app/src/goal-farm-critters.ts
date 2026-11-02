@@ -14,7 +14,7 @@
 // T crown, B face, S body, D dark markings and feet, W white fur, K eyes,
 // E eye shine, C blush, M mouth; the rest are per critter.
 
-import { MENTOR_NAME } from "./mentor";
+import { MENTOR_NAME } from "./brand";
 import { shadeGrid, type Material } from "./critter-shade";
 import { hashKey, type CritterDef } from "./critter-sprites";
 

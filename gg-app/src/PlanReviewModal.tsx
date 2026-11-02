@@ -1,4 +1,4 @@
-import { CODER_NAME, MENTOR_NAME } from "./mentor";
+import { CODER_NAME, MENTOR_NAME } from "./brand";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ArrowUpIcon } from "@phosphor-icons/react";
 import { useDialogFocus } from "./dialog-focus";

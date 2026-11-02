@@ -523,7 +523,7 @@ describe("Motion agent", () => {
       sessionsDir: "/tmp/gg/sessions",
     });
     const options = optionsOf(agent);
-    expect(options.agentPrompt).toContain("You are GG Motion");
+    expect(options.agentPrompt).toContain("You are GC Motion");
     expect(options.agentRole).toBe("primary");
     expect(options.agentContext).toBe("none");
     expect(options.promptCacheKeyPrefix).toBe("ggmotion");

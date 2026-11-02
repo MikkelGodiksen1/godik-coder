@@ -1,4 +1,4 @@
-import { CODER_NAME } from "./mentor";
+import { CODER_NAME } from "./brand";
 import {
   memo,
   useCallback,

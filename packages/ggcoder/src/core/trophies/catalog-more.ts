@@ -7,7 +7,6 @@
 // Ids are stored in ~/.gg/trophies.json: never rename or reuse one. Copy is
 // shown in the app: plain words, no em dashes.
 
-import { MENTOR_NAME } from "../mentor-name.js";
 import type { TrophyDef } from "./types.js";
 
 const count = (key: Extract<TrophyDef["stat"], { kind: "count" }>["key"]) =>
@@ -46,7 +45,8 @@ export const MORE_TROPHIES: readonly TrophyDef[] = [
     title: "Second pair of eyes",
     tier: "bronze",
     category: "start",
-    description: `You turned on Autopilot. After each run, ${MENTOR_NAME} reviews the work and sends GG back if something needs fixing.`,
+    description:
+      "You turned on Autopilot. After each run, Ken reviews the work and sends GG back if something needs fixing.",
     hint: "Open the More menu and switch on Autopilot.",
     stat: count("autopilotOn"),
     goal: 1,
@@ -159,18 +159,19 @@ export const MORE_TROPHIES: readonly TrophyDef[] = [
     title: "Regular at the desk",
     tier: "silver",
     category: "flow",
-    description: `Ten questions to ${MENTOR_NAME}.`,
-    hint: `Ask ${MENTOR_NAME} 10 times.`,
+    description: "Ten questions to Ken Kai.",
+    hint: "Ask Ken 10 times.",
     stat: count("kenQuestions"),
     goal: 10,
   },
   {
     id: "ken-pin",
-    title: `${MENTOR_NAME}'s own brain`,
+    title: "Ken's own brain",
     tier: "silver",
     category: "flow",
-    description: `You gave ${MENTOR_NAME} a model of his own. By default he follows GG's model; pinning one keeps him on it.`,
-    hint: `Open the model panel and pick a model for ${MENTOR_NAME}.`,
+    description:
+      "You gave Ken a model of his own. By default he follows GG's model; pinning one keeps him on it.",
+    hint: "Open the model panel and pick a model for Ken.",
     stat: count("kenPins"),
     goal: 1,
   },
@@ -179,7 +180,7 @@ export const MORE_TROPHIES: readonly TrophyDef[] = [
     title: "Trust, but verify",
     tier: "silver",
     category: "flow",
-    description: `Five Autopilot reviews. ${MENTOR_NAME} has your back.`,
+    description: "Five Autopilot reviews. Ken has your back.",
     hint: "Let Autopilot review 5 runs.",
     stat: count("autopilotReviews"),
     goal: 5,

@@ -1,3 +1,4 @@
+import { CODER_NAME, MAKER_NAME } from "./core/brand.js";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { formatSkillsForPrompt, type Skill } from "./core/skills.js";
@@ -41,7 +42,7 @@ const UNCACHED_MARKER = "<!-- uncached -->";
  * contradictory double identity when streaming through Anthropic.
  */
 function productName(provider: Provider | undefined): string {
-  return provider === "anthropic" ? "Claude Code" : "GG Coder by Ken Kai";
+  return provider === "anthropic" ? "Claude Code" : `${CODER_NAME} by ${MAKER_NAME}`;
 }
 
 function renderIdentitySection(provider: Provider | undefined): string {

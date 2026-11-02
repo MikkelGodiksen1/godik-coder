@@ -15,7 +15,7 @@
  * `buildKenDigest()` in ken-context.ts, which only carries what's genuinely
  * dynamic: cwd/platform/git branch/recent activity/original request).
  */
-import { CODER_NAME, MENTOR_NAME } from "./mentor-name.js";
+import { CODER_NAME, MENTOR_NAME } from "./brand.js";
 import { collectProjectContext } from "../system-prompt.js";
 
 /** The fenced-block language Ken wraps every recommended GG Coder prompt in.
@@ -333,7 +333,7 @@ function renderAutopilotContract(): string {
     `nitpicks are still not blockers, and "I would have structured it ` +
     `differently" is taste unless you can name what it breaks. Never IGNORE a ` +
     `plan.\n` +
-    `- Transcript lines labeled "Ken autopilot (injected)" are YOUR own earlier ` +
+    `- Transcript lines labeled "${MENTOR_NAME} autopilot (injected)" are YOUR own earlier ` +
     `fix prompts, not user asks. Judge against the original user request and genuine user ` +
     `corrections, including relevant retained earlier decisions.\n` +
     `- You are read-only. Research only material facts genuinely in doubt. Do not reopen ` +

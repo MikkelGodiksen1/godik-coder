@@ -1,4 +1,4 @@
-import { MENTOR_HANDLE } from "../core/mentor-name.js";
+import { CODER_NAME, MENTOR_HANDLE } from "../core/brand.js";
 import type http from "node:http";
 import path from "node:path";
 import type { ToolResultContent } from "@kenkaiiii/gg-ai";
@@ -241,8 +241,7 @@ export function handleHistoryRoutes(
               error: {
                 scope: "interrupted_run",
                 headline: "A run was interrupted",
-                message:
-                  "GG Coder stopped mid-run, so this turn is incomplete. Any files its tools already changed are still on disk.",
+                message: `${CODER_NAME} stopped mid-run, so this turn is incomplete. Any files its tools already changed are still on disk.`,
                 guidance: "Review the working tree, then re-send the request if you still want it.",
               },
             });

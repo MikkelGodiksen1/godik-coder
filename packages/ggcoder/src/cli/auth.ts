@@ -1,3 +1,4 @@
+import { CODER_NAME, MAKER_NAME } from "../core/brand.js";
 import readline from "node:readline/promises";
 import path from "node:path";
 import chalk from "chalk";
@@ -205,10 +206,10 @@ export async function runDoctor(): Promise<void> {
   // ── Banner ──────────────────────────────────────────────────
   console.log();
   for (const row of renderLogoBlock([
-    primary.bold("GG Coder") +
+    primary.bold(CODER_NAME) +
       dim(` v${CLI_VERSION}`) +
       dim(" · By ") +
-      chalk.white.bold("Ken Kai"),
+      chalk.white.bold(MAKER_NAME),
     accent("Doctor"),
     dim("Diagnose & Fix"),
   ])) {

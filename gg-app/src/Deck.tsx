@@ -1,4 +1,4 @@
-import { CODER_NAME, MENTOR_NAME } from "./mentor";
+import { CODER_NAME, MENTOR_NAME } from "./brand";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import {
   getGitOverview,

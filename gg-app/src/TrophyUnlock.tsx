@@ -1,3 +1,4 @@
+import { CODER_NAME } from "./brand";
 import { useEffect, useRef } from "react";
 import type { Trophy, TrophySnapshot } from "./agent";
 import { Icon } from "./icons";
@@ -266,7 +267,7 @@ export function TrophyUnlock({
             ))}
           </div>
           <div className="tu-back" aria-hidden="true">
-            <span className="tu-mono">GG</span>
+            <span className="tu-mono">{CODER_NAME}</span>
             <span className="tu-cap">TROPHY</span>
             <span className="tu-core" />
             <span className="tu-trace" />

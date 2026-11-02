@@ -4,7 +4,7 @@ import { theme } from "./theme";
 import { formatTokenCount } from "./ActivityBar";
 import { ShimmerText } from "./ShimmerText";
 import { useMotionLevel } from "./window-motion";
-import { MENTOR_HANDLE } from "./mentor";
+import { MENTOR_HANDLE } from "./brand";
 
 function formatElapsed(ms: number): string {
   const s = Math.round(ms / 1000);

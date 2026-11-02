@@ -1,4 +1,4 @@
-import { MENTOR_NAME } from "./mentor";
+import { MENTOR_NAME } from "./brand";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { FloorAgent } from "./critter-floor";
 import { drawKenPortrait } from "./goal-ken-portrait";

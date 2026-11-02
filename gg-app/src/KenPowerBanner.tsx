@@ -11,7 +11,7 @@
 // no lateral motion. Self-removes via `onDone` once the animation finishes so
 // the caller can just stop rendering it. Ken's pixel face leads the line and
 // acts it out: he wakes up for "on" and nods off for "off".
-import { MENTOR_NAME } from "./mentor";
+import { MENTOR_NAME } from "./brand";
 import { KenFace } from "./KenFace";
 
 interface Props {

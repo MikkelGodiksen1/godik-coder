@@ -1,4 +1,4 @@
-import { CODER_NAME, MENTOR_NAME } from "./mentor";
+import { CODER_NAME, MENTOR_NAME } from "./brand";
 import type { KenFace } from "./goal-ken-talk";
 import { formatMonthYear, type ShipLog } from "./about-ship-log";
 

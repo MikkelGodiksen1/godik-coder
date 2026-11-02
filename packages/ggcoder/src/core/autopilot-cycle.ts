@@ -20,15 +20,14 @@
  * plan) still halts as HUMAN — Ken must never prompt into a read-only
  * plan-mode session.
  */
-import { MENTOR_NAME } from "./mentor-name.js";
+import { CODER_NAME, MENTOR_NAME } from "./brand.js";
 import { CORPUS_UNVERIFIED_REASON, type AutopilotVerdict } from "./autopilot-verdict.js";
 
 /** Reason shown in the Ken bubble when the build session is still INSIDE plan
  *  mode (enter_plan without exit_plan) when the cycle checks in — there is no
  *  submitted plan to review and the session is read-only, so the loop halts
  *  and hands control to the user. */
-export const AUTOPILOT_PLAN_DRAFTING_REASON =
-  "GG Coder is still drafting a plan (plan mode is active with nothing submitted). Finish or cancel the plan yourself; autopilot can't prompt a read-only session.";
+export const AUTOPILOT_PLAN_DRAFTING_REASON = `${CODER_NAME} is still drafting a plan (plan mode is active with nothing submitted). Finish or cancel the plan yourself; autopilot can't prompt a read-only session.`;
 
 /** Injected when Autopilot finds the work unchecked before its review. */
 export const AUTOPILOT_VERIFY_PROMPT =
@@ -46,18 +45,35 @@ export const AUTOPILOT_VERIFY_PROMPT =
  *  self-verify and only surface genuine user-level decisions. NEVER prepended to
  *  human-typed prompts — the sidecar applies it only at the autopilot cycle's
  *  injection sites. */
-export const AUTOPILOT_INJECTION_PREAMBLE =
-  "[Autopilot] This turn was triggered by Ken, GG Coder's automated reviewer — " +
-  "not by a human, and no human is watching it land. So:\n" +
-  "- Prove your work before finishing: run the tests/build or screenshot the UI. " +
-  'Don\'t end on "should work" — nobody is here to catch a mistake, so verify it ' +
-  "yourself.\n" +
-  "- Don't stop to ask permission for work that's already implied by the original " +
-  "request and safe to do. Just do it and keep going.\n" +
-  "- Only surface a question when it needs a real human decision (a product/taste " +
-  "call, a destructive or irreversible action, a missing secret or external " +
-  "access). State it plainly and stop; Ken routes it to the user.\n\n" +
-  "Your instruction:";
+function autopilotPreamble(mentor: string, coder: string): string {
+  return (
+    `[Autopilot] This turn was triggered by ${mentor}, ${coder}'s automated reviewer — ` +
+    "not by a human, and no human is watching it land. So:\n" +
+    "- Prove your work before finishing: run the tests/build or screenshot the UI. " +
+    'Don\'t end on "should work" — nobody is here to catch a mistake, so verify it ' +
+    "yourself.\n" +
+    "- Don't stop to ask permission for work that's already implied by the original " +
+    "request and safe to do. Just do it and keep going.\n" +
+    "- Only surface a question when it needs a real human decision (a product/taste " +
+    "call, a destructive or irreversible action, a missing secret or external " +
+    `access). State it plainly and stop; ${mentor} routes it to the user.\n\n` +
+    "Your instruction:"
+  );
+}
+
+export const AUTOPILOT_INJECTION_PREAMBLE = autopilotPreamble(MENTOR_NAME, CODER_NAME);
+
+/** Every preamble a stored session may start with: ours, then upstream's wording,
+ *  which sessions written before the GODIK rebrand still carry. */
+export const AUTOPILOT_INJECTION_PREAMBLES: readonly string[] = [
+  AUTOPILOT_INJECTION_PREAMBLE,
+  autopilotPreamble("Ken", "GG Coder"),
+];
+
+/** The preamble `text` starts with, if any. */
+export function autopilotPreambleOf(text: string): string | undefined {
+  return AUTOPILOT_INJECTION_PREAMBLES.find((preamble) => text.startsWith(preamble));
+}
 
 /** Prepend {@link AUTOPILOT_INJECTION_PREAMBLE} to a body destined for the build
  *  session during an autopilot cycle. Deterministic so the sidecar can compute
@@ -72,7 +88,7 @@ export function frameAutopilotInjection(body: string): string {
  *  plan was not approved, revise it, resubmit via exit_plan. */
 export function buildPlanRevisionPrompt(feedback: string): string {
   return (
-    `The plan was not approved. Feedback from Ken (automated reviewer):\n\n` +
+    `The plan was not approved. Feedback from ${MENTOR_NAME} (automated reviewer):\n\n` +
     `${feedback}\n\n` +
     `Revise the plan based on this feedback, then call exit_plan again for review.`
   );

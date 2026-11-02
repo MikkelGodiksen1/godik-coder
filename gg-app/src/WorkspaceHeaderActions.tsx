@@ -1,4 +1,4 @@
-import { CODER_NAME, MENTOR_NAME } from "./mentor";
+import { CODER_NAME, MENTOR_NAME } from "./brand";
 import type { ProjectTask, WorkspaceMode } from "./agent";
 import { Icon } from "./icons";
 import { WindowLayoutButton } from "./WindowLayoutButton";

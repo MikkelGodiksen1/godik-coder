@@ -1,3 +1,4 @@
+import { CODER_NAME, MAKER_NAME } from "../core/brand.js";
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { Provider, ThinkingLevel } from "@kenkaiiii/gg-ai";
@@ -636,10 +637,10 @@ export async function runAgentHomeMode(options: AgentHomeModeOptions): Promise<v
 
     console.log();
     for (const row of renderLogoBlock([
-      chalk.hex("#60a5fa").bold("GG Coder") +
+      chalk.hex("#60a5fa").bold(CODER_NAME) +
         chalk.hex("#6b7280")(` v${options.version}`) +
         chalk.hex("#6b7280")(" \u00b7 By ") +
-        chalk.white.bold("Ken Kai"),
+        chalk.white.bold(MAKER_NAME),
       chalk.hex("#a78bfa")(modelName),
       chalk.hex("#6b7280")(displayPath),
     ])) {

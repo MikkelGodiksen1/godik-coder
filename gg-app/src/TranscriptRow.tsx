@@ -1,4 +1,4 @@
-import { CODER_NAME } from "./mentor";
+import { CODER_NAME } from "./brand";
 import { memo, useLayoutEffect, useRef, useState } from "react";
 import { AtIcon } from "@phosphor-icons/react";
 import { RuleSuggestionCard, type RuleSuggestionAction } from "./RuleSuggestionCard";

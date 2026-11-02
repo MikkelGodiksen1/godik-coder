@@ -16,10 +16,10 @@
  * they hit the provider prompt cache instead of being re-sent uncached on
  * every `@Ken` question and every autopilot review round.
  */
-import { CODER_NAME, MENTOR_NAME } from "./mentor-name.js";
+import { CODER_NAME, MENTOR_NAME } from "./brand.js";
 import type { Message, ContentPart, ToolResult } from "@kenkaiiii/gg-ai";
 import { matchExpandedCommand, type WorkflowCommandSpec } from "./autopilot-gate.js";
-import { AUTOPILOT_INJECTION_PREAMBLE } from "./autopilot-cycle.js";
+import { autopilotPreambleOf } from "./autopilot-cycle.js";
 import { collectVerificationEvidence, type VerificationEvidence } from "./verification-evidence.js";
 import { editTargetPaths } from "../tools/edit-targets.js";
 import { renderAutopilotRulesSection } from "./autopilot-rules.js";
@@ -49,7 +49,7 @@ const FILE_CHANGING_TOOLS: ReadonlySet<string> = new Set(["edit", "write"]);
  *  Without it, multi-round cycles render Ken's own fix prompts as `**User:**`
  *  and he starts reviewing against his own last prompt instead of the user's
  *  original ask. Referenced by the autopilot system prompt — keep in sync. */
-export const INJECTED_PROMPT_LABEL = "**Ken autopilot (injected):**";
+export const INJECTED_PROMPT_LABEL = `**${MENTOR_NAME} autopilot (injected):**`;
 
 export interface KenDigestInput {
   /** The user's `@Ken …` text (already stripped of the mention). */
@@ -107,7 +107,7 @@ function userText(msg: Message): string {
 
 function isInjected(text: string, opts: RenderMessageOptions): boolean {
   return (
-    text.trimStart().startsWith(AUTOPILOT_INJECTION_PREAMBLE) ||
+    autopilotPreambleOf(text.trimStart()) !== undefined ||
     opts.injectedPrompts.some((p) => p.trim() === text.trim())
   );
 }
@@ -328,8 +328,8 @@ const AUTOPILOT_FRAMING: DigestFraming = {
  */
 export const AUTOPILOT_REVIEW_INSTRUCTION =
   `${CODER_NAME} just finished a turn. Review its work against the user's original ` +
-  "ask and genuine user corrections (including retained earlier decisions; the 'Original user request' section pins the current turn). Lines labeled 'Ken " +
-  "autopilot (injected)' are your own earlier fix prompts, NOT user asks. " +
+  "ask and genuine user corrections (including retained earlier decisions; the 'Original user request' section pins the current turn). Lines labeled '" +
+  `${MENTOR_NAME} autopilot (injected)' are your own earlier fix prompts, NOT user asks. ` +
   "The activity above is truncated; when it does not show enough to judge a change, read the " +
   "changed files yourself. " +
   "Reply with your verdict ONLY: the first line must be the verdict keyword (PROMPT, " +

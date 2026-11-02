@@ -4,7 +4,7 @@ import { ClockCounterClockwiseIcon } from "@phosphor-icons/react";
 import { getVersion } from "@tauri-apps/api/app";
 import { openWhatsNewWindow } from "./agent";
 import { Badge } from "./Badge";
-import { CHANGELOG } from "./changelog";
+import { CHANGELOG } from "./changelog-brand";
 import { drawKenPortrait } from "./goal-ken-portrait";
 import { useSettingsPageReady } from "./settings-ready";
 import { releaseText } from "./WhatsNewParts";
@@ -21,7 +21,7 @@ import {
   type ShipLog,
 } from "./about-ship-log";
 import { aboutLines, GG_CODER_STARTED, type KenSay } from "./about-content";
-import { CODER_NAME, MENTOR_NAME } from "./mentor";
+import { CODER_NAME, MENTOR_NAME } from "./brand";
 import "./AboutPage.css";
 
 /**

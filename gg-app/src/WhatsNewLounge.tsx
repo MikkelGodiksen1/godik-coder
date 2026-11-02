@@ -1,4 +1,4 @@
-import { CODER_NAME } from "./mentor";
+import { CODER_NAME } from "./brand";
 import { useEffect, useRef, useState } from "react";
 import { whatsNewLayout } from "./clearing-art";
 import { createClearingScene, sceneHour } from "./clearing-scene";

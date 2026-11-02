@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { error as logError } from "@tauri-apps/plugin-log";
-import { recentChangelog } from "./changelog";
+import { recentChangelog } from "./changelog-brand";
 import type { WhatsNewMode } from "./whatsnew-content";
 import { WhatsNewLounge } from "./WhatsNewLounge";
 import "./WhatsNew.css";

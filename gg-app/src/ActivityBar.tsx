@@ -1,4 +1,4 @@
-import { MENTOR_NAME } from "./mentor";
+import { MENTOR_NAME } from "./brand";
 import { useEffect, useState } from "react";
 import type { TaskActivity } from "./task-activity";
 import { ThinkingOrb } from "thinking-orbs";

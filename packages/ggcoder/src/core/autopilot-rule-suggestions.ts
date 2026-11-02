@@ -8,7 +8,7 @@
  * user's Save click appends it to `.gg/autopilot-rules.md`. Cancel, abort and
  * a new prompt drop a pending proposal, and a stale Save is refused.
  */
-import { CODER_NAME } from "./mentor-name.js";
+import { CODER_NAME } from "./brand.js";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { withFileLock } from "@kenkaiiii/gg-core";

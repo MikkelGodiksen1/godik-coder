@@ -1,3 +1,4 @@
+import { APP_NAME } from "../brand.js";
 import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 import {
   Client,
@@ -739,7 +740,7 @@ export class MCPClientManager {
         return;
       }
       res.end(
-        "<html><body><h1>Login successful!</h1><p>You can close this tab and return to GG Coder.</p></body></html>",
+        `<html><body><h1>Login successful!</h1><p>You can close this tab and return to ${APP_NAME}.</p></body></html>`,
       );
       codeResolve?.(reqUrl.searchParams);
     });

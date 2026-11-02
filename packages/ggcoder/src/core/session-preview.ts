@@ -1,9 +1,13 @@
+import { CODER_NAME, MENTOR_NAME } from "./brand.js";
 import type { Message, MessageProvenance } from "@kenkaiiii/gg-ai";
 import { NOTIFICATION_PREFIX } from "./steering.js";
 
 const COMPACTION_SUMMARY_PREFIX = "[Previous conversation summary]";
-const AUTOPILOT_PROMPT_PREFIX =
-  "[Autopilot] This turn was triggered by Ken, GG Coder's automated reviewer";
+// Upstream's wording stays listed: sessions written before the rebrand carry it.
+const AUTOPILOT_PROMPT_PREFIXES = [
+  `[Autopilot] This turn was triggered by ${MENTOR_NAME}, ${CODER_NAME}'s automated reviewer`,
+  "[Autopilot] This turn was triggered by Ken, GG Coder's automated reviewer",
+];
 const STEERING_PREFIX_START = "[The user added this while you were working";
 
 /** Extract visible text from a persisted message content value. */
@@ -37,7 +41,7 @@ export function getUserSessionPrompt(
   if (
     !provenance &&
     (text.startsWith(COMPACTION_SUMMARY_PREFIX) ||
-      text.startsWith(AUTOPILOT_PROMPT_PREFIX) ||
+      AUTOPILOT_PROMPT_PREFIXES.some((prefix) => text.startsWith(prefix)) ||
       text.startsWith(NOTIFICATION_PREFIX))
   ) {
     return null;

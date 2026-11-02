@@ -1,3 +1,4 @@
+import { CODER_NAME, MAKER_NAME } from "../core/brand.js";
 import chalk from "chalk";
 import { readFile } from "node:fs/promises";
 import { SessionManager, type SessionInfo } from "../core/session-manager.js";
@@ -72,10 +73,10 @@ function renderScreen(sessions: SessionDisplay[], selectedIndex: number): string
   const lines: string[] = [];
 
   for (const row of renderLogoBlock([
-    chalk.hex("#60a5fa").bold("GG Coder") +
+    chalk.hex("#60a5fa").bold(CODER_NAME) +
       (_version ? chalk.hex(TEXT_DIM)(` v${_version}`) : "") +
       chalk.hex(TEXT_DIM)(" · By ") +
-      chalk.hex(TEXT).bold("Ken Kai"),
+      chalk.hex(TEXT).bold(MAKER_NAME),
     chalk.hex(PRIMARY)("Sessions"),
     chalk.hex(TEXT_DIM)("Select a session to resume"),
   ])) {

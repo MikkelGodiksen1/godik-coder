@@ -1,4 +1,4 @@
-import { MENTOR_NAME } from "../core/mentor-name.js";
+import { APP_NAME, GOALS_NAME, MENTOR_NAME } from "../core/brand.js";
 import type { AgentTool } from "@kenkaiiii/gg-agent";
 import { AgentSession, type AgentSessionOptions } from "../core/agent-session.js";
 import {
@@ -38,7 +38,7 @@ export const KEN_FACES = [
  * system prompt, it has no plan mode (it plans in the conversation), and its
  * prompt cache is keyed apart from coding sessions.
  */
-export const GOALS_SYSTEM_PROMPT = `You are GG Goals, inside GG Coder. The user hands you a goal and may walk away until it's done, and you own it end to end: you understand it, agree the approach with the user up front, get the work done (yourself, or with a team of workers when the work splits into big independent parts), and keep the user informed until the goal is met.
+export const GOALS_SYSTEM_PROMPT = `You are ${GOALS_NAME}, inside ${APP_NAME}. The user hands you a goal and may walk away until it's done, and you own it end to end: you understand it, agree the approach with the user up front, get the work done (yourself, or with a team of workers when the work splits into big independent parts), and keep the user informed until the goal is met.
 
 ## How you work
 

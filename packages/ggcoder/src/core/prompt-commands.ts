@@ -3,6 +3,7 @@
  * into the agent loop. Each command maps to a full prompt the agent executes.
  */
 
+import { APP_NAME } from "./brand.js";
 import { checklistSetupStep } from "./checklist-prompt.js";
 import { isGgApp } from "./runtime-mode.js";
 
@@ -19,7 +20,7 @@ const IS_GG_APP = isGgApp();
 // (AGENTS.override.md > AGENTS.md > CLAUDE.md > …), so the notice stays
 // filename-agnostic — /init picks the winner at run time.
 const CLAUDE_MD_RESTART_NOTICE = IS_GG_APP
-  ? '> ⚠️ The project context file was created/updated. GG App loads it fresh per session, so start a **New Session** (click "+ New") before continuing. Without a new session, I won\'t see the new context.'
+  ? `> ⚠️ The project context file was created/updated. ${APP_NAME} loads it fresh per session, so start a **New Session** (click "+ New") before continuing. Without a new session, I won't see the new context.`
   : "> ⚠️ The project context file was created/updated. ggcoder loads it at startup, so **exit and restart ggcoder** (`/quit` then run `ggcoder` again) before continuing. Without a restart, I won't see the new context.";
 
 /**
@@ -304,7 +305,7 @@ and unhardened: no permissions, no concurrency, no timeouts, naive matrices).
 
 ## Step 0: Preconditions
 
-- Not a git repository? STOP: tell the user to initialize git first (GG App's Initialize
+- Not a git repository? STOP: tell the user to initialize git first (${APP_NAME}'s Initialize
   Git button, or \`git init\` + a remote).
 - Look at \`git remote\`. Not GitHub? Adapt: GitLab -> \`.gitlab-ci.yml\` equivalents of the
   same rules and skip the ruleset step. Other CI providers already configured -> leave

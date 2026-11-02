@@ -27,7 +27,7 @@ describe("WorkspaceHeader", () => {
       />,
     );
 
-    expect(screen.getByText("GG Chat")).toBeDefined();
+    expect(screen.getByText("GC Chat")).toBeDefined();
     expect(screen.getByText("General")).toBeDefined();
     expect(screen.getByRole("button", { name: "Back" })).toBeDefined();
     expect(screen.getByRole("button", { name: "Commit" })).toBeDefined();

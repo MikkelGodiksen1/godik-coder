@@ -1,4 +1,4 @@
-import { MENTOR_NAME } from "./mentor";
+import { MENTOR_NAME, brandText } from "./brand";
 
 export const CHAT_ERROR_REASONS = [
   "usage_limit",
@@ -38,6 +38,10 @@ export type ChatErrorItem = ChatErrorData & { kind: "error"; id: number };
 function text(value: unknown, limit = 8_000): string | undefined {
   return typeof value === "string" && value.trim() ? value.slice(0, limit) : undefined;
 }
+function branded(value: unknown): string | undefined {
+  const s = text(value);
+  return s === undefined ? undefined : brandText(s);
+}
 function timestamp(value: unknown): number | undefined {
   return typeof value === "number" &&
     Number.isSafeInteger(value) &&
@@ -56,7 +60,8 @@ export function readChatError(
   scope = "error",
   historical = false,
 ): ChatErrorData {
-  const headline = text(value.headline, 1_000);
+  const raw = text(value.headline, 1_000);
+  const headline = raw ? brandText(raw) : undefined;
   const prefix =
     scope === "ken_error" ? `${MENTOR_NAME}: ` : scope === "autopilot_error" ? "Autopilot: " : "";
   return {
@@ -65,9 +70,9 @@ export function readChatError(
     headline: headline
       ? `${prefix}${headline.startsWith(prefix) ? headline.slice(prefix.length) : headline}`
       : undefined,
-    message: text(value.message),
-    text: text(value.text) ?? (!headline ? text(value.message) : undefined),
-    guidance: text(value.guidance),
+    message: branded(value.message),
+    text: branded(value.text) ?? (!headline ? branded(value.message) : undefined),
+    guidance: branded(value.guidance),
     reason: reason(value.reason),
     source: text(value.source, 40),
     provider: text(value.provider, 80),

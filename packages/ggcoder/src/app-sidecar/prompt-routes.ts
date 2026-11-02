@@ -1,4 +1,4 @@
-import { CODER_NAME, MENTOR_NAME } from "../core/mentor-name.js";
+import { CHAT_NAME, CODER_NAME, MENTOR_NAME, MOTION_NAME } from "../core/brand.js";
 import type http from "node:http";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
@@ -418,7 +418,7 @@ export function handlePromptRoutes(
   if (method === "POST" && url === "/ken/prompt") {
     if (ctx.mode !== "code") {
       json(res, 404, {
-        error: `${MENTOR_NAME} is not available in GG ${ctx.mode === "chat" ? "Chat" : "Motion"}.`,
+        error: `${MENTOR_NAME} is not available in ${ctx.mode === "chat" ? CHAT_NAME : MOTION_NAME}.`,
       });
       return true;
     }
@@ -539,7 +539,7 @@ export function handlePromptRoutes(
   if (method === "POST" && url === "/autopilot") {
     if (ctx.mode !== "code") {
       json(res, 404, {
-        error: `Autopilot is not available in GG ${ctx.mode === "chat" ? "Chat" : "Motion"}.`,
+        error: `Autopilot is not available in ${ctx.mode === "chat" ? CHAT_NAME : MOTION_NAME}.`,
       });
       return true;
     }
@@ -567,7 +567,7 @@ export function handlePromptRoutes(
   // still pending (a cancel or new prompt since then makes it stale).
   if (method === "POST" && url === "/autopilot/rules/append") {
     if (ctx.mode !== "code") {
-      json(res, 404, { error: "Autopilot rules are only available in GG Coder." });
+      json(res, 404, { error: `Autopilot rules are only available in ${CODER_NAME}.` });
       return true;
     }
     void readBody(req, res).then(async (raw) => {

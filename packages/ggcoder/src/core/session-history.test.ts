@@ -6,7 +6,7 @@ import type {
   KenTurnPayload,
 } from "./session-manager.js";
 import { STEERING_PREFIX, buildNotificationSteeringText } from "./steering.js";
-import { frameAutopilotInjection } from "./autopilot-cycle.js";
+import { AUTOPILOT_INJECTION_PREAMBLES, frameAutopilotInjection } from "./autopilot-cycle.js";
 import {
   normalizeAutopilotMarkersForHistory,
   normalizeAppMarkersForHistory,
@@ -171,6 +171,14 @@ describe("restoreUserRow", () => {
 
     // The same body typed by a human keeps its user bubble.
     expect(restoreUserRow("Fix the failing test.").autopilotInjected).toBe(false);
+  });
+
+  it("still recognises sessions written before the GODIK rebrand (upstream preamble)", () => {
+    const legacy = AUTOPILOT_INJECTION_PREAMBLES[1] ?? "";
+    expect(legacy.startsWith("[Autopilot] This turn was triggered by Ken, GG Coder's")).toBe(true);
+    const row = restoreUserRow(`${legacy}\n\nFix the failing test.`);
+    expect(row.text).toBe("Fix the failing test.");
+    expect(row.autopilotInjected).toBe(true);
   });
 
   it("flags pushed background-status updates so resume skips them", () => {

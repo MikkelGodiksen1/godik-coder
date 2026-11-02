@@ -95,7 +95,7 @@ describe("GoalWorld", () => {
     expect(screen.queryByRole("textbox")).toBeNull();
     expect(screen.queryByRole("complementary")).toBeNull();
     expect(view.querySelector(".goal-world-summary")?.textContent).toBe(
-      "GG Goals: Reading a.ts. researcher: Searching web for seo.",
+      "GC Goals: Reading a.ts. researcher: Searching web for seo.",
     );
   });
 

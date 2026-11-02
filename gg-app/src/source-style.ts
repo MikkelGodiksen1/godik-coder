@@ -1,4 +1,4 @@
-import { CODER_NAME, MENTOR_NAME } from "./mentor";
+import { CODER_NAME, MENTOR_NAME } from "./brand";
 import { theme } from "./theme";
 
 /** Project source → display label + accent color. One home so badges stay consistent. */

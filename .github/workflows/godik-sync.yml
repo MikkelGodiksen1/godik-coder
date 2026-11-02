@@ -99,7 +99,7 @@ jobs:
             echo "main already contains $TAG."
           elif ! git merge --no-edit "$TAG" -m "Merge Ken's $TAG into GODIK CODER"; then
             echo "::error::Merge conflict with $TAG in: $(git diff --name-only --diff-filter=U | tr '\n' ' ')"
-            echo "Fix locally: cd godik-coder && ./sync-upstream, resolve, push main, then re-run this workflow." >&2
+            echo "Fix locally: cd godik-coder && ./sync-upstream, resolve as GODIK.md describes, push main, then re-run this workflow." >&2
             git merge --abort
             exit 1
           fi

@@ -10,7 +10,7 @@
  * rule fired. Rules ride on the existing cycle: round limits, cancel and the
  * host verification gate apply unchanged.
  */
-import { CODER_NAME } from "./mentor-name.js";
+import { CODER_NAME } from "./brand.js";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { AUTOPILOT_RULE_NAME_MAX_CHARS, type AutopilotVerdict } from "./autopilot-verdict.js";

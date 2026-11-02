@@ -1,3 +1,4 @@
+import { CODER_NAME, MAKER_NAME } from "../core/brand.js";
 import readline from "node:readline/promises";
 import chalk from "chalk";
 import type { MCPScope, MCPServerConfig } from "../core/mcp/index.js";
@@ -17,10 +18,10 @@ const CLEAR_HOME = "\x1b[2J\x1b[H";
 
 function bannerLines(version: string, subtitle: string): string[] {
   return renderLogoBlock([
-    chalk.hex(PRIMARY).bold("GG Coder") +
+    chalk.hex(PRIMARY).bold(CODER_NAME) +
       chalk.hex(TEXT_DIM)(` v${version}`) +
       chalk.hex(TEXT_DIM)(" · By ") +
-      chalk.hex(TEXT).bold("Ken Kai"),
+      chalk.hex(TEXT).bold(MAKER_NAME),
     chalk.hex(ACCENT)("MCP Servers"),
     chalk.hex(TEXT_DIM)(subtitle),
   ]);

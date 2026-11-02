@@ -12,6 +12,7 @@
  *
  * Pure, local, synchronous regex/token checks — no I/O, no network.
  */
+import { CODER_NAME } from "./brand.js";
 import type { ShellThreat } from "./shell-threats.js";
 
 /**
@@ -27,8 +28,7 @@ export function parseSafetyBlock(result: string): string | null {
   return SAFETY_BLOCK_RESULT.exec(result)?.[1] ?? null;
 }
 
-export const SAFETY_BLOCK_NOTE =
-  "GG Coder blocked this for the user's safety. Carry on without it, and tell the user in one plain sentence in your final reply what was blocked and what you did instead.";
+export const SAFETY_BLOCK_NOTE = `${CODER_NAME} blocked this for the user's safety. Carry on without it, and tell the user in one plain sentence in your final reply what was blocked and what you did instead.`;
 
 // ─── Shell helpers ──────────────────────────────────────────────────────────
 
@@ -888,9 +888,9 @@ function count(re: RegExp | LineRule, text: string, key?: RegExp): number {
 function describe(kind: ConfigKind): string {
   switch (kind) {
     case "gg-auth":
-      return "GG Coder's credential store";
+      return `${CODER_NAME}'s credential store`;
     case "gg-settings":
-      return "GG Coder's own safety settings";
+      return `${CODER_NAME}'s own safety settings`;
     case "shell-startup":
       return "a shell startup file (runs in every new terminal)";
     case "git-hook":

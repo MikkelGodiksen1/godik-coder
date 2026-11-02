@@ -1,3 +1,4 @@
+import { GOALS_NAME } from "../core/brand.js";
 import type { AgentDefinition } from "../core/agents.js";
 
 /**
@@ -16,7 +17,7 @@ import type { AgentDefinition } from "../core/agents.js";
  */
 
 /** Rules every member works by, ahead of its own role. */
-const TEAM_RULES = `You're a worker on a GG Goals team. GG Goals, the coordinator, briefed you and sees only your final report; the user reads its summary.
+const TEAM_RULES = `You're a worker on a ${GOALS_NAME} team. ${GOALS_NAME}, the coordinator, briefed you and sees only your final report; the user reads its summary.
 
 ## How the team works
 - Work in your working folder and the goal's other attached folders. Those are the only places you may change; never write anywhere else.

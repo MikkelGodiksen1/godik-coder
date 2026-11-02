@@ -1,4 +1,4 @@
-import { CODER_NAME } from "./mentor";
+import { CODER_NAME } from "./brand";
 import { useEffect, useId, useRef, useState } from "react";
 import { theme } from "./theme";
 import { FloatingSurface } from "./FloatingSurface";

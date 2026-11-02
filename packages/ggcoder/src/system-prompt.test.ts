@@ -127,7 +127,7 @@ describe("buildSystemPrompt", () => {
       new Set<LanguageId>(["typescript"]),
     );
 
-    expect(prompt.startsWith("You are GG Coder by Ken Kai")).toBe(true);
+    expect(prompt.startsWith("You are GC by Godik")).toBe(true);
     expect(sectionIndex(prompt, "## Replies")).toBeLessThan(sectionIndex(prompt, "## Work"));
     expect(sectionIndex(prompt, "## Work")).toBeLessThan(
       sectionIndex(prompt, "## Project Context"),
@@ -766,8 +766,8 @@ describe("buildSystemPrompt", () => {
     );
 
     expect(anthropic.startsWith("You are Claude Code")).toBe(true);
-    expect(anthropic).not.toContain("GG Coder by Ken Kai");
-    expect(openai.startsWith("You are GG Coder by Ken Kai")).toBe(true);
+    expect(anthropic).not.toContain("GC by Godik");
+    expect(openai.startsWith("You are GC by Godik")).toBe(true);
     expect(openai).not.toContain("You are Claude Code");
   });
 

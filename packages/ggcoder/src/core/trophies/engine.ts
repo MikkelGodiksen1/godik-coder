@@ -1,6 +1,7 @@
 // Pure trophy engine: record what happened, decide what it unlocks, and build
 // the snapshot the app shows. No I/O here; the store persists the file.
 
+import { brandText } from "../brand.js";
 import { TROPHIES, TROPHY_CATEGORIES } from "./catalog.js";
 import {
   TROPHY_COUNTERS,
@@ -156,11 +157,11 @@ export function buildTrophySnapshot(
     }
     return {
       id: def.id,
-      title: def.title,
+      title: brandText(def.title),
       tier: def.tier,
       category: def.category,
-      description: def.description,
-      hint: def.hint,
+      description: brandText(def.description),
+      hint: brandText(def.hint),
       goal: def.goal,
       current: unlockedAt ? def.goal : current,
       unlockedAt,
@@ -169,7 +170,7 @@ export function buildTrophySnapshot(
   });
   return {
     trophies,
-    categories: [...TROPHY_CATEGORIES],
+    categories: TROPHY_CATEGORIES.map((c) => ({ ...c, label: brandText(c.label) })),
     earned: trophies.filter((t) => t.unlockedAt !== null).length,
     total: trophies.length,
     unlocked: event.unlocked,

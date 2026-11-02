@@ -54,7 +54,7 @@ describe("ActivityBar task outcomes", () => {
     const { container, rerender } = render(
       <ActivityBar {...baseProps} running={false} activity={activity} />,
     );
-    expect(screen.getByRole("status").textContent).toContain("Answer ready. GG.");
+    expect(screen.getByRole("status").textContent).toContain("Answer ready. GC.");
     expect(screen.getByText("Earlier checks failed")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Cancel agent run" })).toBeNull();
     const label = container.querySelector(".activity-label-reveal");
