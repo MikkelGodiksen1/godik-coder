@@ -1,6 +1,6 @@
 [package]
 name = "gg-app"
-version = "0.100.0"
+version = "0.100.1"
 # Shown as the Linux deb/rpm package description and maintainer.
 description = "GG Coder desktop workspace for code, chat and motion agents"
 authors = ["KenKai"]
@@ -53,6 +53,11 @@ uuid = { version = "1", features = ["v4"] }
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-updater = "2.11.0"
 tauri-plugin-process = "2"
+
+# Already in the build via tao/wry with `exception` on; used to catch AppKit
+# exceptions under tao's extern "C" sendEvent: (macos_event_guard.rs).
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = { version = "=0.6.4", features = ["exception"] }
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
