@@ -43,6 +43,7 @@ git log --no-merges --oneline v0.97.5..HEAD             # fork commits, oldest l
 | GG Goals / GG Chat / GG Motion             | GC Goals / GC Chat / GC Motion            | `GOALS_NAME` / `CHAT_NAME` / `MOTION_NAME` |
 | "By Ken Kai" (CLI banners, agent identity) | By Godik                                  | `MAKER_NAME`                               |
 | GG Coder (app, OAuth client, window title) | GODIK CODER                               | `APP_NAME`                                 |
+| World (3D game)                            | hidden                                    | `WORLD_ENABLED = false`                    |
 
 **Two copies of the brand module, kept identical:**
 `packages/ggcoder/src/core/brand.ts` (sidecar, prompts, CLI) and
@@ -92,6 +93,30 @@ it would orphan existing videos), internal benchmarks, the Windows/Linux
 keep-awake ids, gg-core's CLI npm auto-update messages, model-facing strings
 inside the Motion skills, and the CLI's ASCII "GG" logo. The CLI isn't shipped
 by this fork.
+
+## World is hidden
+
+Upstream's World (the 3D game: `packages/gg-world/`, `gg-app/src/WorldScreen.tsx`,
+`WorldLoading.tsx`, `WorldTv.tsx`, `WorldSaveUi.tsx`, `world-*.ts`,
+`src-tauri/src/commands/world.rs` and the sidecar's World routes) is hidden,
+not deleted: `WORLD_ENABLED = false` in both brand modules. Every entry point
+is gated on it:
+
+- Home's World plate and its "New" tag (`HomeScreen.tsx`)
+- the usage panel's "World: play the 3D game" key (`Deck.tsx`)
+- `App.tsx`'s `onWorld` / `onOpenWorld`, the only places that set
+  `showWorld(true)` (so neither the World overlay nor its in-game computer opens)
+
+`App.world-hidden.test.tsx` proves Home and the usage panel show no World entry.
+Upstream's own World tests (`App.world.test.tsx`, `HomeScreen.test.tsx`) mock
+`./brand` with `WORLD_ENABLED: true`, so they keep testing World itself.
+The Goals "Workers" view (`GoalWorld.tsx`) is not World and stays visible.
+
+**On upstream merges:** take World-only files as they are, without review. Only
+check whether the merge adds a new way to open World (a button, menu item,
+shortcut, tray intent, restore path or anything else that sets `showWorld`, or
+an `entryView === "world"` route) and gate it on `WORLD_ENABLED`. Release notes
+about World stay in `changelog.ts`, like every other upstream note.
 
 ## Fork features (beyond the rebrand)
 

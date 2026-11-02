@@ -11,6 +11,10 @@ export const GOALS_NAME = `${CODER_NAME} Goals`;
 export const CHAT_NAME = `${CODER_NAME} Chat`;
 export const MOTION_NAME = `${CODER_NAME} Motion`;
 
+// World (upstream's 3D game) is hidden in this fork; its code stays so upstream
+// merges touching World apply cleanly. Every entry point is gated on this.
+export const WORLD_ENABLED = false;
+
 // Whole words only: "Kencode", "KenKaiii", "GG_DEBUG", "GG-WORLD-PRIVACY.md",
 // ".gg/" paths and pixel-art rows like "GG....." are left alone.
 const REWRITES: ReadonlyArray<readonly [RegExp, string]> = [

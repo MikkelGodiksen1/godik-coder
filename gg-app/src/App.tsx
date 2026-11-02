@@ -14,7 +14,7 @@ import { createChatLayoutMotion } from "./chat-layout-motion";
 import { open } from "@tauri-apps/plugin-dialog";
 import { theme } from "./theme";
 import { toggleMentorPrefix } from "./mentor";
-import { CODER_NAME, GOALS_NAME, MENTOR_HANDLE, MENTOR_NAME } from "./brand";
+import { CODER_NAME, GOALS_NAME, MENTOR_HANDLE, MENTOR_NAME, WORLD_ENABLED } from "./brand";
 import { wrapMaxGas } from "./max-gas";
 import { activeChatErrorId, readChatError } from "./chat-error";
 import { showScreen } from "./view-transition";
@@ -2766,9 +2766,11 @@ function App(): React.ReactElement {
                 })
               }
               // On the in-game computer World is already open behind it: World just stands the player up.
-              onWorld={() =>
-                worldComputer ? setWorldComputer(false) : showScreen(() => setShowWorld(true))
-              }
+              onWorld={() => {
+                if (!WORLD_ENABLED) return;
+                if (worldComputer) setWorldComputer(false);
+                else showScreen(() => setShowWorld(true));
+              }}
               worldShown={worldShown}
               onSettings={(tab) =>
                 showScreen(() => {
@@ -3282,7 +3284,9 @@ function App(): React.ReactElement {
               }}
               progress={progress}
               trophies={trophies.snapshot}
-              onOpenWorld={() => showScreen(() => setShowWorld(true))}
+              onOpenWorld={() => {
+                if (WORLD_ENABLED) showScreen(() => setShowWorld(true));
+              }}
               usageExtras={
                 windowTotal > 1 &&
                 windowIndex !== null && (

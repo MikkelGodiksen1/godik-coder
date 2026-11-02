@@ -3,6 +3,13 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { clearMocks, mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AgentState } from "./agent";
+import type * as Brand from "./brand";
+
+// GODIK CODER: World is hidden (WORLD_ENABLED = false); these tests cover upstream's World, so turn it on.
+vi.mock("./brand", async (importOriginal) => ({
+  ...(await importOriginal<typeof Brand>()),
+  WORLD_ENABLED: true,
+}));
 
 mockWindows("main");
 mockIPC(() => new Promise(() => {}));

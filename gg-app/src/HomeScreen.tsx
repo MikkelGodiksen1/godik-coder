@@ -1,3 +1,4 @@
+import { WORLD_ENABLED } from "./brand";
 import { useEffect, useId, useMemo, useState, type CSSProperties } from "react";
 import { getVersion } from "@tauri-apps/api/app";
 import { error as logError } from "@tauri-apps/plugin-log";
@@ -212,33 +213,38 @@ export function HomeScreen({
         </PixelTip>
         {/* World: the local 3D game, full-window in this window; new, so it
             carries a New tag. */}
-        <div className="home-action-slot">
-          <PixelTip text="World: a cozy 3D hangout for coders, with your coding level and an optional online save.">
-            <PlateButton
-              className={`home-action${worldOpening ? " is-loading" : ""}`}
-              label={worldOpening ? "Loading" : "World"}
-              held={worldOpening}
-              aria-describedby={worldNoteId}
-              onClick={() => {
-                setWorldOpening(true);
-                onWorld();
-              }}
-            />
-          </PixelTip>
-          {/* While World loads (it takes a moment to build the scene), the tag shows three pulsing pixel dots, so
+        {WORLD_ENABLED && (
+          <div className="home-action-slot">
+            <PixelTip text="World: a cozy 3D hangout for coders, with your coding level and an optional online save.">
+              <PlateButton
+                className={`home-action${worldOpening ? " is-loading" : ""}`}
+                label={worldOpening ? "Loading" : "World"}
+                held={worldOpening}
+                aria-describedby={worldNoteId}
+                onClick={() => {
+                  setWorldOpening(true);
+                  onWorld();
+                }}
+              />
+            </PixelTip>
+            {/* While World loads (it takes a moment to build the scene), the tag shows three pulsing pixel dots, so
               Home never looks frozen. */}
-          <span id={worldNoteId} className={`home-action-beta${worldOpening ? " is-loading" : ""}`}>
-            {worldOpening ? (
-              <span className="home-loading-dots" aria-label="Loading World">
-                <i />
-                <i />
-                <i />
-              </span>
-            ) : (
-              "New"
-            )}
-          </span>
-        </div>
+            <span
+              id={worldNoteId}
+              className={`home-action-beta${worldOpening ? " is-loading" : ""}`}
+            >
+              {worldOpening ? (
+                <span className="home-loading-dots" aria-label="Loading World">
+                  <i />
+                  <i />
+                  <i />
+                </span>
+              ) : (
+                "New"
+              )}
+            </span>
+          </div>
+        )}
       </div>
       {/* Settings: a GG Royale pixel gear. */}
       <PixelTip text="Settings: AI providers, your projects folder, and more.">

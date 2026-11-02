@@ -1,4 +1,4 @@
-import { CODER_NAME, MENTOR_NAME } from "./brand";
+import { CODER_NAME, MENTOR_NAME, WORLD_ENABLED } from "./brand";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import {
   getGitOverview,
@@ -843,16 +843,18 @@ function UsagePanel({
               <span className="well">{trophies.earned}</span>
             </button>
           )}
-          <button
-            type="button"
-            className="key key-sm trophy-key"
-            aria-label="World"
-            title="World: play the 3D game"
-            onClick={onOpenWorld}
-          >
-            <Icon name="play" size={13} />
-            <span className="well">World</span>
-          </button>
+          {WORLD_ENABLED && (
+            <button
+              type="button"
+              className="key key-sm trophy-key"
+              aria-label="World"
+              title="World: play the 3D game"
+              onClick={onOpenWorld}
+            >
+              <Icon name="play" size={13} />
+              <span className="well">World</span>
+            </button>
+          )}
           <button
             type="button"
             className="key key-sm level-key"

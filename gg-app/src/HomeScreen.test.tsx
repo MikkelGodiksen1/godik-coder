@@ -4,8 +4,14 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { error as logError } from "@tauri-apps/plugin-log";
 import { authStatus, getSettings } from "./agent";
 import { HomeScreen } from "./HomeScreen";
+import type * as Brand from "./brand";
 
 vi.mock("@tauri-apps/plugin-log", () => ({ error: vi.fn(async () => undefined) }));
+// GODIK CODER: World is hidden (WORLD_ENABLED = false); these tests cover upstream's World, so turn it on.
+vi.mock("./brand", async (importOriginal) => ({
+  ...(await importOriginal<typeof Brand>()),
+  WORLD_ENABLED: true,
+}));
 
 vi.mock("@tauri-apps/api/app", () => ({ getVersion: vi.fn(async () => "1.0.0") }));
 vi.mock("./AsciiLogo", () => ({ AsciiLogo: () => null }));
