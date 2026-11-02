@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import type { Writable } from "node:stream";
 import { log } from "./logger.js";
+import { EIGHT_D_FILTER, EIGHT_D_INSTALL_HINT, EIGHT_D_STATIONS, withEightD } from "./radio-8d.js";
 
 /**
  * Internet radio — stream a free station while you work. The gg-app windows
@@ -35,6 +36,8 @@ export interface RadioStation {
   description: string;
   /** Direct stream URL — must be MP3/AAC/Ogg, anything mpv handles. */
   url: string;
+  /** GODIK: "8d" plays the stream through the 8D filter (radio-8d.ts). */
+  effect?: "8d";
 }
 
 export const RADIO_STATIONS: readonly RadioStation[] = [
@@ -152,6 +155,7 @@ export const RADIO_STATIONS: readonly RadioStation[] = [
     description: "NZ dance + electronic",
     url: "https://mediaworks.streamguys1.com/george_net_icy",
   },
+  ...EIGHT_D_STATIONS,
 ];
 
 interface PlayerCandidate {
@@ -341,7 +345,7 @@ function nextMpvIpcPath(): string {
     : path.join(os.tmpdir(), `${name}.sock`);
 }
 
-function tryStartNativeFfmpeg(ffplayBin: string, url: string): ChildProcess | null {
+function tryStartNativeFfmpeg(ffplayBin: string, url: string, eightD = false): ChildProcess | null {
   if (process.platform !== "darwin") return null;
   const adjacentFfmpeg = path.join(path.dirname(ffplayBin), "ffmpeg");
   const ffmpegBin = existsSync(adjacentFfmpeg) ? adjacentFfmpeg : resolvePlayerPath("ffmpeg");
@@ -357,7 +361,7 @@ function tryStartNativeFfmpeg(ffplayBin: string, url: string): ChildProcess | nu
         url,
         "-vn",
         "-af",
-        `volume@radio=${currentVolume / 100}`,
+        `volume@radio=${currentVolume / 100}${eightD ? `,${EIGHT_D_FILTER}` : ""}`,
         "-f",
         "audiotoolbox",
         "-",
@@ -433,7 +437,8 @@ export function playRadio(stationId: string): PlayResult {
   // Always stop the previous stream before starting a new one.
   stopRadio();
 
-  if (isWsl()) {
+  const eightD = station.effect === "8d";
+  if (isWsl() && !eightD) {
     const child = tryPlayOnWindowsHost(station);
     if (child) {
       let errored = false;
@@ -459,9 +464,12 @@ export function playRadio(stationId: string): PlayResult {
     // dirs that a GUI app's minimal PATH omits. Skip when not installed.
     const bin = resolvePlayerPath(player.cmd);
     if (!bin) continue;
-    const nativeFfmpeg = player.cmd === "ffplay" ? tryStartNativeFfmpeg(bin, station.url) : null;
+    const baseArgs = player.args(station.url, currentVolume);
+    const playerArgs = eightD ? withEightD(player.cmd, baseArgs) : baseArgs;
+    if (!playerArgs) continue;
+    const nativeFfmpeg =
+      player.cmd === "ffplay" ? tryStartNativeFfmpeg(bin, station.url, eightD) : null;
     const mpvIpcPath = player.cmd === "mpv" ? nextMpvIpcPath() : null;
-    const playerArgs = player.args(station.url, currentVolume);
     if (mpvIpcPath) playerArgs.unshift(`--input-ipc-server=${mpvIpcPath}`);
     try {
       const child =
@@ -494,7 +502,7 @@ export function playRadio(stationId: string): PlayResult {
     }
   }
   log("WARN", "radio", "no compatible player found", { platform: process.platform });
-  return { ok: false, error: buildInstallHint() };
+  return { ok: false, error: eightD ? EIGHT_D_INSTALL_HINT : buildInstallHint() };
 }
 
 /**
