@@ -111,6 +111,9 @@ by this fork.
 
 ## Identity, updates and releases
 
+- `.github/workflows/ci.yml`: the `test` job's `timeout-minutes` is 30, not
+  upstream's 15 (the limit includes waiting for a macOS runner). Keep it on merges.
+
 - `gg-app/src-tauri/tauri.macos.conf.json`: product name `GODIK CODER`,
   bundle id `dk.godik.coder`, the fork's updater public key and endpoint
   (`releases/latest/download/latest.json` on origin). `gg-app/index.html`

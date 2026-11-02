@@ -25,7 +25,9 @@ jobs:
   test:
     name: ${{ matrix.os }} · node ${{ matrix.node }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
+    # GODIK: 30 not 15. The limit includes waiting for a runner, and the macOS
+    # leg was cancelled 4 times without ever getting one.
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
