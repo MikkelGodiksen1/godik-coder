@@ -1,7 +1,7 @@
 {
   "name": "gg-app",
   "private": true,
-  "version": "0.97.5",
+  "version": "0.100.0",
   "description": "GG Coder desktop app: Tauri + React workspace for code, chat and motion agents",
   "type": "module",
   "scripts": {
@@ -20,6 +20,7 @@
     "bump": "node scripts/bump-version.mjs",
     "test": "vitest run",
     "smoke:packaged": "node scripts/smoke-packaged-windows.mjs",
+    "smoke:packaged:linux": "node scripts/smoke-packaged-linux.mjs",
     "tauri": "tauri"
   },
   "dependencies": {

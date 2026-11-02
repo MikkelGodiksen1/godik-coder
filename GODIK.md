@@ -24,7 +24,7 @@ git log --no-merges --oneline v0.97.5..HEAD             # fork commits, oldest l
    classes (`.ken-*`), settings keys and on-disk paths (`~/.gg`, `.gg/`,
    the `GG Motion` folder) keep upstream's names. Only display text is rebranded.
 3. **Display names come from `brand.ts`**, never a hard-coded "Ken", "GG" or
-   "GG Coder". See *Whitelabel* below.
+   "GG Coder". See _Whitelabel_ below.
 4. **`gg-app/src-tauri/tauri.conf.json` stays byte-identical to upstream**
    (version included). GODIK's identity lives in `tauri.macos.conf.json`.
 5. **`gg-app/src/changelog.ts` and `packages/ggcoder/src/core/trophies/catalog*.ts`
@@ -35,14 +35,14 @@ git log --no-merges --oneline v0.97.5..HEAD             # fork commits, oldest l
 
 ## Whitelabel
 
-| Upstream | GODIK CODER | Constant |
-|---|---|---|
-| Ken / Ken Kai (the mentor) | Godik | `MENTOR_NAME` |
-| `@Ken` | `@Mentor` (`@ken` still works when typed) | `MENTOR_HANDLE` |
-| GG / GG Coder (the coding agent) | GC | `CODER_NAME` |
-| GG Goals / GG Chat / GG Motion | GC Goals / GC Chat / GC Motion | `GOALS_NAME` / `CHAT_NAME` / `MOTION_NAME` |
-| "By Ken Kai" (CLI banners, agent identity) | By Godik | `MAKER_NAME` |
-| GG Coder (app, OAuth client, window title) | GODIK CODER | `APP_NAME` |
+| Upstream                                   | GODIK CODER                               | Constant                                   |
+| ------------------------------------------ | ----------------------------------------- | ------------------------------------------ |
+| Ken / Ken Kai (the mentor)                 | Godik                                     | `MENTOR_NAME`                              |
+| `@Ken`                                     | `@Mentor` (`@ken` still works when typed) | `MENTOR_HANDLE`                            |
+| GG / GG Coder (the coding agent)           | GC                                        | `CODER_NAME`                               |
+| GG Goals / GG Chat / GG Motion             | GC Goals / GC Chat / GC Motion            | `GOALS_NAME` / `CHAT_NAME` / `MOTION_NAME` |
+| "By Ken Kai" (CLI banners, agent identity) | By Godik                                  | `MAKER_NAME`                               |
+| GG Coder (app, OAuth client, window title) | GODIK CODER                               | `APP_NAME`                                 |
 
 **Two copies of the brand module, kept identical:**
 `packages/ggcoder/src/core/brand.ts` (sidecar, prompts, CLI) and
@@ -66,6 +66,7 @@ git log --no-merges --oneline v0.97.5..HEAD             # fork commits, oldest l
 
    `brandText` only rewrites whole words, so `Kencode`, `KenKaiii`, `GG_*` env
    vars, `GG-WORLD-PRIVACY.md`, `.gg/` paths and pixel-art rows are untouched.
+
 3. **Guard:** the "whitelabel guard" test in `gg-app/src/brand.test.ts` scans
    `gg-app/src` for any hard-coded Ken / GG / GG Coder outside comments. When a
    merge brings a new upstream label, CI goes red and names the file:line. Fix it
@@ -94,19 +95,19 @@ by this fork.
 
 ## Fork features (beyond the rebrand)
 
-| Feature | Main files |
-|---|---|
-| **Mentor key** in the deck: toggles `@Mentor` in front of the draft; on an empty composer fills "hvad siger du?" selected | `gg-app/src/mentor.ts`, `Deck.tsx`, `App.tsx`, `Composer.tsx` |
-| **Mentor takes images** (pasted/dropped/picked screenshots go to the mentor) | `prompt-routes.ts`, `agent-session.ts`, `transcript-markers.ts`, `session-manager.ts`, `commands/agent.rs`, `agent.ts` |
-| **Max Gas** deck key: the task goes to the mentor wrapped in a production-run brief; he answers with one runnable prompt | `gg-app/src/max-gas.ts`, `Deck.tsx`, `App.tsx` |
-| **Autopilot deck key** + **user rules** in `.gg/autopilot-rules.md` ("if X, send Y"), fired rule named in the transcript | `core/autopilot-rules.ts`, `autopilot-verdict.ts`, `autopilot-cycle.ts`, `ken-context.ts`, `useAutopilot.ts`, `TranscriptRow.tsx` |
-| **Rule suggestions**: after a HUMAN stop, the user's reply can become a rule (card with Save/Dismiss) | `core/autopilot-rule-suggestions.ts`, `RuleSuggestionCard.tsx`, `autopilot-runner.ts`, `route-context.ts`, Rust `agent_autopilot_rule_save` |
-| **Mentor digest extras**: the user's other active goals, and `ask_user` questions GC asked | `core/goal-board.ts`, `core/ken-context.ts`, `app-sidecar/ken-context.ts` |
-| **Sent state for mentor prompts** (live, after reload, from other clients, when queued) and `prompt_accepted` | `Markdown.tsx`, `markdown-prompt.ts`, `local-prompt-ids.ts`, `useAgentEvents.ts`, `prompt-routes.ts`, `autopilot-runner.ts` |
-| **Multi-client ask_user**: answered or overtaken from another client (e.g. glasses via `POST /ask/:id`) reads as answered in every window | `core/ask-user.ts`, `app-sidecar.ts`, `gg-app/src/ask-user.ts`, `useAgentEvents.ts` |
-| **MCP OAuth refresh**, and live sessions reconnect after login | `core/mcp/oauth-refresh.ts`, `oauth-events.ts`, `oauth-store.ts`, `client.ts`, `mcp-routes.ts`, `mcp-tools.ts` |
-| **Patch: mentor turns replay after the reply they followed** when a tool call was interrupted (`mapCustomEntriesInFileOrder`, `repairedCountAfter`) | `core/session-manager.ts`; guarded by `core/ken-turn-anchor.test.ts` |
-| **Patch: stop the daemon's process tree synchronously on macOS Quit** | `gg-app/src-tauri/src/process.rs`, `lib.rs` |
+| Feature                                                                                                                                             | Main files                                                                                                                                  |
+| --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Mentor key** in the deck: toggles `@Mentor` in front of the draft; on an empty composer fills "hvad siger du?" selected                           | `gg-app/src/mentor.ts`, `Deck.tsx`, `App.tsx`, `Composer.tsx`                                                                               |
+| **Mentor takes images** (pasted/dropped/picked screenshots go to the mentor)                                                                        | `prompt-routes.ts`, `agent-session.ts`, `transcript-markers.ts`, `session-manager.ts`, `commands/agent.rs`, `agent.ts`                      |
+| **Max Gas** deck key: the task goes to the mentor wrapped in a production-run brief; he answers with one runnable prompt                            | `gg-app/src/max-gas.ts`, `Deck.tsx`, `App.tsx`                                                                                              |
+| **Autopilot deck key** + **user rules** in `.gg/autopilot-rules.md` ("if X, send Y"), fired rule named in the transcript                            | `core/autopilot-rules.ts`, `autopilot-verdict.ts`, `autopilot-cycle.ts`, `ken-context.ts`, `useAutopilot.ts`, `TranscriptRow.tsx`           |
+| **Rule suggestions**: after a HUMAN stop, the user's reply can become a rule (card with Save/Dismiss)                                               | `core/autopilot-rule-suggestions.ts`, `RuleSuggestionCard.tsx`, `autopilot-runner.ts`, `route-context.ts`, Rust `agent_autopilot_rule_save` |
+| **Mentor digest extras**: the user's other active goals, and `ask_user` questions GC asked                                                          | `core/goal-board.ts`, `core/ken-context.ts`, `app-sidecar/ken-context.ts`                                                                   |
+| **Sent state for mentor prompts** (live, after reload, from other clients, when queued) and `prompt_accepted`                                       | `Markdown.tsx`, `markdown-prompt.ts`, `local-prompt-ids.ts`, `useAgentEvents.ts`, `prompt-routes.ts`, `autopilot-runner.ts`                 |
+| **Multi-client ask_user**: answered or overtaken from another client (e.g. glasses via `POST /ask/:id`) reads as answered in every window           | `core/ask-user.ts`, `app-sidecar.ts`, `gg-app/src/ask-user.ts`, `useAgentEvents.ts`                                                         |
+| **MCP OAuth refresh**, and live sessions reconnect after login                                                                                      | `core/mcp/oauth-refresh.ts`, `oauth-events.ts`, `oauth-store.ts`, `client.ts`, `mcp-routes.ts`, `mcp-tools.ts`                              |
+| **Patch: mentor turns replay after the reply they followed** when a tool call was interrupted (`mapCustomEntriesInFileOrder`, `repairedCountAfter`) | `core/session-manager.ts`; guarded by `core/ken-turn-anchor.test.ts`                                                                        |
+| **Patch: stop the daemon's process tree synchronously on macOS Quit**                                                                               | `gg-app/src-tauri/src/process.rs`, `lib.rs`                                                                                                 |
 
 ## Identity, updates and releases
 
@@ -128,8 +129,9 @@ by this fork.
 ## Merging an upstream tag (step by step)
 
 1. Clean tree on main: `git status`, `git fetch upstream --tags`.
-2. Merge in a throwaway worktree:
-   `git worktree add ../godik-sync main && cd ../godik-sync && git merge v<x.y.z>`.
+2. Merge in a throwaway worktree whose path has no spaces and is not under
+   `/tmp` (see step 5): `git worktree add -b sync/v<x.y.z> ~/godik-sync main &&
+cd ~/godik-sync && git merge v<x.y.z>`.
 3. Resolve conflicts with the rules above. Usual hot spots:
    - `gg-app/src/App.tsx`, `Deck.tsx`, `TranscriptRow.tsx`: keep Ken's
      structure; re-add the Mentor/Max Gas/Autopilot keys, rule-suggestion
@@ -149,8 +151,10 @@ by this fork.
 5. Build the framework (gg-ai → gg-agent + gg-core → ggcoder), then run each
    check: `pnpm check`, `pnpm lint`, `pnpm format:check`,
    `pnpm --filter gg-app test`, `pnpm --filter @kenkaiiii/ggcoder test`.
-   Two ggcoder tests fail only locally on macOS (`motion-blur` colour
-   tolerance, `lsp/windows.test.ts` when the repo path contains a space) and
-   pass in CI; anything else is real.
+   Known local-only ggcoder failures on macOS, all passing in CI:
+   `motion-blur` (a colour off by one level), `lsp/windows.test.ts` when the
+   repo path contains a space, and `sandbox.test.ts` ("refuses a tool cache
+   repointed at the SSH keys") when the checkout lives under `/tmp`. Anything
+   else is real.
 6. Fast-forward main to the merge, push, and let CI (`ci.yml`) go green. Tag
    `godik-v<x.y.z>` only if godik-sync isn't going to do it.

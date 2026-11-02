@@ -1,6 +1,6 @@
 import { CODER_NAME, MENTOR_NAME } from "./brand.js";
 import type { Message, MessageProvenance } from "@kenkaiiii/gg-ai";
-import { NOTIFICATION_PREFIX } from "./steering.js";
+import { isNotificationText } from "./steering.js";
 
 const COMPACTION_SUMMARY_PREFIX = "[Previous conversation summary]";
 // Upstream's wording stays listed: sessions written before the rebrand carry it.
@@ -42,7 +42,7 @@ export function getUserSessionPrompt(
     !provenance &&
     (text.startsWith(COMPACTION_SUMMARY_PREFIX) ||
       AUTOPILOT_PROMPT_PREFIXES.some((prefix) => text.startsWith(prefix)) ||
-      text.startsWith(NOTIFICATION_PREFIX))
+      isNotificationText(text))
   ) {
     return null;
   }

@@ -15,6 +15,8 @@ import { PlanModeLogo } from "./PlanModeLogo";
 import { PlanDecisionNotice } from "./PlanDecisionNotice";
 import { SecurityNotice } from "./SecurityNotice";
 import { AskBand } from "./AskBand";
+import { ShellBlock } from "./ShellBlock";
+import type { ShellActions } from "./useShellRuns";
 import { Markdown } from "./Markdown";
 import { Skeleton } from "./Skeleton";
 import { segmentDoneMarkers, hasDoneMarker } from "./plan-steps";
@@ -149,6 +151,7 @@ export const TranscriptRow = memo(function TranscriptRow({
   onAskAnswer,
   onAskType,
   onRuleSuggestion,
+  shellActions,
 }: {
   item: Item;
   view: { readonly visible: boolean };
@@ -167,6 +170,7 @@ export const TranscriptRow = memo(function TranscriptRow({
   ) => void;
   onAskType?: (itemId: number, promptId: string, questionId: string, seed?: string) => void;
   onRuleSuggestion?: (itemId: number, action: RuleSuggestionAction) => void;
+  shellActions?: ShellActions;
 }): React.ReactElement | null {
   const entranceRef = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
@@ -192,6 +196,7 @@ export const TranscriptRow = memo(function TranscriptRow({
       onAskAnswer={onAskAnswer}
       onAskType={onAskType}
       onRuleSuggestion={onRuleSuggestion}
+      shellActions={shellActions}
     />
   );
   if (!animateIn) return row;
@@ -212,6 +217,7 @@ function TranscriptRowBody({
   onAskAnswer,
   onAskType,
   onRuleSuggestion,
+  shellActions,
 }: {
   item: Item;
   /** This is the Ken reply currently streaming in, so his face talks. */
@@ -229,6 +235,8 @@ function TranscriptRowBody({
   onAskType?: (itemId: number, promptId: string, questionId: string, seed?: string) => void;
   /** GODIK CODER: Save or Dismiss on Ken's rule suggestion card. */
   onRuleSuggestion?: (itemId: number, action: RuleSuggestionAction) => void;
+  /** Run, cancel or stop the user's own `!` commands. */
+  shellActions?: ShellActions;
 }): React.ReactElement | null {
   switch (item.kind) {
     case "rule_suggestion":
@@ -448,6 +456,8 @@ function TranscriptRowBody({
       );
     case "subagent_group":
       return <SubAgentFeed agents={item.agents} aborted={item.aborted} />;
+    case "shell":
+      return <ShellBlock item={item} actions={shellActions} onGrow={onContentGrow} />;
     case "security":
       return (
         <SecurityNotice

@@ -42,6 +42,8 @@ import {
   type PromptMeta,
   type QueuedMessage,
   listHistory,
+  listShellSuggestions,
+  type ShellSuggestion,
   listTasks,
   type ChecklistEntry,
   runTask,
@@ -193,10 +195,12 @@ import { useChromeToggles } from "./useChromeToggles";
 import { useTranscriptExport } from "./useTranscriptExport";
 import { useWindowOrder } from "./useWindowOrder";
 import { dropHiddenFocus } from "./hidden-focus";
-import { Composer } from "./Composer";
+import { Composer, type ShellMenu } from "./Composer";
 import { UpdateBanner } from "./UpdateBanner";
 import { usePromptHistory } from "./usePromptHistory";
 import { usePromptEnhance } from "./usePromptEnhance";
+import { shellCommandFromInput, shellItemFromHistory, useShellRuns } from "./useShellRuns";
+import { filterShellSuggestions, shellEnterPicks } from "./shell-menu";
 import "./App.css";
 import "./Deck.css";
 import "./Trophies.css";
@@ -205,18 +209,23 @@ const DEFAULT_INPUT_PLACEHOLDER = `Type a message, / commands, @ files, ${MENTOR
 const INPUT_PLACEHOLDERS = [
   DEFAULT_INPUT_PLACEHOLDER,
   `Need a second opinion? Ask ${MENTOR_HANDLE}`,
+  "Start with ! to run a command, like !git status",
   `Stuck on what to do next? Ask ${MENTOR_HANDLE}`,
   DEFAULT_INPUT_PLACEHOLDER,
+  `Run tests yourself with !pnpm test, then ask ${CODER_NAME} to fix them`,
   `Want a second set of eyes? Ask ${MENTOR_HANDLE}`,
   `Unsure how to proceed? Ask ${MENTOR_HANDLE}`,
+  `!ls runs in this project. ${CODER_NAME} sees the output next message`,
   `Need a quick review? Ask ${MENTOR_HANDLE}`,
 ] as const;
 const RUNNING_INPUT_PLACEHOLDERS = [
   "Agent is working. Add a follow-up if you want",
   "Got another thought? Queue it here",
+  "Run a command while you wait, like !git diff",
   "Agent is on it. You can stack the next note",
   "Thinking ahead? Drop the next instruction",
   "Keep going. Your next message will queue up",
+  `Check something yourself with !, it won't interrupt ${CODER_NAME}`,
 ] as const;
 const INPUT_PLACEHOLDER_INTERVAL_MS = 12_000;
 const PLACEHOLDER_SHUFFLE_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
@@ -232,7 +241,7 @@ const VIDEO_CAPABILITY_WARNING =
 function shufflePlaceholderFrame(target: string, frame: number): string {
   const revealCount = Math.ceil((target.length * frame) / PLACEHOLDER_SHUFFLE_FRAMES);
   return Array.from(target, (char, index) => {
-    if (index < revealCount || /\s|[.,?/@]/.test(char)) return char;
+    if (index < revealCount || /\s|[.,?/@!]/.test(char)) return char;
     const pick = Math.floor(Math.random() * PLACEHOLDER_SHUFFLE_CHARS.length);
     return PLACEHOLDER_SHUFFLE_CHARS[pick];
   }).join("");
@@ -258,15 +267,11 @@ function App(): React.ReactElement {
   // Ken Kai (mentor agent): own running flag, token/thinking metrics, streaming
   // bubble, and `ken_*` SSE handling. Lives in its own hook; App just consumes
   // the state for rendering and delegates ken events to `handleKenEvent`.
-  const {
-    kenRunning,
-    kenTokens,
-    kenRunStartTs,
-    kenIsThinking,
-    kenThinkingStartTs,
-    kenThinkingAccumMs,
-    handleKenEvent,
-  } = useKenMentor({ setItems, nextId, liveText });
+  const { kenRunning, kenTokens, kenRunStartTs, handleKenEvent } = useKenMentor({
+    setItems,
+    nextId,
+    liveText,
+  });
   // Ken's face talks on the reply he is streaming right now: the last row,
   // while his run is live. Only that row's props change, so memo holds.
   const currentErrorId = useMemo(() => activeChatErrorId(items), [items]);
@@ -283,6 +288,12 @@ function App(): React.ReactElement {
   const lastProgressXpRef = useRef<number | null>(null);
   const [confettiNonce, setConfettiNonce] = useState<string | null>(null);
   const [input, setInput] = useState("");
+  const [shellSuggestions, setShellSuggestions] = useState<ShellSuggestion[]>([]);
+  const [shellIndex, setShellIndex] = useState(0);
+  // The input the `!` picker was closed for (Esc or a pick); it reopens on edit.
+  const [shellMenuDismissedFor, setShellMenuDismissedFor] = useState<string | null>(null);
+  // The input the user last moved the picker's highlight for (↑/↓).
+  const [shellNavigatedFor, setShellNavigatedFor] = useState<string | null>(null);
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
   const [displayPlaceholder, setDisplayPlaceholder] = useState(DEFAULT_INPUT_PLACEHOLDER);
   const displayPlaceholderRef = useRef(DEFAULT_INPUT_PLACEHOLDER);
@@ -1041,11 +1052,26 @@ function App(): React.ReactElement {
   // state (its render + other handlers use it) and passes the setters +
   // cross-cutting refs in. App consumes `handleEvent` (for the SSE subscription)
   // and the two helpers it still calls directly (`pushItem`, `endStreamingText`).
+  const focusComposer = useCallback(() => inputRef.current?.focus(), []);
+  const shellRuns = useShellRuns({ setItems, nextId, liveText, focusComposer, toast });
+  const {
+    shellTrusted,
+    refreshShellTrust,
+    revokeShellTrust,
+    submitShell,
+    markShellShared,
+    handleShellEvent,
+  } = shellRuns;
+  const shellActions = useMemo(
+    () => ({ confirm: shellRuns.confirm, stop: shellRuns.stop }),
+    [shellRuns.confirm, shellRuns.stop],
+  );
   const { handleEvent, pushItem, endStreamingText } = useAgentEvents({
     setItems,
     nextId,
     handleKenEvent,
     handleAutopilotEvent,
+    handleShellEvent,
     handleActivityEvent,
     setState,
     setTasks,
@@ -1128,6 +1154,8 @@ function App(): React.ReactElement {
       // Hydrate the transcript when resuming an existing session — the webview
       // only sees live SSE events, so past messages must be fetched explicitly.
       const history = await listHistory();
+      const pendingShellRuns = Array.isArray(st?.pendingShellRuns) ? st.pendingShellRuns : [];
+      void refreshShellTrust();
       if (history.length > 0) {
         // A freshly hydrated session lands at the bottom (newest message).
         stickToBottomRef.current = true;
@@ -1204,6 +1232,7 @@ function App(): React.ReactElement {
                 };
               if (h.infoKind === "video_warning")
                 return { kind: "info", id: nextId(), text: VIDEO_CAPABILITY_WARNING };
+              if (h.shell) return shellItemFromHistory(h.shell, nextId(), pendingShellRuns);
               // Ken "Send to GG Coder" prompts: restore the shimmer label, not the
               // full prompt body (matches live).
               if (h.kenSent && h.role === "user")
@@ -1288,7 +1317,7 @@ function App(): React.ReactElement {
       setLiveFromId(lastIssuedId() + 1);
       setHydrated(true);
     }
-  }, [stickToBottomRef]);
+  }, [stickToBottomRef, refreshShellTrust]);
 
   useEffect(() => {
     const unsub = subscribe(handleEvent);
@@ -1505,7 +1534,54 @@ function App(): React.ReactElement {
   // `@`-mention picker: open whenever a mention token is active and the search
   // returned at least one file. Clamp the highlighted row to the result count.
   // Never open while `@Ken` is active — that token addresses Ken, not a file.
-  const mentionOpen = mention !== null && fileMatches.length > 0 && !kenActive;
+  // `!cmd`: the input runs a command instead of messaging the agent.
+  const shellMode = workspaceMode === "code" && shellCommandFromInput(input) !== null;
+  // Entering `!` loads the picker's commands (history counts change per run).
+  useEffect(() => {
+    if (!shellMode) return;
+    let live = true;
+    void listShellSuggestions().then((list) => {
+      if (live) setShellSuggestions(list);
+    });
+    return () => {
+      live = false;
+    };
+  }, [shellMode]);
+  const shellMatches = useMemo(
+    () => (shellMode ? filterShellSuggestions(shellSuggestions, input.slice(1)) : []),
+    [shellMode, shellSuggestions, input],
+  );
+  const shellMenu: ShellMenu | null =
+    shellMatches.length > 0 && shellMenuDismissedFor !== input
+      ? {
+          matches: shellMatches,
+          activeIndex: shellIndex % shellMatches.length,
+          setActiveIndex: setShellIndex,
+          navigate: (delta) => {
+            const n = shellMatches.length;
+            setShellIndex((i) => (((i + delta) % n) + n) % n);
+            setShellNavigatedFor(input);
+          },
+          enterPicks: shellEnterPicks(input, shellNavigatedFor),
+          pick: (s) => {
+            const next = `!${s.command}`;
+            setInput(next);
+            setShellIndex(0);
+            // A picked command is complete: close the picker until the user edits it.
+            setShellMenuDismissedFor(next);
+            requestAnimationFrame(() => {
+              const el = inputRef.current;
+              if (!el) return;
+              el.focus();
+              el.setSelectionRange(next.length, next.length);
+            });
+          },
+          dismiss: () => setShellMenuDismissedFor(input),
+          trusted: shellTrusted,
+          revokeTrust: () => void revokeShellTrust(),
+        }
+      : null;
+  const mentionOpen = mention !== null && fileMatches.length > 0 && !kenActive && !shellMode;
   // GODIK CODER: the deck's Mentor key adds or removes the leading `@Mentor`;
   // on an empty composer it fills a default question and selects it.
   function toggleMentor(): void {
@@ -1709,6 +1785,7 @@ function App(): React.ReactElement {
     const disposition = submitDisposition(trimmed, readyRef.current, running);
     if (disposition === "ignore") return false;
     chatLayout.capture();
+    markShellShared();
     // A send that supersedes an open question is consumed the moment it lands
     // (the sidecar releases the parked call), so it must not wear the queued
     // look for the one frame before that, nor open the queued strip below the
@@ -2284,6 +2361,21 @@ function App(): React.ReactElement {
     if (!readyRef.current) return;
     if (!trimmed && attachments.length === 0 && mentionedPaths.length === 0) return;
 
+    // `!cmd` runs a command for the user, in the project folder, with no agent
+    // turn. Attachments and file chips stay in the composer for the next message.
+    const shellCommand = workspaceMode === "code" ? shellCommandFromInput(input) : null;
+    if (shellCommand !== null) {
+      if (!shellCommand) return;
+      chatLayout.capture();
+      recordHistory(trimmed);
+      stickToBottomRef.current = true;
+      submitShell(shellCommand, state?.cwd ?? "");
+      setInput("");
+      setSlashIndex(0);
+      setMention(null);
+      return;
+    }
+
     // `/schedule` registers a recurring prompt instead of sending anything now.
     // An invalid draft is refused outright — sending it would run the raw command
     // text as a prompt — and the hint above the composer already says why.
@@ -2361,6 +2453,7 @@ function App(): React.ReactElement {
     // the bubble's commit, or their fold resizes the transcript mid-move.
     setSendCount((n) => n + 1);
     recordHistory(trimmed);
+    markShellShared();
     // Read BEFORE the dismissal clears the band: a prompt that supersedes a
     // question is consumed as soon as it lands, so it must neither flash the
     // queued look on the way in nor open the queued strip below the transcript
@@ -2981,6 +3074,7 @@ function App(): React.ReactElement {
                             onAskAnswer={answerAsk}
                             onAskType={typeAskInstead}
                             onRuleSuggestion={ruleSuggestionAction}
+                            shellActions={shellActions}
                           />
                         );
                         const row =
@@ -3235,10 +3329,9 @@ function App(): React.ReactElement {
                   <KenActivityBar
                     runStartTs={kenRunStartTs}
                     tokens={kenTokens}
-                    isThinking={kenIsThinking}
-                    thinkingStartTs={kenThinkingStartTs}
-                    thinkingAccumMs={kenThinkingAccumMs}
                     onCancel={() => void cancelKen()}
+                    toolsHidden={toolsHidden}
+                    onToggleTools={toggleTools}
                   />
                 ) : (
                   <ActivityBar
@@ -3306,7 +3399,9 @@ function App(): React.ReactElement {
                   enhancement={enhancement}
                   setEnhancement={setEnhancement}
                   enhancing={enhancing}
-                  enhanceHintVisible={enhanceHintVisible}
+                  enhanceHintVisible={enhanceHintVisible && !shellMode}
+                  shellMode={shellMode}
+                  shellMenu={shellMenu}
                   runEnhance={runEnhance}
                   kenActive={kenActive}
                   kenInputParts={kenInputParts}

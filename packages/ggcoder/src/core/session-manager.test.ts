@@ -683,6 +683,23 @@ describe("SessionManager.getAppMarkers", () => {
     ]);
   });
 
+  it("keeps the user's own command rows (`!cmd`) for the resumed transcript", () => {
+    const markers = manager.getAppMarkers([
+      autopilotEntry(
+        "s1",
+        {
+          version: 1,
+          kind: "shell",
+          afterMessageCount: 2,
+          data: { runId: "r1", command: "ls", exitCode: 0, output: "a.ts" },
+        },
+        APP_MARKER_CUSTOM_KIND,
+      ),
+    ]);
+    expect(markers).toHaveLength(1);
+    expect(markers[0]).toMatchObject({ kind: "shell", data: { command: "ls", output: "a.ts" } });
+  });
+
   it("accepts the compaction kind (persisted N → M counts for the resumed notice)", () => {
     const markers = manager.getAppMarkers([
       autopilotEntry(
@@ -904,6 +921,36 @@ describe("SessionManager.pruneOldSessions", () => {
     } finally {
       resolve.mockRestore();
     }
+  });
+
+  it("prunes old orphaned sub-agent turn records, keeps recent ones, never follows symlinks", async () => {
+    const sessionsDir = await makeTempDir();
+    const outside = await makeTempDir();
+    const manager = new SessionManager(sessionsDir);
+    const live = await makeAgedSession(manager, "/proj/t", 1);
+    const dir = path.dirname(live);
+    const past = new Date(Date.now() - 60 * 86_400_000);
+    const oldOrphan = path.join(dir, "old.jsonl.turn.json");
+    const recentOrphan = path.join(dir, "recent.jsonl.turn.json");
+    await writeFile(oldOrphan, "{}");
+    await utimes(oldOrphan, past, past);
+    await writeFile(recentOrphan, "{}");
+    const victim = path.join(outside, "victim.json");
+    await writeFile(victim, "keep me");
+    await utimes(victim, past, past);
+    const link = path.join(dir, "link.jsonl.turn.json");
+    // Windows symlinks need elevation; the containment check is POSIX-only here.
+    if (process.platform !== "win32") {
+      await fs.symlink(victim, link);
+      await fs.lutimes(link, past, past);
+    }
+
+    await manager.pruneOldSessions({ maxAgeDays: 30 });
+
+    expect(existsSync(oldOrphan)).toBe(false);
+    expect(existsSync(recentOrphan)).toBe(true);
+    expect(existsSync(live)).toBe(true);
+    expect(await readFile(victim, "utf8")).toBe("keep me");
   });
 
   it("removes project dirs left empty and is a no-op when retention is 0", async () => {

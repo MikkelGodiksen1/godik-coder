@@ -1,16 +1,10 @@
-<pre align="center">
-   ▄██████▄     ▄██████▄        ▄████████  ▄██████▄  ████████▄     ▄████████    ▄████████
-  ███    ███   ███    ███      ███    ███ ███    ███ ███   ▀███   ███    ███   ███    ███
-  ███    █▀    ███    █▀       ███    █▀  ███    ███ ███    ███   ███    █▀    ███    ███
- ▄███         ▄███             ███        ███    ███ ███    ███  ▄███▄▄▄      ▄███▄▄▄▄██▀
-▀▀███ ████▄  ▀▀███ ████▄       ███        ███    ███ ███    ███ ▀▀███▀▀▀     ▀▀███▀▀▀▀▀&nbsp;&nbsp;
-  ███    ███   ███    ███      ███    █▄  ███    ███ ███    ███   ███    █▄  ▀███████████
-  ███    ███   ███    ███      ███    ███ ███    ███ ███   ▄███   ███    ███   ███    ███
-  ████████▀    ████████▀       ████████▀   ▀██████▀  ████████▀    ██████████   ███    ███
-                                                                               ███    ███
-</pre>
+<p align="center">
+  <img src="gg-app/icon-source.png" alt="GG Coder app icon" width="128">
+</p>
 
-https://github.com/user-attachments/assets/8f264af5-c757-4dcc-b622-b9e0edf36f89
+<p align="center">
+  <img src="docs/art/home.png" alt="GG Coder desktop home screen">
+</p>
 
 <p align="center">
   <strong>Cause the other agents piss me off.</strong>
@@ -25,11 +19,15 @@ https://github.com/user-attachments/assets/8f264af5-c757-4dcc-b622-b9e0edf36f89
   <a href="https://skool.com/kenkai"><img src="https://img.shields.io/badge/Skool-Community-b0b6ff?style=for-the-badge" alt="Skool"></a>
 </p>
 
-GG Coder is a desktop AI app for coding, chatting, running whole goals and making videos. Pick your AI provider, open as many windows as you need, and tell it what you want done. Less babysitting, more getting things done.
+GG Coder is a desktop coding agent that gets more out of the AI subscription you already pay for.
 
 ## Why GG Coder
 
-**The leanest coding agent I've tested.** I raced GG Coder against 19 other coding agents on the same model, all in one race. GG was the fastest and used the least of all 20.
+- **More work per plan.** Fastest and leanest of 20 agents I raced on the same model. About 2.5x the coding Claude Code gets from the same allowance.
+- **Real code, not guesses.** Agent Steroids searches real, current open-source code on your machine. No rate-limited MCP server, no limits.
+- **Done means checked.** Ken Autopilot keeps the work going until it's actually verified.
+- **Ship it properly, even as a beginner.** Coding is only part of it. One-click checks for security, compliance, data safety, accessibility, tests and more, plus a Project health score, so you don't need to know what to ask for.
+- **Your subscriptions.** Claude, ChatGPT, Gemini, Grok, Kimi, API keys or local models.
 
 | Agent              | Time for the full suite | Usage per suite | GG Coder compared          |
 | ------------------ | ----------------------- | --------------- | -------------------------- |
@@ -58,16 +56,11 @@ On a subscription, less usage means more work out of your plan. The same allowan
 
 <sub>Every agent on Claude Haiku 5.5, across more than 3,000 test runs. The table is one race on 25 October 2026: 7 tasks, 5 runs each, every agent on a current version.</sub>
 
-## What you get
+## Also included
 
-- **Code:** a coding agent that plans, edits, runs your tests and tells you straight what it verified. Plan mode lets you review the plan before anything changes.
-- **Ken Autopilot:** reviews the coding work and keeps it going until it's actually done and checked, so you don't have to babysit it.
-- **GG Goals:** hand over a whole goal and walk away. It agrees the approach with you, then does the work, splitting big independent parts across a team of workers that run side by side, and keeps you posted until the goal is met. It works on any folder, not just code: research, documents, plans.
-- **Agent Steroids:** a local library of real, current open-source code. Your agent looks up how real projects solve a problem instead of guessing, offline and with no limits.
+- **GG Goals:** hand over a whole goal; a team of workers sees it through.
 - **Chat:** conversations that remember context.
 - **GG Motion:** turns your ideas into videos.
-- **Your models, your way:** sign in with Claude, ChatGPT, Gemini, Grok or Kimi subscriptions, use API keys for OpenAI, Anthropic, DeepSeek, GLM, MiniMax, OpenRouter and more, or run local models. A usage meter shows how much of your plan you've used.
-- **Plugs into your workflow:** connect MCP servers, and drive GG from Telegram, voice notes included.
 
 ## Get started
 
@@ -76,6 +69,8 @@ On a subscription, less usage means more work out of your plan. The same allowan
    **macOS (Apple Silicon):** [Download the latest release](https://github.com/KenKaiii/gg-framework/releases/latest) and open the `.dmg`.
 
    **Windows:** [Download the latest release](https://github.com/KenKaiii/gg-framework/releases/latest) and run the `.exe` installer.
+
+   **Linux (x86_64):** [Download the latest release](https://github.com/KenKaiii/gg-framework/releases/latest) and install the `.deb` (`sudo apt install ./GG*.deb`) or `.rpm` (`sudo dnf install ./GG*.rpm`).
 
    **Development:** With Node.js, pnpm, and the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) installed:
 
