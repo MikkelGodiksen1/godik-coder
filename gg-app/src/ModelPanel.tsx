@@ -1,3 +1,4 @@
+import { CODER_NAME, MENTOR_NAME } from "./mentor";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { setThinkingLevel, type AgentState, type ModelOption } from "./agent";
 import { PanelHead } from "./DeckPanelHead";
@@ -232,7 +233,7 @@ export function ModelPanel({
                 setActive(null);
               }}
             >
-              GG
+              {CODER_NAME}
               <span className="well trunc">{modelDisplayName(models, state?.model)}</span>
             </button>
             <button
@@ -309,7 +310,7 @@ export function ModelPanel({
         hidden={pendingPaid !== null}
         className="deck-list model-list"
         role="listbox"
-        aria-label={forSecond ? `${second.name}'s model` : "GG's model"}
+        aria-label={forSecond ? `${second.name}'s model` : `${CODER_NAME}'s model`}
       >
         {groups.map((group) =>
           group.options.length === 0 ? null : (
@@ -416,7 +417,8 @@ function PaidConfirm({
       </p>
       <p className="deck-note">
         It stays on for this session only. New sessions, restarts and new windows go back to{" "}
-        {option.standardName || "a standard model"}, and Ken and helper agents never use it.
+        {option.standardName || "a standard model"}, and {MENTOR_NAME} and helper agents never use
+        it.
       </p>
       <div className="deck-prow">
         <span className="deck-spacer" />

@@ -50,7 +50,7 @@ describe("buildRuleSuggestionPrompt", () => {
     expect(prompt).toContain("add a login form");
     expect(prompt).toContain("just run the tests yourself next time");
     expect(prompt).toContain("- if lint fails, send: fix lint");
-    expect(prompt).toContain("RULE: if <situation>, send: <instruction for GG Coder>");
+    expect(prompt).toContain("RULE: if <situation>, send: <instruction for GC>");
     expect(prompt).toContain("reply exactly NONE");
   });
 

@@ -168,7 +168,6 @@ describe("About page layout", () => {
 
   it.each([
     [".settings-card.about-maker", ".about-maker"],
-    [".btn.about-cta", ".about-cta"],
     [".settings-section-title.about-log-title", ".about-log-title"],
     [".about-ken.ken-dialogue", ".about-ken"],
   ])("styles %s with both classes", (both, alone) => {

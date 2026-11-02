@@ -1,3 +1,4 @@
+import { CODER_NAME } from "./mentor";
 import { useEffect, useRef, useState } from "react";
 import { whatsNewLayout } from "./clearing-art";
 import { createClearingScene, sceneHour } from "./clearing-scene";
@@ -106,7 +107,7 @@ export function WhatsNewLounge({
     <div className="wn-lounge">
       <Clearing hour={sceneHour(fixedHour ?? localHour)} />
       <header className="wn-lounge-head">
-        <h1 className="sr-only">{`What's new in GG Coder v${latest.version}`}</h1>
+        <h1 className="sr-only">{`What's new in ${CODER_NAME} v${latest.version}`}</h1>
         <img
           className="wn-lounge-title"
           src={title}

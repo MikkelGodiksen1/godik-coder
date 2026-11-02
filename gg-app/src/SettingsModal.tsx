@@ -1,3 +1,4 @@
+import { CODER_NAME } from "./mentor";
 import { useEffect, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { theme } from "./theme";
@@ -118,7 +119,10 @@ export function SettingsModal({ onClose, onSaved }: Props): React.ReactElement {
       <div className="settings-cols settings-grid">
         <div className="settings-col">
           {permissions?.applicable && (
-            <SettingsSection title="Permissions" description="Full Disk Access for GG Coder.">
+            <SettingsSection
+              title="Permissions"
+              description={`Full Disk Access for ${CODER_NAME}.`}
+            >
               <div className="modal-row">
                 <button
                   className="modal-btn"

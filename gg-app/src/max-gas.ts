@@ -6,12 +6,14 @@
  * App/Deck wiring stays a few lines and upstream merges stay clean.
  */
 
+import { CODER_NAME, MENTOR_NAME } from "./mentor";
+
 /** The short header Ken reads first: what to produce and the limits to keep. */
-export const MAX_GAS_INSTRUCTION = `MAX GAS REQUEST FOR KEN
+export const MAX_GAS_INSTRUCTION = `MAX GAS REQUEST FOR ${MENTOR_NAME.toUpperCase()}
 
-The user is not asking you a question. They are handing you a task to be run autonomously by GG Coder, and they want you to write the prompt for that run.
+The user is not asking you a question. They are handing you a task to be run autonomously by ${CODER_NAME}, and they want you to write the prompt for that run.
 
-Write ONE runnable GG Coder prompt, in a single fenced code block tagged \`prompt\`, built from the user's task below and the background that follows it. You decide the length; this overrides your usual "a few lines" rule.
+Write ONE runnable ${CODER_NAME} prompt, in a single fenced code block tagged \`prompt\`, built from the user's task below and the background that follows it. You decide the length; this overrides your usual "a few lines" rule.
 
 Tailor it to the actual repo you are in. Map preview, merge, production deploy, smoke test and rollback onto that repo's documented release or deploy procedure: AGENTS.md, CLAUDE.md, SESSIONS.md, release workflows, deploy locks. If the repo has no documented production path, the prompt you write must end 🔴 and say so, rather than invent one.
 

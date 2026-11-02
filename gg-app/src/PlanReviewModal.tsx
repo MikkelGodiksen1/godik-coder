@@ -1,3 +1,4 @@
+import { CODER_NAME, MENTOR_NAME } from "./mentor";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ArrowUpIcon } from "@phosphor-icons/react";
 import { useDialogFocus } from "./dialog-focus";
@@ -144,7 +145,7 @@ export function PlanReviewModal({
                 <span className="activity-label-reveal">
                   {kenReviewing ? (
                     <ShimmerText base={theme.ken} bright={theme.text}>
-                      Ken is reviewing it. Your call still wins
+                      {MENTOR_NAME} is reviewing it. Your call still wins
                     </ShimmerText>
                   ) : (
                     <span style={{ color: theme.warning }}>Your call on the plan</span>
@@ -185,7 +186,7 @@ export function PlanReviewModal({
               rows={1}
               value={feedback}
               aria-label="Feedback on the plan"
-              placeholder="Tell GG what to change in the plan…"
+              placeholder={`Tell ${CODER_NAME} what to change in the plan…`}
               readOnly={leaving !== null}
               data-modal-initial-focus
               onChange={(e) => setFeedback(e.target.value)}
@@ -212,7 +213,7 @@ export function PlanReviewModal({
       </div>
 
       <div className="footer plan-review-footer" style={{ color: theme.textMuted }}>
-        <span>Enter sends feedback and GG revises the plan · Shift+Enter for a new line</span>
+        <span>{`Enter sends feedback and ${CODER_NAME} revises the plan · Shift+Enter for a new line`}</span>
       </div>
     </div>
   );

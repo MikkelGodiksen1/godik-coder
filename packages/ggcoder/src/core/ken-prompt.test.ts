@@ -149,7 +149,7 @@ describe("buildKenAutopilotSystemPrompt — verdict contract", () => {
     expect(prompt).toContain("no audience for a why");
     expect(prompt).toContain("Never justify your verdict");
     expect(prompt).toContain("INSIDE a PROMPT body");
-    expect(prompt).toContain("when GG Coder itself needs it");
+    expect(prompt).toContain("when GC itself needs it");
   });
 
   it("shows a contrastive WRONG/RIGHT example of the drift", () => {
@@ -172,7 +172,7 @@ describe("buildKenAutopilotSystemPrompt — verdict contract", () => {
 describe("buildKenSystemPrompt — chat mode unaffected", () => {
   it("keeps the chat output contract (prompt fence) and no verdict keywords", async () => {
     const prompt = await buildKenSystemPrompt(TEST_CWD);
-    expect(prompt).toContain("Send to GG Coder");
+    expect(prompt).toContain("Send to GC");
     // The verdict contract is autopilot-only.
     expect(prompt).not.toContain("ALL_CLEAR");
   });
@@ -243,7 +243,7 @@ describe("GG Coder capabilities — both modes know what the executor can do", (
       await buildKenSystemPrompt(TEST_CWD),
       await buildKenAutopilotSystemPrompt(TEST_CWD),
     ]) {
-      expect(prompt).toContain("What GG Coder can do");
+      expect(prompt).toContain("What GC can do");
       expect(prompt).toContain("enter_plan");
       expect(prompt).toContain("subagents");
       expect(prompt).toContain("bash");

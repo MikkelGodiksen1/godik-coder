@@ -1,3 +1,4 @@
+import { MENTOR_NAME } from "./mentor";
 import { useEffect, useRef } from "react";
 import { formatElapsed, formatTokenCount } from "./ActivityBar";
 import type { GoalFinish } from "./goal-finish";
@@ -13,7 +14,7 @@ interface Props {
 const TITLE: Readonly<Record<GoalFinish["outcome"], string>> = {
   done: "Job done",
   unverified: "Done, not all checked",
-  failed: "Ken got stuck",
+  failed: `${MENTOR_NAME} got stuck`,
 };
 
 /**

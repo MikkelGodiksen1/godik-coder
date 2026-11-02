@@ -36,6 +36,7 @@
  * "prompt the user" can never match). HUMAN wins over PROMPT when both appear
  * — recovering a stop is always safe, recovering an action must lose ties.
  */
+import { MENTOR_NAME } from "./mentor-name.js";
 
 export type AutopilotVerdict =
   /** `rule` names the user's autopilot rule Ken applied (`PROMPT RULE: <name>`). */
@@ -50,7 +51,7 @@ const RAW_REASON_CAP = 500;
 
 export const CORPUS_UNVERIFIED_REASON = "Not cross-checked against real-world implementations.";
 
-const DEFAULT_HUMAN_REASON = "Ken flagged this for a human but gave no reason.";
+const DEFAULT_HUMAN_REASON = `${MENTOR_NAME} flagged this for a human but gave no reason.`;
 
 /** Longest rule name kept from a `PROMPT RULE: <name>` tag. */
 export const AUTOPILOT_RULE_NAME_MAX_CHARS = 60;
@@ -167,7 +168,10 @@ export function parseAutopilotVerdict(reply: string): AutopilotVerdict {
     } catch {
       // Malformed structured output must not fall through to keyword recovery.
     }
-    return { kind: "human", reason: "Ken's structured verdict was invalid; review it manually." };
+    return {
+      kind: "human",
+      reason: `${MENTOR_NAME}'s structured verdict was invalid; review it manually.`,
+    };
   }
 
   const lines = raw.split("\n");
@@ -213,7 +217,7 @@ export function parseAutopilotVerdict(reply: string): AutopilotVerdict {
     if (tag) {
       const body = stripPromptFence(rest);
       if (!body) {
-        return { kind: "human", reason: "Ken said a rule fired but gave no prompt." };
+        return { kind: "human", reason: `${MENTOR_NAME} said a rule fired but gave no prompt.` };
       }
       const rule = cleanRuleName(tag[1] ?? "");
       return rule ? { kind: "prompt", body, rule } : { kind: "prompt", body };
@@ -226,7 +230,7 @@ export function parseAutopilotVerdict(reply: string): AutopilotVerdict {
       body = stripPromptFence(inline);
     }
     if (!body) {
-      return { kind: "human", reason: "Ken said to continue but gave no prompt." };
+      return { kind: "human", reason: `${MENTOR_NAME} said to continue but gave no prompt.` };
     }
     return { kind: "prompt", body };
   }

@@ -1,3 +1,4 @@
+import { CODER_NAME, MENTOR_NAME } from "../core/mentor-name.js";
 import type http from "node:http";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
@@ -417,7 +418,7 @@ export function handlePromptRoutes(
   if (method === "POST" && url === "/ken/prompt") {
     if (ctx.mode !== "code") {
       json(res, 404, {
-        error: `Ken is not available in GG ${ctx.mode === "chat" ? "Chat" : "Motion"}.`,
+        error: `${MENTOR_NAME} is not available in GG ${ctx.mode === "chat" ? "Chat" : "Motion"}.`,
       });
       return true;
     }
@@ -438,7 +439,7 @@ export function handlePromptRoutes(
         return;
       }
       if (ctx.kenRunning) {
-        json(res, 409, { error: "Ken is already thinking — wait for his reply." });
+        json(res, 409, { error: `${MENTOR_NAME} is already thinking — wait for his reply.` });
         return;
       }
       // Images only (screenshots), and only for a model that can see them: Ken
@@ -446,15 +447,15 @@ export function handlePromptRoutes(
       if (attachments.length > 0) {
         let refusal: string | null = null;
         if (attachments.some((a) => a.kind !== "image")) {
-          refusal = "Ken can only take images. Send other files to GG instead.";
+          refusal = `${MENTOR_NAME} can only take images. Send other files to ${CODER_NAME} instead.`;
         } else {
           try {
             const { model } = (await ctx.ensureKenSession()).getState();
             if (getModel(model)?.supportsImages !== true) {
-              refusal = `Ken's model (${model}) can't see images. Pick a model with image input for Ken, or send the image to GG instead.`;
+              refusal = `${MENTOR_NAME}'s model (${model}) can't see images. Pick a model with image input for ${MENTOR_NAME}, or send the image to ${CODER_NAME} instead.`;
             }
           } catch (err) {
-            refusal = `Ken couldn't start: ${err instanceof Error ? err.message : String(err)}`;
+            refusal = `${MENTOR_NAME} couldn't start: ${err instanceof Error ? err.message : String(err)}`;
           }
         }
         if (refusal) {
@@ -492,7 +493,9 @@ export function handlePromptRoutes(
         const prepared =
           attachments.length > 0 ? await prepareAttachments(ctx.cwd, attachments) : [];
         if (prepared.some((a) => a.kind !== "image")) {
-          throw new Error("Ken couldn't read the attached image. Try a PNG or JPEG screenshot.");
+          throw new Error(
+            `${MENTOR_NAME} couldn't read the attached image. Try a PNG or JPEG screenshot.`,
+          );
         }
         if (prepared.length > 0) await ken.promptWithAttachments(digest, prepared);
         else await ken.prompt(digest);

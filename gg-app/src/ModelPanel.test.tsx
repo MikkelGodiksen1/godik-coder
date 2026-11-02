@@ -62,7 +62,7 @@ describe("ModelPanel — a model that spends real money", () => {
     expect(onSelectModel).not.toHaveBeenCalled();
     expect(screen.getByText("Claude Opus 5.5 Fast spends real money.")).toBeTruthy();
     // Names what sessions fall back to, not a Claude-only "standard speed".
-    expect(screen.getByText(/go back to Claude Opus 5\.5, and Ken/)).toBeTruthy();
+    expect(screen.getByText(/go back to Claude Opus 5\.5, and Godik/)).toBeTruthy();
     expect(document.activeElement).toBe(screen.getByRole("button", { name: "Cancel" }));
 
     // Enter on the focused default answer backs out instead of paying.

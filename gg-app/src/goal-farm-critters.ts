@@ -14,6 +14,7 @@
 // T crown, B face, S body, D dark markings and feet, W white fur, K eyes,
 // E eye shine, C blush, M mouth; the rest are per critter.
 
+import { MENTOR_NAME } from "./mentor";
 import { shadeGrid, type Material } from "./critter-shade";
 import { hashKey, type CritterDef } from "./critter-sprites";
 
@@ -656,7 +657,7 @@ export function pickFarmCritter(
  */
 export const KEN_FARM_CRITTER: CritterDef = {
   id: "ken",
-  name: "Ken",
+  name: MENTOR_NAME,
   move: "walk",
   palette: {
     O: "#1c120e", // outline

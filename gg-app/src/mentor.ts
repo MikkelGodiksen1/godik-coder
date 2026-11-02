@@ -1,6 +1,6 @@
 /**
  * GODIK CODER: the deck's Mentor key. Pressing it puts `@Mentor ` in front of
- * the draft so the next message goes to Ken (the mentor), not the code
+ * the draft so the next message goes to the mentor, not the code
  * session; pressing it again takes it off. On an empty composer it also fills
  * a default question, selected so Enter sends it as-is and typing replaces it.
  * Sending clears the draft, so the composer goes back to normal after one
@@ -8,6 +8,12 @@
  */
 /** The mentor's visible handle. `@ken` still works as a typed alias. */
 export const MENTOR_HANDLE = "@Mentor";
+
+/** The mentor's display name. Internal ids keep "ken" for conflict-free upstream merges. */
+export const MENTOR_NAME = "Godik";
+
+/** The coding agent's display name (upstream calls it GG / GG Coder). */
+export const CODER_NAME = "GC";
 
 /** The question the Mentor key fills in when the composer is empty. */
 export const MENTOR_DEFAULT_QUESTION = "hvad siger du?";

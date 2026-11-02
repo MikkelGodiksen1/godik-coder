@@ -48,7 +48,7 @@ describe("WhatsNewWindow", () => {
     const html = renderToStaticMarkup(<WhatsNewWindow mode={mode} />);
 
     expect(html).toContain(`data-mode="${mode}"`);
-    expect(html).toContain(`What&#x27;s new in GG Coder v${latest.version}`);
+    expect(html).toContain(`What&#x27;s new in GC v${latest.version}`);
     expect(html.match(/class="wn-headline"/g)?.length ?? 0).toBeGreaterThanOrEqual(
       latest.items.length,
     );

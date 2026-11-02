@@ -1,3 +1,4 @@
+import { MENTOR_NAME } from "./mentor";
 import { useEffect, useRef } from "react";
 import { drawKenPortrait } from "./goal-ken-portrait";
 
@@ -27,7 +28,7 @@ export function GoalAskNotice({ question, more = 0, onAnswer }: Props): React.Re
     <div className="goal-ask" role="alert">
       <div className="goal-ask-sign">
         <div className="goal-ask-board">
-          <p className="goal-ask-title">Ken needs you</p>
+          <p className="goal-ask-title">{MENTOR_NAME} needs you</p>
           <span className="goal-ask-ken" aria-hidden="true">
             <canvas ref={canvasRef} />
           </span>

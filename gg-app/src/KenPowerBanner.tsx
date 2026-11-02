@@ -11,6 +11,7 @@
 // no lateral motion. Self-removes via `onDone` once the animation finishes so
 // the caller can just stop rendering it. Ken's pixel face leads the line and
 // acts it out: he wakes up for "on" and nods off for "off".
+import { MENTOR_NAME } from "./mentor";
 import { KenFace } from "./KenFace";
 
 interface Props {
@@ -35,7 +36,7 @@ export function KenPowerBanner({ mode, onDone }: Props): React.ReactElement {
         }}
       >
         <KenFace mood={mode} />
-        <span>{mode === "on" ? "Ken is on." : "Ken is off."}</span>
+        <span>{mode === "on" ? `${MENTOR_NAME} is on.` : `${MENTOR_NAME} is off.`}</span>
       </div>
     </div>
   );

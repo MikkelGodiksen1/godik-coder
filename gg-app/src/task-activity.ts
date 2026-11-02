@@ -1,3 +1,4 @@
+import { MENTOR_NAME } from "./mentor";
 import type { SidecarEvent } from "./agent";
 
 export type TaskPhase =
@@ -117,7 +118,9 @@ const reason = (d: Record<string, unknown>, fallback: string): string =>
 
 function finish(s: TaskActivity, now: number): TaskActivity {
   if (["failed", "stopped", "attention"].includes(s.phase)) return { ...s, reviewPending: false };
-  const reviewed = s.reviewed ? "Ken reviewed this task." : "Ken did not review this task.";
+  const reviewed = s.reviewed
+    ? `${MENTOR_NAME} reviewed this task.`
+    : `${MENTOR_NAME} did not review this task.`;
   if (s.verification === "failed")
     return {
       ...s,
@@ -294,7 +297,7 @@ export function reduceTaskActivity(s: TaskActivity, e: SidecarEvent, now: number
           ...s,
           project,
           phase: "reviewing",
-          label: "Ken reviewing…",
+          label: `${MENTOR_NAME} reviewing…`,
           reviewPending: true,
           connectionLost: false,
           endedAt: null,
@@ -341,7 +344,7 @@ export function reduceTaskActivity(s: TaskActivity, e: SidecarEvent, now: number
       return {
         ...(continuation ? s : { ...INITIAL_ACTIVITY, project: s.project }),
         phase: "working",
-        label: continuation ? "Applying Ken’s corrections…" : wording.label,
+        label: continuation ? `Applying ${MENTOR_NAME}’s corrections…` : wording.label,
         phraseCounts: wording.phraseCounts,
         detail: "",
         startedAt: continuation ? s.startedAt : now,
@@ -570,14 +573,19 @@ export function reduceTaskActivity(s: TaskActivity, e: SidecarEvent, now: number
           endedAt: now,
         };
       return d.reviewPending === true
-        ? { ...next, phase: "reviewing", label: "Preparing Ken’s review…", reviewPending: true }
+        ? {
+            ...next,
+            phase: "reviewing",
+            label: `Preparing ${MENTOR_NAME}’s review…`,
+            reviewPending: true,
+          }
         : finish(next, now);
     }
     case "autopilot_review_start":
       return {
         ...s,
         phase: "reviewing",
-        label: "Ken reviewing…",
+        label: `${MENTOR_NAME} reviewing…`,
         reviewPending: true,
         endedAt: null,
         startedAt: s.startedAt ?? now,
@@ -586,7 +594,7 @@ export function reduceTaskActivity(s: TaskActivity, e: SidecarEvent, now: number
       return {
         ...s,
         phase: "working",
-        label: "Applying Ken’s corrections…",
+        label: `Applying ${MENTOR_NAME}’s corrections…`,
         reviewPending: true,
         endedAt: null,
       };
@@ -616,7 +624,7 @@ export function reduceTaskActivity(s: TaskActivity, e: SidecarEvent, now: number
         ...s,
         phase: "attention",
         label: "Your decision needed",
-        detail: reason(d, "Review Ken’s message in chat before continuing."),
+        detail: reason(d, `Review ${MENTOR_NAME}’s message in chat before continuing.`),
         endedAt: now,
         reviewPending: false,
       };
@@ -625,8 +633,7 @@ export function reduceTaskActivity(s: TaskActivity, e: SidecarEvent, now: number
         ...s,
         phase: "stopped",
         label: "Paused · review limit reached",
-        detail:
-          "Ken reached the correction limit. Review the remaining work in chat before continuing.",
+        detail: `${MENTOR_NAME} reached the correction limit. Review the remaining work in chat before continuing.`,
         endedAt: now,
         reviewPending: false,
       };
@@ -634,7 +641,7 @@ export function reduceTaskActivity(s: TaskActivity, e: SidecarEvent, now: number
       return {
         ...s,
         phase: "failed",
-        label: "Ken’s review failed",
+        label: `${MENTOR_NAME}’s review failed`,
         detail: "The work was not approved. Review the error in chat before retrying.",
         endedAt: now,
         reviewPending: false,

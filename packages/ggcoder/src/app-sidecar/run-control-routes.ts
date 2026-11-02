@@ -1,3 +1,4 @@
+import { MENTOR_NAME } from "../core/mentor-name.js";
 import type http from "node:http";
 import type { Provider, ThinkingLevel } from "@kenkaiiii/gg-ai";
 import { findProbedModel, parseLocalModelId } from "@kenkaiiii/gg-core";
@@ -206,7 +207,7 @@ export function handleRunControlRoutes(
       // session mid-turn races the stream it is already consuming. The
       // footer picker is disabled to match; this is the enforcement.
       if (ctx.running || ctx.kenRunning || ctx.autopilotReviewing) {
-        json(res, 409, { error: "cannot switch Ken's model while running" });
+        json(res, 409, { error: `cannot switch ${MENTOR_NAME}'s model while running` });
         return;
       }
       if (modelId === null) {
@@ -230,7 +231,7 @@ export function handleRunControlRoutes(
         // they never run on a model that spends real money.
         if (target.billing?.paid) {
           json(res, 400, {
-            error: `${target.name} spends real money, so it's only for your main chat. Pick another model for Ken.`,
+            error: `${target.name} spends real money, so it's only for your main chat. Pick another model for ${MENTOR_NAME}.`,
           });
           return;
         }

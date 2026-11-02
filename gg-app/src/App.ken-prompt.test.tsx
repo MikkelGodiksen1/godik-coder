@@ -112,18 +112,18 @@ describe("Ken prompt block on resume", () => {
     ]);
     const button = await screen.findByRole<HTMLButtonElement>("button", { name: /^sent$/i });
     expect(button.disabled).toBe(true);
-    expect(screen.queryByRole("button", { name: /send to gg coder/i })).toBeNull();
-    // Rendered once, as the same "Sent to GG Coder" row a click gives.
-    await waitFor(() => expect(screen.getAllByText("Sent to GG Coder")).toHaveLength(1));
+    expect(screen.queryByRole("button", { name: /send to gc/i })).toBeNull();
+    // Rendered once, as the same "Sent to GC" row a click gives.
+    await waitFor(() => expect(screen.getAllByText("Sent to GC")).toHaveLength(1));
   });
 
   it("stays Send when the prompt was never sent", async () => {
     await resume([{ role: "user", ken: true, text: "what next?" }, KEN_REPLY]);
     const button = await screen.findByRole<HTMLButtonElement>("button", {
-      name: /send to gg coder/i,
+      name: /send to gc/i,
     });
     expect(button.disabled).toBe(false);
-    expect(screen.queryByText("Sent to GG Coder")).toBeNull();
+    expect(screen.queryByText("Sent to GC")).toBeNull();
   });
 
   it("ignores an identical send from BEFORE the Ken bubble", async () => {
@@ -134,7 +134,7 @@ describe("Ken prompt block on resume", () => {
       KEN_REPLY,
     ]);
     const button = await screen.findByRole<HTMLButtonElement>("button", {
-      name: /send to gg coder/i,
+      name: /send to gc/i,
     });
     expect(button.disabled).toBe(false);
   });
@@ -148,7 +148,7 @@ describe("Ken prompt block live", () => {
 
   it("turns Sent when another client (the glasses) sends the prompt", async () => {
     const { emit } = await resume([ASKED, KEN_REPLY]);
-    await screen.findByRole("button", { name: /send to gg coder/i });
+    await screen.findByRole("button", { name: /send to gc/i });
 
     emit("prompt_accepted", {
       id: "glasses-1",
@@ -161,17 +161,17 @@ describe("Ken prompt block live", () => {
 
     const button = await screen.findByRole<HTMLButtonElement>("button", { name: /^sent$/i });
     expect(button.disabled).toBe(true);
-    expect(screen.getAllByText("Sent to GG Coder")).toHaveLength(1);
+    expect(screen.getAllByText("Sent to GC")).toHaveLength(1);
   });
 
   it("a click here gives exactly one row, even when the sidecar echoes it back", async () => {
     const { emit, sends } = await resume([ASKED, KEN_REPLY]);
-    fireEvent.click(await screen.findByRole("button", { name: /send to gg coder/i }));
+    fireEvent.click(await screen.findByRole("button", { name: /send to gc/i }));
     // The click itself turns the block Sent and adds the row, before any echo.
     expect(
       (await screen.findByRole<HTMLButtonElement>("button", { name: /^sent$/i })).disabled,
     ).toBe(true);
-    expect(screen.getAllByText("Sent to GG Coder")).toHaveLength(1);
+    expect(screen.getAllByText("Sent to GC")).toHaveLength(1);
     await waitFor(() => expect(sends).toHaveBeenCalledOnce());
     const payload = sends.mock.calls[0]?.[0] as { text: string; meta: Record<string, unknown> };
     expect(payload.text).toBe("Add a retry to the upload");
@@ -190,12 +190,12 @@ describe("Ken prompt block live", () => {
     expect(
       (await screen.findByRole<HTMLButtonElement>("button", { name: /^sent$/i })).disabled,
     ).toBe(true);
-    expect(screen.getAllByText("Sent to GG Coder")).toHaveLength(1);
+    expect(screen.getAllByText("Sent to GC")).toHaveLength(1);
   });
 
   it("shows a plain prompt from another client live, without marking Ken's block", async () => {
     const { emit } = await resume([ASKED, KEN_REPLY]);
-    await screen.findByRole("button", { name: /send to gg coder/i });
+    await screen.findByRole("button", { name: /send to gc/i });
 
     emit("prompt_accepted", {
       id: "bridge-7",
@@ -204,17 +204,17 @@ describe("Ken prompt block live", () => {
       attachments: 0,
     });
 
-    // A normal user bubble (not Ken's own, not a "Sent to GG Coder" label).
+    // A normal user bubble (not Ken's own, not a "Sent to GC" label).
     await waitFor(() => {
       const rows = [...document.querySelectorAll(".user-msg:not(.user-ken)")];
       expect(rows.map((row) => row.textContent)).toEqual([
         expect.stringContaining("Add a retry to the upload"),
       ]);
     });
-    expect(screen.queryByText("Sent to GG Coder")).toBeNull();
-    expect(
-      screen.getByRole<HTMLButtonElement>("button", { name: /send to gg coder/i }).disabled,
-    ).toBe(false);
+    expect(screen.queryByText("Sent to GC")).toBeNull();
+    expect(screen.getByRole<HTMLButtonElement>("button", { name: /send to gc/i }).disabled).toBe(
+      false,
+    );
   });
 });
 
@@ -236,7 +236,7 @@ describe("Ken prompt block live, then reload", () => {
   const DONE: HistoryEntry = { role: "assistant", text: "Done." };
 
   const userRows = () => [...document.querySelectorAll(".transcript .user-msg")];
-  const sentRows = () => screen.queryAllByText("Sent to GG Coder");
+  const sentRows = () => screen.queryAllByText("Sent to GC");
   const queuedRows = () => document.querySelectorAll(".transcript .user-msg.queued");
 
   /** One finished run of the prompt, as the sidecar streams it. */
@@ -251,14 +251,14 @@ describe("Ken prompt block live, then reload", () => {
     expect(
       (await screen.findByRole<HTMLButtonElement>("button", { name: /^sent$/i })).disabled,
     ).toBe(true);
-    expect(screen.queryByRole("button", { name: /send to gg coder/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /send to gc/i })).toBeNull();
     await waitFor(() => expect(sentRows()).toHaveLength(1));
     expect(queuedRows()).toHaveLength(0);
   }
 
   it("a prompt from another client: one Sent row live, still exactly one after reload", async () => {
     const { emit } = await resume([ASKED, KEN_REPLY]);
-    await screen.findByRole("button", { name: /send to gg coder/i });
+    await screen.findByRole("button", { name: /send to gc/i });
     emit("prompt_accepted", {
       id: "glasses-1",
       text: "Add a retry to the upload",
@@ -279,7 +279,7 @@ describe("Ken prompt block live, then reload", () => {
 
   it("a click in this window: one Sent row live (echo ignored), still exactly one after reload", async () => {
     const { emit, sends } = await resume([ASKED, KEN_REPLY]);
-    fireEvent.click(await screen.findByRole("button", { name: /send to gg coder/i }));
+    fireEvent.click(await screen.findByRole("button", { name: /send to gc/i }));
     await waitFor(() => expect(sends).toHaveBeenCalledOnce());
     const payload = sends.mock.calls[0]?.[0] as { text: string; meta: Record<string, unknown> };
     emit("prompt_accepted", {
@@ -300,10 +300,10 @@ describe("Ken prompt block live, then reload", () => {
   });
 
   it("a prompt from another client that queues: one row, its queued pill clears when the agent takes it", async () => {
-    // A plain prompt: a Ken-sent row renders as the "Sent to GG Coder" label,
+    // A plain prompt: a Ken-sent row renders as the "Sent to GC" label,
     // which never shows the queued pill, so only a plain one can prove it clears.
     const { emit } = await resume([ASKED, KEN_REPLY]);
-    await screen.findByRole("button", { name: /send to gg coder/i });
+    await screen.findByRole("button", { name: /send to gc/i });
     emit("run_start", { text: "first task", runState: "running", continued: false });
     emit("prompt_accepted", {
       id: "glasses-2",

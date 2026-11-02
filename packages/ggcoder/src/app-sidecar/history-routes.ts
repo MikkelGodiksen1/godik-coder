@@ -1,3 +1,4 @@
+import { MENTOR_HANDLE } from "../core/mentor-name.js";
 import type http from "node:http";
 import path from "node:path";
 import type { ToolResultContent } from "@kenkaiiii/gg-ai";
@@ -132,7 +133,7 @@ export function handleHistoryRoutes(
         if (!turns) return;
         kenByCount.delete(count);
         for (const turn of turns) {
-          history.push({ role: "user", text: `@Ken ${turn.question}`, ken: true });
+          history.push({ role: "user", text: `${MENTOR_HANDLE} ${turn.question}`, ken: true });
           history.push({ role: "assistant", text: turn.reply, ken: true });
         }
       };

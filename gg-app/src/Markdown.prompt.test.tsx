@@ -19,11 +19,11 @@ describe("Ken prompt block", () => {
   it("offers the prompt again when the direct send fails", async () => {
     sendPrompt.mockRejectedValueOnce(new Error("daemon not ready"));
     render(<Markdown>{PROMPT}</Markdown>);
-    fireEvent.click(screen.getByRole("button", { name: /send to gg coder/i }));
+    fireEvent.click(screen.getByRole("button", { name: /send to gc/i }));
     await waitFor(() => expect(toast).toHaveBeenCalledWith(expect.any(String), "error"));
-    expect(
-      screen.getByRole<HTMLButtonElement>("button", { name: /send to gg coder/i }).disabled,
-    ).toBe(false);
+    expect(screen.getByRole<HTMLButtonElement>("button", { name: /send to gc/i }).disabled).toBe(
+      false,
+    );
   });
 
   it("stays sent when the App handler delivers it", async () => {
@@ -33,7 +33,7 @@ describe("Ken prompt block", () => {
         <Markdown>{PROMPT}</Markdown>
       </PromptSendProvider>,
     );
-    fireEvent.click(screen.getByRole("button", { name: /send to gg coder/i }));
+    fireEvent.click(screen.getByRole("button", { name: /send to gc/i }));
     await waitFor(() => expect(onSend).toHaveBeenCalledWith("Add a retry to the upload"));
     expect(screen.getByRole<HTMLButtonElement>("button", { name: /sent/i }).disabled).toBe(true);
   });
@@ -45,11 +45,11 @@ describe("Ken prompt block", () => {
         <Markdown>{PROMPT}</Markdown>
       </PromptSendProvider>,
     );
-    fireEvent.click(screen.getByRole("button", { name: /send to gg coder/i }));
+    fireEvent.click(screen.getByRole("button", { name: /send to gc/i }));
     await waitFor(() =>
-      expect(
-        screen.getByRole<HTMLButtonElement>("button", { name: /send to gg coder/i }).disabled,
-      ).toBe(false),
+      expect(screen.getByRole<HTMLButtonElement>("button", { name: /send to gc/i }).disabled).toBe(
+        false,
+      ),
     );
   });
 
@@ -70,9 +70,9 @@ describe("Ken prompt block", () => {
         <Markdown>{PROMPT}</Markdown>
       </PromptSentProvider>,
     );
-    expect(
-      screen.getByRole<HTMLButtonElement>("button", { name: /send to gg coder/i }).disabled,
-    ).toBe(false);
+    expect(screen.getByRole<HTMLButtonElement>("button", { name: /send to gc/i }).disabled).toBe(
+      false,
+    );
   });
 
   it("a failed click never turns a transcript Sent back into Send", async () => {
@@ -84,7 +84,7 @@ describe("Ken prompt block", () => {
         </PromptSentProvider>
       </PromptSendProvider>,
     );
-    fireEvent.click(screen.getByRole("button", { name: /send to gg coder/i }));
+    fireEvent.click(screen.getByRole("button", { name: /send to gc/i }));
     // The other client's send lands while this click is still failing.
     rerender(
       <PromptSendProvider value={onSend}>

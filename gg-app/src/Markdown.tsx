@@ -1,3 +1,4 @@
+import { CODER_NAME } from "./mentor";
 import {
   memo,
   useCallback,
@@ -245,7 +246,7 @@ function PromptBlock({ body }: { body: string }): React.ReactElement {
       : sendPrompt(text).then(
           () => true,
           () => {
-            toast("Couldn't send the prompt to GG Coder. Try again.", "error");
+            toast(`Couldn't send the prompt to ${CODER_NAME}. Try again.`, "error");
             return false;
           },
         );
@@ -262,10 +263,10 @@ function PromptBlock({ body }: { body: string }): React.ReactElement {
           className={`ken-prompt-send${sent ? " sent" : ""}`}
           onClick={send}
           disabled={sent}
-          title={sent ? "Sent to GG Coder" : "Send this prompt to GG Coder"}
+          title={sent ? `Sent to ${CODER_NAME}` : `Send this prompt to ${CODER_NAME}`}
         >
           {sent ? <CheckIcon size={12} /> : <ArrowElbowDownLeftIcon size={12} />}
-          {sent ? "Sent" : "Send to GG Coder"}
+          {sent ? "Sent" : `Send to ${CODER_NAME}`}
         </button>
       )}
     </div>

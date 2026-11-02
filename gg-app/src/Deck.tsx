@@ -1,3 +1,4 @@
+import { CODER_NAME, MENTOR_NAME } from "./mentor";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import {
   getGitOverview,
@@ -195,14 +196,17 @@ export function Deck(props: DeckProps): React.ReactElement {
         <div className="deck-status">
           {props.status}
           {planMode && (
-            <span className="deck-flag" title="Plan mode: GG reads and plans, and edits nothing">
+            <span
+              className="deck-flag"
+              title={`Plan mode: ${CODER_NAME} reads and plans, and edits nothing`}
+            >
               Plan mode
             </span>
           )}
           {props.maxGas?.active && (
             <span
               className="deck-flag max-gas-flag"
-              title="Max Gas: your message goes to Ken, who writes a production-run prompt for GG"
+              title={`Max Gas: your message goes to ${MENTOR_NAME}, who writes a production-run prompt for ${CODER_NAME}`}
             >
               Max Gas
             </span>
@@ -348,7 +352,11 @@ function Rail({
         <button
           type="button"
           className="key rail-key mentor-key"
-          title={mentor.active ? "Stop writing to Ken" : "Write to Ken, your mentor"}
+          title={
+            mentor.active
+              ? `Stop writing to ${MENTOR_NAME}`
+              : `Write to ${MENTOR_NAME}, your mentor`
+          }
           aria-pressed={mentor.active}
           onClick={mentor.onToggle}
         >
@@ -361,8 +369,8 @@ function Rail({
           className="key rail-key max-gas-key"
           title={
             maxGas.active
-              ? "Max Gas off: send to GG as usual"
-              : "Max Gas: send the task to Ken for a production-run prompt"
+              ? `Max Gas off: send to ${CODER_NAME} as usual`
+              : `Max Gas: send the task to ${MENTOR_NAME} for a production-run prompt`
           }
           aria-pressed={maxGas.active}
           onClick={maxGas.onToggle}
@@ -376,8 +384,8 @@ function Rail({
           className="key rail-key autopilot-key"
           title={
             autopilot.active
-              ? "Autopilot on: Ken reviews each turn (rules in .gg/autopilot-rules.md)"
-              : "Autopilot: let Ken review and steer each turn"
+              ? `Autopilot on: ${MENTOR_NAME} reviews each turn (rules in .gg/autopilot-rules.md)`
+              : `Autopilot: let ${MENTOR_NAME} review and steer each turn`
           }
           aria-pressed={autopilot.active}
           disabled={autopilot.disabled}

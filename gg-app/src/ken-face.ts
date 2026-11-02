@@ -1,6 +1,7 @@
 // Ken's face: a head-only pixel portrait in the critter sprite format (see
 // critter-sprites.ts). It stands in for the teal dot on Ken's chat replies and
-// headlines the "Ken is on." / "Ken is off." banner. Buzzcut, light skin,
+// headlines the mentor on/off banner. GODIK CODER: light blond hair with a
+// swept fringe, light skin,
 // calm narrow eyes, friendly grin. Each expression is the base grid with a few
 // rows swapped, so the frames line up pixel for pixel when stacked and
 // cross-faded in CSS (KenFace.tsx). Colours are art, not theme roles.
@@ -12,12 +13,13 @@ export type KenFaceFrame = "base" | "blink" | "talk" | "happy" | "sleepy";
 
 export const KEN_FACE_PALETTE: Readonly<Record<string, string>> = {
   O: "#1c120e", // outline
-  H: "#3d302a", // buzzcut
-  h: "#6e5a4d", // stubble flecks and the faded temples
+  H: "#f1e0a6", // light blond hair
+  h: "#fff2c4", // hair highlight
+  s: "#cdb174", // hair shade (sides)
   F: "#f7dcc4", // skin
   D: "#e3b796", // skin shade (nose)
   A: "#ecbf9f", // ears
-  B: "#4a3830", // brows
+  B: "#a9803a", // blond brows
   E: "#1d1418", // eyes
   L: "#8a5a44", // closed lids
   C: "#f4a99e", // blush
@@ -27,18 +29,18 @@ export const KEN_FACE_PALETTE: Readonly<Record<string, string>> = {
   G: "#2f4a7a", // his tee (navy, as on the farm and in his portrait)
 };
 
-// Buzzed cap with a hairline and faded temples, brows a row clear of the
-// narrow eyes, ears at eye level, a shaded nose, a friendly grin, and the
+// A fuller top with a fringe swept across the forehead, shaded sides, brows a
+// row clear of the narrow eyes, ears at eye level, a shaded nose, a friendly grin, and the
 // neck and collar of his tee. Lit like the critters (critter-shade.ts).
 const BASE: readonly string[] = [
-  "..................",
   ".....OOOOOOOO.....",
-  "...OOHHhHHHhHHOO..",
-  "..OHHHhHHHHHhHHHO.",
-  "..OHhHHHhHHHHhHHO.",
-  ".OHhFFFFFFFFFFhHO.",
-  ".OhFFBBBFFFBBBFhO.",
-  "OAAFFFFFFFFFFFFAAO",
+  "...OOhhhHHHHHHOO..",
+  "..OHhhHHHHHHHHHsO.",
+  ".OHhHHHHHHHHhHHsO.",
+  ".OHHHHHHhHHHHHHsO.",
+  ".OsHHHHHhFFFFFHsO.",
+  ".OsHFBBBFFFBBBFsO.",
+  "OAAsFFFFFFFFFFsAAO",
   "OAAFFEEFFFFFEEFAAO",
   "OAAFFFFFFDFFFFFAAO",
   ".OOCCFFFFDDFFCCOO.",
@@ -79,6 +81,7 @@ const KEN_FACE_MATERIALS: Readonly<Record<string, Material>> = {
   D: "skin",
   H: "fur",
   h: "fur",
+  s: "fur",
   G: "cloth",
   B: "flat",
   E: "flat",

@@ -79,7 +79,7 @@ describe("deck Mentor key", () => {
     const ken = vi.spyOn(agent, "sendKenPrompt").mockResolvedValue(undefined);
     const { input, sends } = await setup();
     expect(input.value).toBe("");
-    fireEvent.click(screen.getByTitle("Write to Ken, your mentor"));
+    fireEvent.click(screen.getByTitle("Write to Godik, your mentor"));
     expect(input.value).toBe("@Mentor hvad siger du?");
     // App applies the selection in requestAnimationFrame, so wait for the
     // selection itself rather than for focus.
@@ -97,16 +97,16 @@ describe("deck Mentor key", () => {
 
   it("toggling off the untouched default question clears the composer", async () => {
     const { input } = await setup();
-    fireEvent.click(screen.getByTitle("Write to Ken, your mentor"));
+    fireEvent.click(screen.getByTitle("Write to Godik, your mentor"));
     expect(input.value).toBe("@Mentor hvad siger du?");
-    fireEvent.click(screen.getByTitle("Stop writing to Ken"));
+    fireEvent.click(screen.getByTitle("Stop writing to Godik"));
     expect(input.value).toBe("");
   });
 
   it("only prepends @Mentor to an existing draft, caret at the end", async () => {
     const { input } = await setup();
     fireEvent.change(input, { target: { value: "why is this slow?" } });
-    fireEvent.click(screen.getByTitle("Write to Ken, your mentor"));
+    fireEvent.click(screen.getByTitle("Write to Godik, your mentor"));
     expect(input.value).toBe("@Mentor why is this slow?");
     await waitFor(() => {
       expect(document.activeElement).toBe(input);

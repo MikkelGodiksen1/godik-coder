@@ -1,3 +1,5 @@
+import { MENTOR_NAME } from "./mentor";
+
 export const CHAT_ERROR_REASONS = [
   "usage_limit",
   "billing",
@@ -55,7 +57,8 @@ export function readChatError(
   historical = false,
 ): ChatErrorData {
   const headline = text(value.headline, 1_000);
-  const prefix = scope === "ken_error" ? "Ken: " : scope === "autopilot_error" ? "Autopilot: " : "";
+  const prefix =
+    scope === "ken_error" ? `${MENTOR_NAME}: ` : scope === "autopilot_error" ? "Autopilot: " : "";
   return {
     scope,
     historical,
@@ -125,7 +128,11 @@ export function chatErrorCopy(
   resetLabel?: string;
 } {
   const scope =
-    error.scope === "ken_error" ? "Ken: " : error.scope === "autopilot_error" ? "Autopilot: " : "";
+    error.scope === "ken_error"
+      ? `${MENTOR_NAME}: `
+      : error.scope === "autopilot_error"
+        ? "Autopilot: "
+        : "";
   const originalHeadline = error.headline ?? "Something went wrong";
   const headline =
     scope && originalHeadline.startsWith(scope)

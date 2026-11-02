@@ -1,12 +1,8 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
-import {
-  ClockCounterClockwiseIcon,
-  GraduationCapIcon,
-  YoutubeLogoIcon,
-} from "@phosphor-icons/react";
+import { ClockCounterClockwiseIcon } from "@phosphor-icons/react";
 import { getVersion } from "@tauri-apps/api/app";
-import { openUrl, openWhatsNewWindow } from "./agent";
+import { openWhatsNewWindow } from "./agent";
 import { Badge } from "./Badge";
 import { CHANGELOG } from "./changelog";
 import { drawKenPortrait } from "./goal-ken-portrait";
@@ -24,7 +20,8 @@ import {
   type ShipLevel,
   type ShipLog,
 } from "./about-ship-log";
-import { aboutLines, GG_CODER_STARTED, SKOOL_URL, YOUTUBE_URL, type KenSay } from "./about-content";
+import { aboutLines, GG_CODER_STARTED, type KenSay } from "./about-content";
+import { CODER_NAME, MENTOR_NAME } from "./mentor";
 import "./AboutPage.css";
 
 /**
@@ -65,39 +62,15 @@ export function AboutPage(): React.ReactElement {
         <AboutKen lines={lines} start={versionRead} />
         <div className="about-maker-copy">
           <h2 id={nameId} className="about-name">
-            Ken Kai
+            {MENTOR_NAME}
           </h2>
           <p className="about-bio">
-            Ken builds GG Coder, a coding agent for your desktop. On Skool, he helps people learn to
-            build with AI.
+            {MENTOR_NAME} is your mentor inside GODIK CODER. He reads along while {CODER_NAME}{" "}
+            builds, gives straight advice and reviews each turn on Autopilot.
           </p>
           <p className="about-origin">
             {`CLI since ${formatLongDate(GG_CODER_STARTED)}. App since ${formatLongDate(log.firstDate)}.`}
           </p>
-          <div className="about-actions">
-            <a
-              className="btn btn-primary btn-lg about-cta"
-              href={SKOOL_URL}
-              onClick={(e) => {
-                e.preventDefault();
-                void openUrl(SKOOL_URL);
-              }}
-            >
-              <GraduationCapIcon size={18} weight="bold" aria-hidden="true" />
-              Learn with Ken on Skool
-            </a>
-            <a
-              className="btn btn-ghost btn-lg about-cta"
-              href={YOUTUBE_URL}
-              onClick={(e) => {
-                e.preventDefault();
-                void openUrl(YOUTUBE_URL);
-              }}
-            >
-              <YoutubeLogoIcon size={18} weight="bold" aria-hidden="true" />
-              Watch on YouTube
-            </a>
-          </div>
         </div>
       </section>
       <ShipLogCard log={log} version={version} />
@@ -227,12 +200,12 @@ export function AboutKen({
         className="ken-dialogue-box"
         aria-label={
           line
-            ? `Ken, ${index + 1} of ${lines.length}: ${line.text} ${phase === "talking" ? action : ""}`
+            ? `${MENTOR_NAME}, ${index + 1} of ${lines.length}: ${line.text} ${phase === "talking" ? action : ""}`
             : undefined
         }
         onClick={onClick}
       >
-        <span className="ken-dialogue-name">Ken</span>
+        <span className="ken-dialogue-name">{MENTOR_NAME}</span>
         <span className="ken-dialogue-text" aria-hidden="true">
           {line?.text.slice(0, shown)}
         </span>
@@ -245,7 +218,7 @@ export function AboutKen({
       </div>
       {/* Read out once, whole, when he starts a line (not letter by letter). */}
       <p className="sr-only" aria-live="polite">
-        {line && phase === "talking" ? `Ken: ${line.text}` : ""}
+        {line && phase === "talking" ? `${MENTOR_NAME}: ${line.text}` : ""}
       </p>
     </div>
   );

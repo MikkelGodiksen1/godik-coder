@@ -1,3 +1,4 @@
+import { MENTOR_HANDLE } from "./mentor";
 import type { CSSProperties } from "react";
 import type { ChangelogEntry } from "./changelog";
 import { PlateButton } from "./PlateButton";
@@ -45,7 +46,7 @@ const HIGHLIGHT_TERMS = [
   "Autopilot",
   "Scorecard",
   "Enhance",
-  "@Ken",
+  MENTOR_HANDLE,
   "Radio",
   "Windows",
   "Notes",

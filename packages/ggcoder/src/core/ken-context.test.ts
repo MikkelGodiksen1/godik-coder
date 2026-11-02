@@ -152,7 +152,7 @@ describe("buildKenDigest", () => {
     }
     const digest = buildKenDigest({ ...base, messages });
     // Older user requests survive separately; recent activity stays bounded.
-    const recent = digest.split("## Recent activity (GG Coder and user)")[1];
+    const recent = digest.split("## Recent activity (GC and user)")[1];
     expect(recent).not.toContain("msg-0");
     expect(recent).not.toContain("msg-5");
     expect(digest).toContain("**User:** msg-0");
@@ -563,9 +563,7 @@ describe("buildKenDigest", () => {
     expect(AUTOPILOT_REVIEW_INSTRUCTION).toContain(
       "mechanically implied by the user's original ask",
     );
-    expect(AUTOPILOT_REVIEW_INSTRUCTION).toContain(
-      "safe for GG Coder to do without new information",
-    );
+    expect(AUTOPILOT_REVIEW_INSTRUCTION).toContain("safe for GC to do without new information");
     expect(AUTOPILOT_REVIEW_INSTRUCTION).toContain("use PROMPT with the next concrete follow-up");
     expect(AUTOPILOT_REVIEW_INSTRUCTION).toContain("Original user request");
     expect(AUTOPILOT_REVIEW_INSTRUCTION).toContain("Ken autopilot (injected)");

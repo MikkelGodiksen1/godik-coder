@@ -10,6 +10,7 @@
  * rule fired. Rules ride on the existing cycle: round limits, cancel and the
  * host verification gate apply unchanged.
  */
+import { CODER_NAME } from "./mentor-name.js";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { AUTOPILOT_RULE_NAME_MAX_CHARS, type AutopilotVerdict } from "./autopilot-verdict.js";
@@ -64,7 +65,7 @@ export function renderAutopilotRulesSection(rules: string): string {
     `The user wrote these "if X, send Y" rules for this project. Apply one only when its ` +
     `condition clearly matches this turn. Then reply PROMPT with the keyword line ` +
     `\`PROMPT RULE: <the rule's short name, max ${AUTOPILOT_RULE_NAME_MAX_CHARS} chars>\` and ` +
-    `the rule's text as the body (add the concrete specifics GG Coder needs). Rules never ` +
+    `the rule's text as the body (add the concrete specifics ${CODER_NAME} needs). Rules never ` +
     `replace a needed HUMAN decision, never make failing or unverified work ALL_CLEAR, ` +
     `and do nothing when no rule matches.\n\n` +
     text

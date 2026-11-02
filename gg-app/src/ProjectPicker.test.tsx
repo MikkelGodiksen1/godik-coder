@@ -172,7 +172,7 @@ describe("ProjectPicker session list", () => {
 
     const foreignRow = screen.getByText(FOREIGN_SESSION.preview).closest("button");
     expect(foreignRow?.textContent).toContain("Claude Code");
-    expect(foreignRow?.getAttribute("title")).toContain("opens as a GG Coder session");
+    expect(foreignRow?.getAttribute("title")).toContain("opens as a GC session");
 
     const nativeRow = screen.getByText(NATIVE_SESSION.preview).closest("button");
     expect(nativeRow?.textContent).not.toContain("Claude Code");

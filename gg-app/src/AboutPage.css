@@ -88,19 +88,8 @@
   font-size: var(--fs-base);
   line-height: 1.45;
 }
-.about-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-5);
-  margin-top: var(--space-4);
-}
 /* Links drawn as the app's buttons; they open in the browser. Two classes,
    so they beat .btn's own line-height in any load order. */
-.btn.about-cta {
-  text-decoration: none;
-  line-height: 1.2;
-}
-
 /* ── The ship log ── */
 /* Two classes, so it beats .settings-section-title (App.css) in any order. */
 .settings-section-title.about-log-title {

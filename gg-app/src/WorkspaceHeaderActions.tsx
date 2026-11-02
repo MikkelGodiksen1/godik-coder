@@ -1,3 +1,4 @@
+import { CODER_NAME, MENTOR_NAME } from "./mentor";
 import type { ProjectTask, WorkspaceMode } from "./agent";
 import { Icon } from "./icons";
 import { WindowLayoutButton } from "./WindowLayoutButton";
@@ -236,7 +237,7 @@ export function DeckMenu({
           role="switch"
           aria-checked={autopilot}
           disabled={running || autopilotReviewing}
-          title="Autopilot: after each run, Ken reviews the work and GG continues if it needs changes"
+          title={`Autopilot: after each run, ${MENTOR_NAME} reviews the work and ${CODER_NAME} continues if it needs changes`}
           onClick={() => onAutopilotChange(!autopilot)}
         >
           Autopilot

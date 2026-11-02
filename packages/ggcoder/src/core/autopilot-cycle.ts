@@ -20,6 +20,7 @@
  * plan) still halts as HUMAN — Ken must never prompt into a read-only
  * plan-mode session.
  */
+import { MENTOR_NAME } from "./mentor-name.js";
 import { CORPUS_UNVERIFIED_REASON, type AutopilotVerdict } from "./autopilot-verdict.js";
 
 /** Reason shown in the Ken bubble when the build session is still INSIDE plan
@@ -186,7 +187,7 @@ export async function driveAutopilotCycle(deps: AutopilotCycleDeps): Promise<voi
         deps.emit({
           type: "autopilot_human",
           data: {
-            reason: "Ken did not explicitly approve the plan. Review it before implementation.",
+            reason: `${MENTOR_NAME} did not explicitly approve the plan. Review it before implementation.`,
           },
         });
         return;

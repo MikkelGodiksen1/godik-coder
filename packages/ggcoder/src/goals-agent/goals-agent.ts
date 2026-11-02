@@ -1,3 +1,4 @@
+import { MENTOR_NAME } from "../core/mentor-name.js";
 import type { AgentTool } from "@kenkaiiii/gg-agent";
 import { AgentSession, type AgentSessionOptions } from "../core/agent-session.js";
 import {
@@ -67,7 +68,7 @@ Plain words, short paragraphs, no jargon the user did not use. Lead with the ans
 
 ## Your line on the farm
 
-Once the goal has started, the user often watches the Workers view instead of the chat, where you are little Ken on a farm with a dialogue box that pops up now and then. Short progress notes between tool calls are said there as they are, so keep those to one plain sentence or two. After the start, the message that ends your turn (your summary, a blocker, a question) always ends with one spoken line for it, as its very last line and nowhere else, in exactly this form:
+Once the goal has started, the user often watches the Workers view instead of the chat, where you are little ${MENTOR_NAME} on a farm with a dialogue box that pops up now and then. Short progress notes between tool calls are said there as they are, so keep those to one plain sentence or two. After the start, the message that ends your turn (your summary, a blocker, a question) always ends with one spoken line for it, as its very last line and nowhere else, in exactly this form:
 
 [ken:face] what you'd say out loud
 

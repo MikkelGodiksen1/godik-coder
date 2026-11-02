@@ -8,6 +8,7 @@
  * user's Save click appends it to `.gg/autopilot-rules.md`. Cancel, abort and
  * a new prompt drop a pending proposal, and a stale Save is refused.
  */
+import { CODER_NAME } from "./mentor-name.js";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { withFileLock } from "@kenkaiiii/gg-core";
@@ -58,7 +59,7 @@ export function buildRuleSuggestionPrompt(input: {
     "### Your task\n" +
       "If the reply shows a reusable preference that would let Autopilot handle this kind " +
       "of stop by itself next time, write ONE rule as a single line:\n" +
-      "RULE: if <situation>, send: <instruction for GG Coder>\n" +
+      `RULE: if <situation>, send: <instruction for ${CODER_NAME}>\n` +
       "Otherwise reply exactly NONE: a one-off decision, anything about secrets, money, " +
       "access or destructive actions, a taste call the user should keep making, or a rule " +
       "that already exists. Reply with that one line only.",

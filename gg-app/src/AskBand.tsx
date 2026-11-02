@@ -1,3 +1,4 @@
+import { CODER_NAME } from "./mentor";
 import { useEffect, useRef, useState } from "react";
 import { Badge } from "./Badge";
 import { theme } from "./theme";
@@ -512,7 +513,7 @@ export function AskBand({
       inert={committing !== null}
       ref={bandRef}
       role="group"
-      aria-label="GG Coder needs your answer"
+      aria-label={`${CODER_NAME} needs your answer`}
       data-ask-prompt={prompt.id}
     >
       {/* A status note about the run, set apart from the question below it. */}

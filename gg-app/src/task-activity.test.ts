@@ -37,7 +37,7 @@ describe("whole-task activity", () => {
     expect(event(resumed, "thinking_delta").label).toBe("Thinking…");
     const review = event(s, "ready", { running: false, reviewPending: true });
     expect(review.phase).toBe("reviewing");
-    expect(review.label).toBe("Ken reviewing…");
+    expect(review.label).toBe("Godik reviewing…");
     const lostResult = event(s, "ready", { running: false });
     expect(lostResult.phase).toBe("stopped");
     expect(lostResult.connectionLost).toBe(false);
@@ -206,10 +206,10 @@ describe("whole-task activity", () => {
     expect(s.phase).toBe("reviewing");
     expect(s.label).not.toContain("Done");
     const reviewing = event(s, "autopilot_review_start");
-    expect(reviewing.label).toBe("Ken reviewing…");
+    expect(reviewing.label).toBe("Godik reviewing…");
     const done = event(reviewing, "autopilot_done");
     expect(done.label).toBe("Done · checks passed");
-    expect(done.detail).toContain("Ken reviewed");
+    expect(done.detail).toContain("Godik reviewed");
   });
   it("keeps corrections within one task and includes review usage without double counting", () => {
     let s = event(start(), "turn_end", { usage: { outputTokens: 40 } });
@@ -219,7 +219,7 @@ describe("whole-task activity", () => {
     s = event(s, "autopilot_prompted");
     s = event(s, "run_start", { continued: true }, 400);
     expect(s.startedAt).toBe(100);
-    expect(s.label).toBe("Applying Ken’s corrections…");
+    expect(s.label).toBe("Applying Godik’s corrections…");
     s = event(s, "agent_done", { totalUsage: { outputTokens: 30 } });
     expect(s.tokens).toBe(90);
     expect(event(s, "run_start", {}, 900).tokens).toBe(0);
@@ -299,7 +299,7 @@ describe("whole-task activity", () => {
     const done = event(s, "autopilot_ignored");
     expect(done.phase).toBe("done");
     expect(done.reviewed).toBe(false);
-    expect(done.detail).toContain("Ken did not review");
+    expect(done.detail).toContain("Godik did not review");
     expect(done.detail).toContain("2 passing checks");
   });
   it("keeps a reviewer limitation in the details", () => {

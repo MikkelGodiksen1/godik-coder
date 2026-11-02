@@ -1,3 +1,4 @@
+import { CODER_NAME } from "./mentor";
 import { memo, useLayoutEffect, useRef, useState } from "react";
 import { AtIcon } from "@phosphor-icons/react";
 import { RuleSuggestionCard, type RuleSuggestionAction } from "./RuleSuggestionCard";
@@ -240,7 +241,7 @@ function TranscriptRowBody({
         return (
           <div className="user-msg command labelled user-ken-sent">
             <span className="command-shimmer" style={{ color: theme.ken }}>
-              Sent to GG Coder
+              {`Sent to ${CODER_NAME}`}
             </span>
           </div>
         );
@@ -323,8 +324,8 @@ function TranscriptRowBody({
           // GODIK CODER: name the user's rule when one fired.
           item.rule?.trim() ? `Your rule "${item.rule.trim()}" fired.` : "",
           item.body?.trim()
-            ? `Sending GG Coder back in:\n\n${item.body.trim()}`
-            : "Sending GG Coder back in for another pass.",
+            ? `Sending ${CODER_NAME} back in:\n\n${item.body.trim()}`
+            : `Sending ${CODER_NAME} back in for another pass.`,
         ]
           .filter(Boolean)
           .join(" "),

@@ -1,3 +1,4 @@
+import { CODER_NAME } from "./mentor";
 import { useEffect, useState } from "react";
 import { open as openFolderDialog } from "@tauri-apps/plugin-dialog";
 import { XIcon } from "@phosphor-icons/react";
@@ -397,7 +398,7 @@ export function ProjectPicker({
                   onClick={() => chooseSession(selected.path, s)}
                   title={
                     isForeignSession(s)
-                      ? `From ${sourceStyle(s.source ?? "").label} — opens as a GG Coder session`
+                      ? `From ${sourceStyle(s.source ?? "").label} — opens as a ${CODER_NAME} session`
                       : undefined
                   }
                 >

@@ -13,7 +13,7 @@ import {
 import { createChatLayoutMotion } from "./chat-layout-motion";
 import { open } from "@tauri-apps/plugin-dialog";
 import { theme } from "./theme";
-import { MENTOR_HANDLE, toggleMentorPrefix } from "./mentor";
+import { CODER_NAME, MENTOR_HANDLE, MENTOR_NAME, toggleMentorPrefix } from "./mentor";
 import { wrapMaxGas } from "./max-gas";
 import { activeChatErrorId, readChatError } from "./chat-error";
 import { showScreen } from "./view-transition";
@@ -1393,7 +1393,7 @@ function App(): React.ReactElement {
     void switchKenModel(modelId).then((res) => {
       if (!res) {
         // Without this the picker just snaps back and the click looks ignored.
-        toast("Couldn't switch Ken's model.", "error");
+        toast(`Couldn't switch ${MENTOR_NAME}'s model.`, "error");
         return;
       }
       setState((s) =>
@@ -1879,9 +1879,9 @@ function App(): React.ReactElement {
           id: nextId(),
           ...readChatError(
             {
-              headline: "Ken's prompt wasn't sent",
+              headline: `${MENTOR_NAME}'s prompt wasn't sent`,
               message: error instanceof Error ? error.message : String(error),
-              guidance: "Click Send to GG Coder again when the agent is ready.",
+              guidance: `Click Send to ${CODER_NAME} again when the agent is ready.`,
               reason: "network",
             },
             "error",
@@ -2316,7 +2316,7 @@ function App(): React.ReactElement {
     if (kenMatch || maxGasOn) {
       if (attachments.some((a) => a.kind !== "image")) {
         toast(
-          `Mentor can only take images. Remove ${MENTOR_HANDLE} to send other files to GG.`,
+          `Mentor can only take images. Remove ${MENTOR_HANDLE} to send other files to ${CODER_NAME}.`,
           "warning",
         );
         return;
@@ -2966,7 +2966,7 @@ function App(): React.ReactElement {
                                   disabled={running || kenRunning || autopilotReviewing}
                                   title={
                                     it.scope === "ken_error" || it.scope === "autopilot_error"
-                                      ? "Switch Ken's model"
+                                      ? `Switch ${MENTOR_NAME}'s model`
                                       : "Switch model"
                                   }
                                   label={
@@ -3075,8 +3075,8 @@ function App(): React.ReactElement {
                     }
                   : workspaceMode === "code" && state
                     ? {
-                        name: "Ken",
-                        followLabel: "GG",
+                        name: MENTOR_NAME,
+                        followLabel: CODER_NAME,
                         model: state.kenModel ?? state.model,
                         following: !state.kenModelOverride,
                         disabled: running || kenRunning || autopilotReviewing,

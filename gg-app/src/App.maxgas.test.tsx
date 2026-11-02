@@ -12,8 +12,8 @@ const agent = await import("./agent");
 const notifications = await import("./toast");
 const scrollToDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "scrollTo");
 
-const MAX_GAS_ON = "Max Gas: send the task to Ken for a production-run prompt";
-const MAX_GAS_OFF = "Max Gas off: send to GG as usual";
+const MAX_GAS_ON = "Max Gas: send the task to Godik for a production-run prompt";
+const MAX_GAS_OFF = "Max Gas off: send to GC as usual";
 
 beforeEach(() => {
   vi.stubGlobal("matchMedia", (media: string) => ({

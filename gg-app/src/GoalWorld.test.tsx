@@ -113,7 +113,7 @@ describe("GoalWorld", () => {
       />,
     );
     const notice = screen.getByRole("alert");
-    expect(notice.textContent).toContain("Ken needs you");
+    expect(notice.textContent).toContain("Godik needs you");
     expect(notice.textContent).toContain("Which database should we use?");
     fireEvent.click(screen.getByRole("button", { name: "Answer in Chat" }));
     expect(onAnswer).toHaveBeenCalledTimes(1);

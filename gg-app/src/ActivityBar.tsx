@@ -1,3 +1,4 @@
+import { MENTOR_NAME } from "./mentor";
 import { useEffect, useState } from "react";
 import type { TaskActivity } from "./task-activity";
 import { ThinkingOrb } from "thinking-orbs";
@@ -157,8 +158,8 @@ const SHORT_LABELS: Record<string, string> = {
   "Checking the changes…": "Checking…",
   "Running verification…": "Verifying…",
   "Reviewing the work…": "Reviewing…",
-  "Applying Ken’s corrections…": "Fixing review notes…",
-  "Preparing Ken’s review…": "Review starting…",
+  [`Applying ${MENTOR_NAME}’s corrections…`]: "Fixing review notes…",
+  [`Preparing ${MENTOR_NAME}’s review…`]: "Review starting…",
   "Keeping the task context…": "Saving context…",
   "Continuing the task…": "Continuing…",
   "Continuing with your decision…": "Continuing…",

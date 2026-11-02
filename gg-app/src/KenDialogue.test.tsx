@@ -51,7 +51,7 @@ describe("KenDialogue", () => {
     rerender(<KenDialogue said={said(2, "Images done.")} {...props} />);
     wait(1000);
     expect(phase(container)).toBe("talking");
-    expect(screen.getByRole("button", { name: /Ken: Images done\./ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Godik: Images done\./ })).toBeTruthy();
     wait(10_000);
     expect(phase(container)).toBe("hidden");
   });

@@ -11,8 +11,8 @@ const agent = await import("./agent");
 const notifications = await import("./toast");
 const scrollToDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "scrollTo");
 
-const KEY_OFF = "Autopilot: let Ken review and steer each turn";
-const KEY_ON = "Autopilot on: Ken reviews each turn (rules in .gg/autopilot-rules.md)";
+const KEY_OFF = "Autopilot: let Godik review and steer each turn";
+const KEY_ON = "Autopilot on: Godik reviews each turn (rules in .gg/autopilot-rules.md)";
 
 beforeEach(() => {
   vi.stubGlobal("matchMedia", (media: string) => ({
@@ -140,7 +140,7 @@ describe("Autopilot prompted bubble", () => {
   it("keeps the usual copy when no rule fired", async () => {
     const { emit } = await setup([], true);
     emit("autopilot_prompted", { round: 1, body: "Add the missing test" });
-    expect(await screen.findByText(/Sending GG Coder back in/)).toBeTruthy();
+    expect(await screen.findByText(/Sending GC back in/)).toBeTruthy();
     expect(screen.queryByText(/Your rule/)).toBeNull();
   });
 

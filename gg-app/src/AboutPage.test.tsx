@@ -13,9 +13,8 @@ vi.mock("./changelog", () => ({
   ],
 }));
 
-import { openUrl, openWhatsNewWindow } from "./agent";
+import { openWhatsNewWindow } from "./agent";
 import { AboutKen, AboutPage } from "./AboutPage";
-import { SKOOL_URL, YOUTUBE_URL } from "./about-content";
 
 afterEach(() => {
   cleanup();
@@ -34,14 +33,12 @@ function dayButton(label: RegExp): HTMLElement {
 }
 
 describe("AboutPage", () => {
-  it("credits Ken and opens his Skool and YouTube in the browser", async () => {
+  it("introduces Godik with no Ken, Skool or YouTube links", async () => {
     await renderPage();
 
-    expect(screen.getByRole("heading", { name: "Ken Kai" })).not.toBeNull();
-    fireEvent.click(screen.getByRole("link", { name: /Learn with Ken on Skool/ }));
-    expect(openUrl).toHaveBeenCalledWith(SKOOL_URL);
-    fireEvent.click(screen.getByRole("link", { name: /Watch on YouTube/ }));
-    expect(openUrl).toHaveBeenCalledWith(YOUTUBE_URL);
+    expect(screen.getByRole("heading", { name: "Godik" })).not.toBeNull();
+    expect(screen.queryAllByRole("link")).toHaveLength(0);
+    expect(document.querySelector(".about-maker")?.textContent).not.toMatch(/Ken|Skool|YouTube/);
   });
 
   it("dates GG Coder from the CLI and the calendar from the desktop app", async () => {
@@ -93,7 +90,7 @@ describe("AboutKen", () => {
   ] as const;
 
   function box(): HTMLElement {
-    return screen.getByRole("button", { name: /^Ken, / });
+    return screen.getByRole("button", { name: /^Godik, / });
   }
 
   it("rises, types his line, then moves through his lines on click", () => {
@@ -113,7 +110,7 @@ describe("AboutKen", () => {
     // Clicking mid-line shows the rest at once.
     fireEvent.click(box());
     expect(document.querySelector(".ken-dialogue-text")?.textContent).toBe("Hi there.");
-    expect(box().getAttribute("aria-label")).toBe("Ken, 1 of 2: Hi there. Next");
+    expect(box().getAttribute("aria-label")).toBe("Godik, 1 of 2: Hi there. Next");
 
     fireEvent.click(box());
     // One character every 30ms, each scheduled after the last one lands.
@@ -123,7 +120,7 @@ describe("AboutKen", () => {
       });
     }
     expect(document.querySelector(".ken-dialogue-text")?.textContent).toBe("Bye now.");
-    expect(box().getAttribute("aria-label")).toBe("Ken, 2 of 2: Bye now. Start over");
+    expect(box().getAttribute("aria-label")).toBe("Godik, 2 of 2: Bye now. Start over");
 
     fireEvent.click(box());
     expect(box().getAttribute("aria-label")).toContain("1 of 2: Hi there.");

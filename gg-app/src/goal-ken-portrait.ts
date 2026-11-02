@@ -2,7 +2,8 @@
 // everywhere else he talks (the question and finish signs, the status panel,
 // About): the farm's Ken (KEN_FARM_CRITTER) and his face icon (ken-face.ts)
 // drawn bigger and front-on, still a chibi. A round mochi head with a flat
-// jaw, ears at eye level, a short dark buzzcut, a navy tee, and a touch of bad
+// jaw, ears at eye level, light blond hair with a swept fringe (GODIK CODER), a
+// navy tee, and a touch of bad
 // boy: a slit in his right brow, a plaster on his cheek, a smirk for his
 // resting face. 36×44 cells: head, shoulders and chest (the dialogue box
 // covers the rest), with room on the right for a ! ? or sparkle.
@@ -22,8 +23,10 @@ export const KEN_PORTRAIT_H = 44;
 
 const PALETTE: Readonly<Record<string, string>> = {
   O: "#1c120e", // outline
-  T: "#3d302a", // buzzcut
-  H: "#6e5a4d", // stubble flecks
+  T: "#f1e0a6", // light blond hair
+  H: "#fff2c4", // hair highlight
+  s: "#cdb174", // hair shade (sides)
+  b: "#a9803a", // blond brows
   B: "#f7dcc4", // skin
   D: "#e3b796", // skin shade (hairline, nose, neck)
   A: "#ecbf9f", // ears
@@ -49,8 +52,10 @@ const MATERIALS: Readonly<Record<string, Material>> = {
   B: "skin",
   D: "skin",
   A: "skin",
-  T: "cloth",
+  T: "fur",
   H: "flat",
+  s: "fur",
+  b: "flat",
   S: "cloth",
   c: "cloth",
   P: "flat",
@@ -69,21 +74,21 @@ const MATERIALS: Readonly<Record<string, Material>> = {
 };
 
 const BUST: readonly string[] = [
-  "....................................",
-  ".........OOOOOOOOOOOOOO.............",
-  ".......OOHTTTTHTTHTHTTTOO...........",
-  "......OTTHTHTTTTHTTTHHTTTO..........",
-  ".....OTTHTTTHHTTTTHTTTTHTTO.........",
-  "....OHTTTTHTTTTHTTTTHTTTTHHO........",
-  "....OTTHTTTTTTTTTTHTTTTTTTTO........",
-  "...OTTTTTTHTTTTTTTTTTHTTTTTTO.......",
-  "...OTTTTTTTTTHTTTTTTTTTTHTTTO.......",
-  "...OTTTTTTTTDDDDDDDDTTTTTTTTO.......",
-  "...OTTDDDDDDBBBBBBBBDDDDDDTTO.......",
-  "...OTTBBBBBBBBBBBBBBBBBBBBTTO.......",
-  "...OTTBBBBBBBBBBBBBBBBBBBBTTO.......",
-  ".OOOTTBBBBBBBBBBBBBBBBBBBBTTOOO.....",
-  "OAAOTTBBBBBBBBBBBBBBBBBBBBTTOAAO....",
+  "..........OOOOOOOOOOOO..............",
+  "........OOHHHHTTTTTTTTOO............",
+  "......OOTHHHHTTTTTTTTTTTOO..........",
+  ".....OTHHHTTTTTTTTTTTTTHTTO.........",
+  ".....OTTHHTTTTTTTTTTTTTTTsO.........",
+  "....OsTTHTTTTTTTTTTTTTTTTTsO........",
+  "....OsTTTTHTTTTTTTTTTTTTTTsO........",
+  "...OsTTTTTTHTTTTTTTTTTTTTTTsO.......",
+  "...OsTTTTTTTTHTTTTTTTTTTTTTsO.......",
+  "...OsTTTTTTTTTTTTTTDDDDDDDTsO.......",
+  "...OsTTTTTHTTTTTTDBBBBBBBBTsO.......",
+  "...OsTTTTDDDTTTDBBBBBBBBBBTsO.......",
+  "...OsTBBBBBBBBBBBBBBBBBBBBTsO.......",
+  ".OOOsTBBBBBBBBBBBBBBBBBBBBTsOOO.....",
+  "OAAOsTBBBBBBBBBBBBBBBBBBBBTsOAAO....",
   "OADOBBBBBBBBBBBBBBBBBBBBBBBBODAO....",
   "OADOBBBBBBBBBBBBBBBBBBBBBBBBODAO....",
   "OAAOBBBBBBBBBBBBDBBBBBBBBBBBOAAO....",
@@ -153,8 +158,8 @@ const FACES: Readonly<Record<KenFace, FaceArt>> = {
       [20, 14, ["KKK", "WKK", "KKK"]],
     ],
     brows: [
-      [9, 12, ["TTTT"]],
-      [20, 12, ["TT.T"]],
+      [9, 12, ["bbbb"]],
+      [20, 12, ["bb.b"]],
     ],
     mouth: [14, 19, ["...M", "MMM."]],
     talk: [14, 19, [".MM.", "MmmM", ".MM."]],
@@ -168,8 +173,8 @@ const FACES: Readonly<Record<KenFace, FaceArt>> = {
       [20, 15, [".K.", "K.K"]],
     ],
     brows: [
-      [9, 11, ["TTTT"]],
-      [20, 11, ["TT.T"]],
+      [9, 11, ["bbbb"]],
+      [20, 11, ["bb.b"]],
     ],
     mouth: [13, 19, ["MMMMMM", "MmttmM", ".MMMM."]],
     talk: [13, 19, ["M....M", ".MMMM."]],
@@ -183,8 +188,8 @@ const FACES: Readonly<Record<KenFace, FaceArt>> = {
       [20, 13, ["KKK", "WKK", "KKW", "KKK"]],
     ],
     brows: [
-      [9, 10, ["TTTT"]],
-      [20, 10, ["TT.T"]],
+      [9, 10, ["bbbb"]],
+      [20, 10, ["bb.b"]],
     ],
     mouth: [13, 19, ["MMMMMM", "MmmmmM", "MmttmM", ".MMMM."]],
     talk: [13, 19, ["MMMMMM", "MmttmM", ".MMMM."]],
@@ -202,8 +207,8 @@ const FACES: Readonly<Record<KenFace, FaceArt>> = {
       [20, 14, ["KKW", "KKK", "KKK"]],
     ],
     brows: [
-      [9, 12, ["TTTT"]],
-      [20, 11, ["TT.T"]],
+      [9, 12, ["bbbb"]],
+      [20, 11, ["bb.b"]],
     ],
     mouth: [16, 19, ["MM"]],
     talk: [15, 19, [".M.", "MmM", ".M."]],
@@ -217,8 +222,8 @@ const FACES: Readonly<Record<KenFace, FaceArt>> = {
       [20, 15, ["KKK", "WKK"]],
     ],
     brows: [
-      [9, 12, ["TT..", "..TT"]],
-      [20, 12, ["..TT", "TT.."]],
+      [9, 12, ["bb..", "..bb"]],
+      [20, 12, ["..bb", "bb.."]],
     ],
     mouth: [14, 19, ["MMMM"]],
     talk: [14, 19, ["MMMM", "MmmM"]],
@@ -232,8 +237,8 @@ const FACES: Readonly<Record<KenFace, FaceArt>> = {
       [20, 13, [".K.", "KWK", "KKK", "KKK", ".K."]],
     ],
     brows: [
-      [9, 9, ["TTTT"]],
-      [20, 9, ["TT.T"]],
+      [9, 9, ["bbbb"]],
+      [20, 9, ["bb.b"]],
     ],
     mouth: [14, 19, [".MM.", "MmmM", "MmmM", ".MM."]],
     talk: [14, 19, [".MM.", "MmmM", ".MM."]],
@@ -247,8 +252,8 @@ const FACES: Readonly<Record<KenFace, FaceArt>> = {
       [20, 14, ["KKK", "WKK", "KKK"]],
     ],
     brows: [
-      [9, 11, ["..TT", "TT.."]],
-      [20, 11, ["TT..", "..TT"]],
+      [9, 11, ["..bb", "bb.."]],
+      [20, 11, ["bb..", "..bb"]],
     ],
     mouth: [13, 20, [".MMMM.", "M....M"]],
     talk: [14, 19, [".MM.", "MmmM"]],
@@ -262,8 +267,8 @@ const FACES: Readonly<Record<KenFace, FaceArt>> = {
       [20, 15, ["KKK", "KKK", "WKK"]],
     ],
     brows: [
-      [9, 12, ["..TT", "TT.."]],
-      [20, 12, ["TT..", "..TT"]],
+      [9, 12, ["..bb", "bb.."]],
+      [20, 12, ["bb..", "..bb"]],
     ],
     mouth: [13, 20, [".MMMM.", "M....M"]],
     talk: [13, 20, [".MMMM.", "MmmmmM"]],
@@ -277,8 +282,8 @@ const FACES: Readonly<Record<KenFace, FaceArt>> = {
       [20, 15, ["OOO", "KKK"]],
     ],
     brows: [
-      [9, 11, ["TTTT"]],
-      [20, 11, ["TT.T"]],
+      [9, 11, ["bbbb"]],
+      [20, 11, ["bb.b"]],
     ],
     mouth: [13, 19, [".....M", "MMMMM."]],
     talk: [13, 19, ["MMMMMM", ".mmmmM"]],
@@ -292,8 +297,8 @@ const FACES: Readonly<Record<KenFace, FaceArt>> = {
       [20, 15, ["K.K", ".K."]],
     ],
     brows: [
-      [9, 12, ["TTTT"]],
-      [20, 12, ["TT.T"]],
+      [9, 12, ["bbbb"]],
+      [20, 12, ["bb.b"]],
     ],
     mouth: [13, 19, ["M....M", ".MMMM."]],
     talk: [13, 19, ["M....M", ".MmmM."]],

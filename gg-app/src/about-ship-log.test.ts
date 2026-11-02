@@ -133,7 +133,7 @@ describe("Ken's About lines", () => {
     const lines = aboutLines(buildShipLog(CHANGELOG, "2026-10-14"));
 
     expect(lines[1]?.text).toBe(
-      "It started as a command-line tool in March 2026. This desktop app came along in June 2026.",
+      "GC started as a command-line tool in March 2026. This desktop app came along in June 2026.",
     );
     for (const line of lines) expect(line.text.length).toBeLessThanOrEqual(KEN_LINE_MAX);
   });

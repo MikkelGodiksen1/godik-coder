@@ -1,3 +1,4 @@
+import { CODER_NAME } from "./mentor";
 import { useEffect, useId, useRef, useState } from "react";
 import { theme } from "./theme";
 import { FloatingSurface } from "./FloatingSurface";
@@ -104,7 +105,7 @@ export function ModelSelect({
   color,
   onSelectFollow,
   followActive,
-  followLabel = "GG Coder",
+  followLabel = CODER_NAME,
   loadFailed,
 }: Props): React.ReactElement {
   const [open, setOpen] = useState(false);

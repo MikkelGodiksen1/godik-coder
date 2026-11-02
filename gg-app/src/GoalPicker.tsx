@@ -1,3 +1,4 @@
+import { CODER_NAME } from "./mentor";
 import { useEffect, useState } from "react";
 import { TrashIcon } from "@phosphor-icons/react";
 import { theme } from "./theme";
@@ -206,7 +207,7 @@ export function GoalPicker({ onChosen, onClose }: Props): React.ReactElement {
         {!loading && !loadError && goals.length === 0 && (
           <div className="picker-empty">
             <span style={{ color: theme.textMuted }}>
-              No goals yet. Give GG Coder something bigger than one session.
+              {`No goals yet. Give ${CODER_NAME} something bigger than one session.`}
             </span>
             {newGoalButton}
           </div>

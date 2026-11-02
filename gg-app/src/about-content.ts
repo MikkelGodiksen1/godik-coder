@@ -1,8 +1,6 @@
+import { CODER_NAME, MENTOR_NAME } from "./mentor";
 import type { KenFace } from "./goal-ken-talk";
 import { formatMonthYear, type ShipLog } from "./about-ship-log";
-
-export const SKOOL_URL = "https://skool.com/kenkai";
-export const YOUTUBE_URL = "https://youtube.com/@kenkaidoesai";
 
 /**
  * When GG Coder began: the repo's first commit, as the command-line tool. The
@@ -24,19 +22,19 @@ export function aboutLines(log: ShipLog): readonly KenSay[] {
   return [
     {
       face: "happy",
-      text: "Hey, I'm Ken. I built GG Coder, the coding agent you're using right now.",
+      text: `Hey, I'm ${MENTOR_NAME}, your mentor in GODIK CODER. I read along while ${CODER_NAME} builds.`,
     },
     {
       face: "neutral",
-      text: `It started as a command-line tool in ${formatMonthYear(GG_CODER_STARTED)}. This desktop app came along in ${formatMonthYear(log.firstDate)}.`,
+      text: `${CODER_NAME} started as a command-line tool in ${formatMonthYear(GG_CODER_STARTED)}. This desktop app came along in ${formatMonthYear(log.firstDate)}.`,
     },
     {
       face: "thinking",
-      text: "I keep improving it most weeks, and I show how I build things like this on YouTube.",
+      text: `Stuck or unsure? Press Mentor and ask me. I'll hand you a prompt you can send to ${CODER_NAME}.`,
     },
     {
       face: "happy",
-      text: "Want to learn to build with AI too? Come join me on Skool. Happy to help you get going.",
+      text: `Turn on Autopilot and I'll review every turn, so ${CODER_NAME} keeps going until the work holds up.`,
     },
   ];
 }
