@@ -145,3 +145,18 @@ test("blocked summary says nothing was pushed", () => {
   assert.match(summary, /BLOCKED: nothing was pushed\. main, tags and releases are untouched\./);
   assert.match(summary, /\| \[windows-latest · node 22\.x\]\(https:/);
 });
+
+test("decide job checks out the run commit, not the sha input", () => {
+  // A wrong sha input must reach the SHA check; checking it out instead
+  // crashed decide on a commit that lacks this script (gate run 41595580525).
+  const workflow = readFileSync(
+    path.join(path.dirname(fileURLToPath(import.meta.url)), "../workflows/godik-gate.yml"),
+    "utf8",
+  );
+  const decideJob = workflow.slice(
+    workflow.indexOf("\n  decide:"),
+    workflow.indexOf("\n  publish:"),
+  );
+  assert.ok(decideJob.includes("actions/checkout@"));
+  assert.doesNotMatch(decideJob, /ref:\s*\$\{\{\s*inputs\.sha/);
+});

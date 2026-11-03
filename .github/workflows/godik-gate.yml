@@ -61,9 +61,9 @@ jobs:
       actions: read
       contents: read
     steps:
+      # The run's own commit (github.sha), not inputs.sha: a wrong sha input
+      # must reach the script's SHA check instead of a checkout without it.
       - uses: actions/checkout@v7
-        with:
-          ref: ${{ inputs.sha }}
 
       - name: Decide from the ci jobs' results
         shell: bash
