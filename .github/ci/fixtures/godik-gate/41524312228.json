@@ -1,0 +1,385 @@
+{
+  "head_sha": "a684f3b40c0d8b292bf7fe988174001518fcd13a",
+  "jobs": [
+    {
+      "name": "app · macos-latest",
+      "status": "completed",
+      "conclusion": "cancelled",
+      "runner_name": "",
+      "html_url": "https://github.com/MikkelGodiksen1/godik-coder/actions/runs/41524312228/job/125592808985",
+      "steps": []
+    },
+    {
+      "name": "app · ubuntu-latest",
+      "status": "completed",
+      "conclusion": "success",
+      "runner_name": "GitHub Actions 1000000311",
+      "html_url": "https://github.com/MikkelGodiksen1/godik-coder/actions/runs/41524312228/job/125592811613",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@v7",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run pnpm/action-setup@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-node@v7",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run dtolnay/rust-toolchain@stable",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run Swatinem/rust-cache@v2",
+          "conclusion": "success"
+        },
+        {
+          "name": "Linux system deps (tauri)",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install",
+          "conclusion": "success"
+        },
+        {
+          "name": "Build framework packages",
+          "conclusion": "success"
+        },
+        {
+          "name": "Stage node runtime + bundle sidecar",
+          "conclusion": "success"
+        },
+        {
+          "name": "Sidecar smoke (bundled runtime + bundle, per-OS)",
+          "conclusion": "success"
+        },
+        {
+          "name": "Sidecar size report",
+          "conclusion": "success"
+        },
+        {
+          "name": "Frontend build + initial JavaScript size report",
+          "conclusion": "success"
+        },
+        {
+          "name": "Frontend platform-class test",
+          "conclusion": "success"
+        },
+        {
+          "name": "Rust format check",
+          "conclusion": "success"
+        },
+        {
+          "name": "Rust lint (clippy)",
+          "conclusion": "success"
+        },
+        {
+          "name": "Rust unit tests (path + window-chrome resolution)",
+          "conclusion": "success"
+        },
+        {
+          "name": "Packaged app smoke (MSI build + launch)",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Packaged app smoke (deb build + launch, Linux)",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run Swatinem/rust-cache@v2",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-node@v7",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run pnpm/action-setup@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@v7",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "app · windows-latest",
+      "status": "completed",
+      "conclusion": "success",
+      "runner_name": "GitHub Actions 1000000315",
+      "html_url": "https://github.com/MikkelGodiksen1/godik-coder/actions/runs/41524312228/job/125592851428",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@v7",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run pnpm/action-setup@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-node@v7",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run dtolnay/rust-toolchain@stable",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run Swatinem/rust-cache@v2",
+          "conclusion": "success"
+        },
+        {
+          "name": "Linux system deps (tauri)",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Install",
+          "conclusion": "success"
+        },
+        {
+          "name": "Build framework packages",
+          "conclusion": "success"
+        },
+        {
+          "name": "Stage node runtime + bundle sidecar",
+          "conclusion": "success"
+        },
+        {
+          "name": "Sidecar smoke (bundled runtime + bundle, per-OS)",
+          "conclusion": "success"
+        },
+        {
+          "name": "Sidecar size report",
+          "conclusion": "success"
+        },
+        {
+          "name": "Frontend build + initial JavaScript size report",
+          "conclusion": "success"
+        },
+        {
+          "name": "Frontend platform-class test",
+          "conclusion": "success"
+        },
+        {
+          "name": "Rust format check",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Rust lint (clippy)",
+          "conclusion": "success"
+        },
+        {
+          "name": "Rust unit tests (path + window-chrome resolution)",
+          "conclusion": "success"
+        },
+        {
+          "name": "Packaged app smoke (MSI build + launch)",
+          "conclusion": "success"
+        },
+        {
+          "name": "Packaged app smoke (deb build + launch, Linux)",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Post Run Swatinem/rust-cache@v2",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-node@v7",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run pnpm/action-setup@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@v7",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "macos-latest · node 22.x",
+      "status": "completed",
+      "conclusion": "cancelled",
+      "runner_name": null,
+      "html_url": "https://github.com/MikkelGodiksen1/godik-coder/actions/runs/41524312228/job/125592811335",
+      "steps": []
+    },
+    {
+      "name": "ubuntu-latest · node 22.x",
+      "status": "completed",
+      "conclusion": "success",
+      "runner_name": "GitHub Actions 1000000310",
+      "html_url": "https://github.com/MikkelGodiksen1/godik-coder/actions/runs/41524312228/job/125592811913",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@v7",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run pnpm/action-setup@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-node@v7",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install ripgrep (grep parity test)",
+          "conclusion": "success"
+        },
+        {
+          "name": "Build framework packages",
+          "conclusion": "success"
+        },
+        {
+          "name": "Size report + startup gate",
+          "conclusion": "success"
+        },
+        {
+          "name": "Lint + format check",
+          "conclusion": "success"
+        },
+        {
+          "name": "Typecheck",
+          "conclusion": "success"
+        },
+        {
+          "name": "Test framework packages",
+          "conclusion": "success"
+        },
+        {
+          "name": "Ensure FFmpeg and ffprobe for Motion media tests",
+          "conclusion": "success"
+        },
+        {
+          "name": "Test ggcoder",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-node@v7",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run pnpm/action-setup@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@v7",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "windows-latest · node 22.x",
+      "status": "completed",
+      "conclusion": "success",
+      "runner_name": "GitHub Actions 1000000314",
+      "html_url": "https://github.com/MikkelGodiksen1/godik-coder/actions/runs/41524312228/job/125592877540",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@v7",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run pnpm/action-setup@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-node@v7",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install ripgrep (grep parity test)",
+          "conclusion": "success"
+        },
+        {
+          "name": "Build framework packages",
+          "conclusion": "success"
+        },
+        {
+          "name": "Size report + startup gate",
+          "conclusion": "success"
+        },
+        {
+          "name": "Lint + format check",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Typecheck",
+          "conclusion": "success"
+        },
+        {
+          "name": "Test framework packages",
+          "conclusion": "success"
+        },
+        {
+          "name": "Ensure FFmpeg and ffprobe for Motion media tests",
+          "conclusion": "success"
+        },
+        {
+          "name": "Test ggcoder",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-node@v7",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run pnpm/action-setup@v6",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@v7",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    }
+  ]
+}

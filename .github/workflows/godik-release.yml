@@ -11,9 +11,10 @@ name: GODIK Release
 #                                         plugins.updater.pubkey in tauri.macos.conf.json
 #   TAURI_SIGNING_PRIVATE_KEY_PASSWORD  — its password (empty is fine)
 #
-# Tags are godik-v<version>, created by godik-sync.yml (or by hand). A tag
-# pushed with GITHUB_TOKEN doesn't fire this workflow, so godik-sync.yml also
-# starts it with workflow_dispatch; tagName below is then taken from the ref.
+# Tags are godik-v<version>, created by godik-gate.yml's publish job after
+# Ken's CI passed on the tagged commit (or by hand). A tag pushed with
+# GITHUB_TOKEN doesn't fire this workflow, so publish also starts it with
+# workflow_dispatch; tagName below is then taken from the ref.
 
 on:
   push:

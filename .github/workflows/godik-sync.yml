@@ -1,24 +1,33 @@
 name: GODIK Sync upstream
 
 # Every 6 hours: pick up Ken's newest app release tag (v<version> on
-# KenKaiii/gg-framework) that GODIK CODER hasn't shipped yet, merge it into
-# main (my changes stay on top), check that our session-manager.ts patch still
-# applies, then push main, tag the merge godik-v<version>, create its GitHub
-# release and start godik-release.yml to build and upload into it.
-# Anything that fails before the push leaves main and the tags untouched.
+# KenKaiii/gg-framework) that GODIK CODER hasn't shipped yet, merge it onto
+# main locally (my changes stay on top) and check that our session-manager.ts
+# patch still applies. Then push the candidate to a scratch branch
+# godik-gate/<tag>-<run id> and start godik-gate.yml on it, which runs Ken's
+# full CI on that exact commit and only then fast-forwards main, tags
+# godik-v<version>, creates the release and starts godik-release.yml.
+# This workflow never pushes main, tags or releases itself.
 # Merge conflict: fix it locally with ./sync-upstream, push, and re-run.
 #
-# dry_run (manual runs only): skip the merge and instead prove this workflow's
-# token can create a release on a pushed tag, on a throwaway prerelease + tag
-# that are deleted again.
+# Manual inputs:
+#   upstream_tag  ship this Ken app tag instead of the newest one.
+#   dry_run       run the whole sync + gate, even for an already shipped tag,
+#                 but the gate's publish only creates and deletes a throwaway
+#                 prerelease + tag; main, real tags and godik-release are
+#                 untouched.
 
 on:
   schedule:
     - cron: "17 */6 * * *"
   workflow_dispatch:
     inputs:
+      upstream_tag:
+        description: "Ken's app tag to ship (v<version>); empty = newest"
+        type: string
+        default: ""
       dry_run:
-        description: "Only prove release creation on a throwaway tag"
+        description: "Full sync + gate, but publish only a throwaway prerelease"
         type: boolean
         default: false
 
@@ -40,28 +49,13 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: "Dry run: push a throwaway tag, create its release, delete both"
-        if: inputs.dry_run == true
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          # Same calls as the real path below (tag push, then release create
-          # with --verify-tag). Marked prerelease and never "latest", so the
-          # app's update endpoint (releases/latest) can't point at it.
-          tag="godik-dryrun-${GITHUB_RUN_ID}"
-          git tag "$tag"
-          git push origin "$tag"
-          trap 'gh release delete "$tag" -R "$GITHUB_REPOSITORY" --yes 2>/dev/null || true; git push origin ":refs/tags/$tag" || true' EXIT
-          gh release create "$tag" -R "$GITHUB_REPOSITORY" --verify-tag --prerelease --latest=false \
-            --title "GODIK CODER dry run (deleted again)" --notes "Throwaway release from godik-sync dry_run."
-          echo "DRY RUN OK: this workflow's token created release $tag on an existing tag."
-
-      - name: Find Ken's newest unshipped app tag
-        if: inputs.dry_run != true
+      - name: Pick Ken's app tag
         id: pick
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PINNED: ${{ inputs.upstream_tag }}
+          DRY_RUN: ${{ inputs.dry_run == true }}
         run: |
           set -euo pipefail
           git remote add upstream https://github.com/KenKaiii/gg-framework.git
@@ -69,22 +63,34 @@ jobs:
           # Ken's app tags are v0.x.y on commits that set tauri.conf.json's
           # version to the same number. Old v4.x tags are CLI packages: skipped
           # by that version check. Newest by tag date, not by number.
+          app_version() {
+            git show "$1:gg-app/src-tauri/tauri.conf.json" 2>/dev/null | node -p 'try{JSON.parse(require("fs").readFileSync(0,"utf8")).version}catch{""}'
+          }
           pick=""
-          for tag in $(git tag -l 'v[0-9]*' --sort=-creatordate); do
-            v="${tag#v}"
-            conf="$(git show "$tag:gg-app/src-tauri/tauri.conf.json" 2>/dev/null | node -p 'try{JSON.parse(require("fs").readFileSync(0,"utf8")).version}catch{""}')"
-            [[ "$conf" == "$v" ]] || continue
-            pick="$tag"
-            break
-          done
-          [[ -n "$pick" ]] || { echo "No upstream app tag found" >&2; exit 1; }
-          echo "Newest upstream app tag: $pick"
-          if git rev-parse -q --verify "refs/tags/godik-$pick" >/dev/null; then
-            echo "Already shipped as godik-$pick; nothing to do."
-            echo "tag=" >> "$GITHUB_OUTPUT"
+          if [[ -n "$PINNED" ]]; then
+            git rev-parse -q --verify "refs/tags/$PINNED" >/dev/null || { echo "::error::Tag $PINNED not found upstream"; exit 1; }
+            [[ "$(app_version "$PINNED")" == "${PINNED#v}" ]] || { echo "::error::$PINNED is not an app tag (tauri.conf.json version differs)"; exit 1; }
+            pick="$PINNED"
           else
-            echo "tag=$pick" >> "$GITHUB_OUTPUT"
+            for tag in $(git tag -l 'v[0-9]*' --sort=-creatordate); do
+              [[ "$(app_version "$tag")" == "${tag#v}" ]] || continue
+              pick="$tag"
+              break
+            done
           fi
+          [[ -n "$pick" ]] || { echo "No upstream app tag found" >&2; exit 1; }
+          echo "Upstream app tag: $pick"
+          if git rev-parse -q --verify "refs/tags/godik-$pick" >/dev/null && [[ "$DRY_RUN" != "true" ]]; then
+            echo "Already shipped as godik-$pick; nothing to do." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          # Two gates for the same tag would race to publish it.
+          busy="$(gh run list -R "$GITHUB_REPOSITORY" --workflow godik-gate.yml -L 20 --json status --jq '[.[] | select(.status != "completed")] | length')"
+          if [[ "$busy" != "0" ]]; then
+            echo "A godik-gate run is still queued or running; skipping until it finishes." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          echo "tag=$pick" >> "$GITHUB_OUTPUT"
 
       - name: Merge into main (local only)
         if: steps.pick.outputs.tag != ''
@@ -126,37 +132,41 @@ jobs:
           pnpm --filter @kenkaiiii/gg-core build
           cd packages/ggcoder
           if ! pnpm exec vitest run src/core/ken-turn-anchor.test.ts; then
-            echo "::error::ken-turn-anchor.test.ts fails after merging ${{ steps.pick.outputs.tag }}. Ken may have fixed the Ken-turn anchor drift upstream: our patch in packages/ggcoder/src/core/session-manager.ts (mapCustomEntriesInFileOrder, repairedCountAfter) should then be dropped. main was NOT pushed and nothing was tagged."
+            echo "::error::ken-turn-anchor.test.ts fails after merging ${{ steps.pick.outputs.tag }}. Ken may have fixed the Ken-turn anchor drift upstream: our patch in packages/ggcoder/src/core/session-manager.ts (mapCustomEntriesInFileOrder, repairedCountAfter) should then be dropped. Nothing was pushed or tagged."
             exit 1
           fi
 
-      - name: Push main, tag and create the release
+      - name: Push the candidate to a scratch branch and start the gate
         if: steps.pick.outputs.tag != ''
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.pick.outputs.tag }}
-        run: |
-          set -euo pipefail
-          git push origin main
-          git tag "godik-$TAG"
-          git push origin "godik-$TAG"
-          echo "Tagged godik-$TAG"
-          # tauri-action finds this release by tagName and only uploads to it;
-          # creating it there failed with "Resource not accessible by integration".
-          if gh release view "godik-$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "Release godik-$TAG already exists."
-          else
-            gh release create "godik-$TAG" -R "$GITHUB_REPOSITORY" --verify-tag \
-              --title "GODIK CODER $TAG" \
-              --notes "GODIK CODER: Ken's GG Coder $TAG plus my changes. macOS Apple Silicon; ad-hoc signed, not notarized."
-          fi
-
-      - name: Start the release build
-        if: steps.pick.outputs.tag != ''
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ steps.pick.outputs.tag }}
+          DRY_RUN: ${{ inputs.dry_run == true }}
         # -R is required: with the upstream remote added above, gh would
         # otherwise guess Ken's repo and 404.
-        run: gh workflow run godik-release.yml -R "$GITHUB_REPOSITORY" --ref "godik-$TAG"
+        run: |
+          set -euo pipefail
+          sha="$(git rev-parse HEAD)"
+          branch="godik-gate/$TAG-$GITHUB_RUN_ID"
+          # GITHUB_TOKEN pushes start no workflows; ci.yml only watches main anyway.
+          git push origin "$sha:refs/heads/$branch"
+          out="$(gh workflow run godik-gate.yml -R "$GITHUB_REPOSITORY" --ref "$branch" \
+            -f upstream_tag="$TAG" -f sha="$sha" -f dry_run="$DRY_RUN" 2>&1)"
+          echo "$out"
+          run_url="$(grep -o 'https://[^ ]*/actions/runs/[0-9]*' <<<"$out" | head -1 || true)"
+          for _ in 1 2 3 4 5 6; do
+            [[ -n "$run_url" ]] && break
+            sleep 5
+            run_url="$(gh run list -R "$GITHUB_REPOSITORY" --workflow godik-gate.yml --branch "$branch" -L 1 --json url --jq '.[0].url // ""')"
+          done
+          {
+            echo "### Gate started"
+            echo "- Upstream tag: \`$TAG\`"
+            echo "- Candidate: \`$sha\`"
+            echo "- Scratch branch: \`$branch\`"
+            echo "- Gate run: ${run_url:-(not found yet, see the GODIK Gate workflow)}"
+            echo "- Dry run: $DRY_RUN"
+            echo
+            echo "If the gate blocks, the branch stays for inspection; delete it with \`git push origin :refs/heads/$branch\`."
+          } >> "$GITHUB_STEP_SUMMARY"

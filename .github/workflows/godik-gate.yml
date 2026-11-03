@@ -1,0 +1,185 @@
+name: GODIK Gate
+
+# Release gate, started only by godik-sync.yml on a scratch branch
+# godik-gate/<tag>-<sync run id> whose tip is the merge candidate. Because this
+# run starts on that branch, github.sha is the candidate and the called ci.yml
+# (unchanged, apart from its workflow_call trigger) checks out and tests
+# exactly that commit.
+#
+#   ci       Ken's full CI on the candidate.
+#   decide   .github/ci/godik-gate-decide.mjs: every ci job must succeed on the
+#            candidate SHA. Only exception: the macOS *test* job cancelled
+#            before any runner picked it up. Unknown states fail closed.
+#   publish  Fast-forwards main to that same SHA (never a new commit), tags it
+#            godik-<tag>, creates the release and starts godik-release.yml.
+#
+# Any block leaves main, tags and releases untouched; only the scratch branch
+# is kept for inspection. Flaky job? "Re-run failed jobs" on this run: decide
+# re-reads the latest attempts and publish pushes the same SHA.
+#
+# dry_run: the full gate, but publish only proves its token can tag the
+# candidate and create a release on it, as a throwaway prerelease (never
+# latest) + tag that are deleted again. main, real tags and godik-release are
+# not touched.
+
+on:
+  workflow_dispatch:
+    inputs:
+      upstream_tag:
+        description: "Ken's app tag being shipped (v<version>)"
+        type: string
+        required: true
+      sha:
+        description: "Candidate commit; must equal the tip of the branch this run starts on"
+        type: string
+        required: true
+      dry_run:
+        description: "Publish a throwaway prerelease instead of main/tag/release"
+        type: boolean
+        default: false
+
+permissions: {}
+
+# Must differ from the group ci.yml resolves to when called
+# ("GODIK Gate-<run_id>"), or GitHub cancels both as a deadlock.
+concurrency:
+  group: godik-gate
+  cancel-in-progress: false
+
+jobs:
+  ci:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/ci.yml
+
+  decide:
+    needs: ci
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.sha }}
+
+      - name: Decide from the ci jobs' results
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          EXPECTED_SHA: ${{ inputs.sha }}
+          UPSTREAM_TAG: ${{ inputs.upstream_tag }}
+          REF: ${{ github.ref }}
+        run: |
+          set -euo pipefail
+          # publish deletes this branch afterwards; never run the gate on main.
+          if [[ "$REF" != refs/heads/godik-gate/* ]]; then
+            echo "::error::Gate must run on a godik-gate/* branch, not $REF"
+            echo "**BLOCKED: nothing was pushed.** Gate ran on $REF, not a godik-gate/* branch." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          node .github/ci/godik-gate-decide.mjs
+
+  publish:
+    needs: decide
+    if: ${{ !cancelled() && needs.decide.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SHA: ${{ inputs.sha }}
+      TAG: ${{ inputs.upstream_tag }}
+      DRY_RUN: ${{ inputs.dry_run }}
+      SCRATCH: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.sha }}
+          fetch-depth: 0
+
+      - name: Check main can fast-forward to the tested SHA
+        id: check
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --tags
+          if git rev-parse -q --verify "refs/tags/godik-$TAG" >/dev/null && [[ "$DRY_RUN" != "true" ]]; then
+            echo "godik-$TAG already exists: already shipped by another run, nothing pushed." | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "shipped=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          main="$(git rev-parse origin/main)"
+          if ! git merge-base --is-ancestor origin/main "$SHA"; then
+            echo "::error::main moved to $main and is not an ancestor of $SHA"
+            echo "**BLOCKED: nothing was pushed.** main moved (\`$main\` is not an ancestor of \`$SHA\`); re-run godik-sync so the new commit gets tested too. The candidate branch \`$SCRATCH\` is kept for inspection." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          echo "shipped=false" >> "$GITHUB_OUTPUT"
+
+      - name: "Dry run: tag the candidate, create a throwaway prerelease, delete both"
+        if: steps.check.outputs.shipped == 'false' && inputs.dry_run == true
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Same calls as the real path below (tag push, then release create
+          # with --verify-tag). Prerelease and never "latest", so the app's
+          # update endpoint (releases/latest) can't point at it.
+          tag="godik-dryrun-${GITHUB_RUN_ID}"
+          git push origin "$SHA:refs/tags/$tag"
+          trap 'gh release delete "$tag" -R "$GITHUB_REPOSITORY" --yes 2>/dev/null || true; git push origin ":refs/tags/$tag" || true' EXIT
+          gh release create "$tag" -R "$GITHUB_REPOSITORY" --verify-tag --prerelease --latest=false \
+            --title "GODIK CODER dry run (deleted again)" --notes "Throwaway release from the godik-gate dry_run for $TAG at $SHA."
+          {
+            echo "### DRY RUN OK"
+            echo "Gate passed for \`$TAG\` at \`$SHA\`, and this job's token created release $tag on it (deleted again)."
+            echo "A real run would: push main → \`$SHA\`, tag \`godik-$TAG\` → \`$SHA\`, create the release, start godik-release."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Push main and the tag, create the release
+        if: steps.check.outputs.shipped == 'false' && inputs.dry_run != true
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Not a force push: GitHub rejects it unless it fast-forwards main.
+          git push origin "$SHA:refs/heads/main"
+          git push origin "$SHA:refs/tags/godik-$TAG"
+          # tauri-action finds this release by tagName and only uploads to it;
+          # creating it there failed with "Resource not accessible by integration".
+          if gh release view "godik-$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release godik-$TAG already exists."
+          else
+            gh release create "godik-$TAG" -R "$GITHUB_REPOSITORY" --verify-tag \
+              --title "GODIK CODER $TAG" \
+              --notes "GODIK CODER: Ken's GG Coder $TAG plus my changes. macOS Apple Silicon; ad-hoc signed, not notarized."
+          fi
+
+      - name: Start the release build
+        if: steps.check.outputs.shipped == 'false' && inputs.dry_run != true
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Tags pushed with GITHUB_TOKEN start no workflows; dispatch does.
+          out="$(gh workflow run godik-release.yml -R "$GITHUB_REPOSITORY" --ref "godik-$TAG" 2>&1)"
+          echo "$out"
+          run_url="$(grep -o 'https://[^ ]*/actions/runs/[0-9]*' <<<"$out" | head -1 || true)"
+          {
+            echo "### Published"
+            echo "main and \`godik-$TAG\` → \`$SHA\`"
+            echo "Release: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/tag/godik-$TAG"
+            echo "Release build: ${run_url:-$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/workflows/godik-release.yml}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Delete the scratch branch
+        if: steps.check.outputs.shipped != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$SCRATCH" == godik-gate/* ]] || { echo "::error::Refusing to delete $SCRATCH"; exit 1; }
+          git push origin ":refs/heads/$SCRATCH"

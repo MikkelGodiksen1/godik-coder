@@ -141,12 +141,29 @@ about World stay in `changelog.ts`, like every other upstream note.
   bundle id `dk.godik.coder`, the fork's updater public key and endpoint
   (`releases/latest/download/latest.json` on origin). `gg-app/index.html`
   title is `GODIK CODER`.
-- `.github/workflows/godik-sync.yml` (every 6 h): picks Ken's newest app tag
-  `v<x.y.z>` not yet shipped as `godik-v<x.y.z>`, merges it into main, runs
-  `ken-turn-anchor.test.ts`, pushes main, tags `godik-v<x.y.z>`, creates the
-  release and starts `godik-release.yml` (macOS Apple Silicon, ad-hoc signed,
-  uploads `.app.tar.gz` + `.sig` + `latest.json`). On a merge conflict it stops
-  without pushing.
+- Releases go sync → gate → publish, and only a commit that passed Ken's CI
+  ships:
+  - `.github/workflows/godik-sync.yml` (every 6 h): picks Ken's newest app tag
+    `v<x.y.z>` not yet shipped as `godik-v<x.y.z>`, merges it onto main
+    locally, runs `ken-turn-anchor.test.ts`, pushes the result to a scratch
+    branch `godik-gate/<tag>-<run id>` and starts `godik-gate.yml` there. It
+    never pushes main, tags or releases. On a merge conflict it stops without
+    pushing anything. Manual inputs: `upstream_tag` (ship that tag instead of
+    the newest) and `dry_run` (run sync + gate even for a shipped tag, but
+    publish only creates and deletes a throwaway prerelease).
+  - `.github/workflows/godik-gate.yml` calls `ci.yml` on that exact commit.
+    `.github/ci/godik-gate-decide.mjs` then requires every CI job to succeed.
+    The one exception is the macOS **test** job cancelled before any Mac
+    runner picked it up (no runner, no steps). The publish job then
+    fast-forwards main to the tested SHA, tags `godik-v<x.y.z>`, creates the
+    release and starts `godik-release.yml` (macOS Apple Silicon, ad-hoc
+    signed, uploads `.app.tar.gz` + `.sig` + `latest.json`). If the gate
+    blocks, main, tags and releases stay untouched and the scratch branch is
+    kept. For a flaky job, use "Re-run failed jobs" on the gate run.
+- Fork delta in Ken's `ci.yml`: one extra `workflow_call:` trigger under
+  `on:`, which the gate needs. Keep it when merging. If Ken renames or removes
+  CI jobs, the gate blocks until `REQUIRED` in `godik-gate-decide.mjs` is
+  updated.
 - Ken's `release.yml` only fires on `v*` tags; this fork only creates
   `godik-v*`, so it never runs here.
 - Local: `./sync-upstream` merges `upstream/main`; `./godik-update` syncs,
@@ -182,5 +199,7 @@ cd ~/godik-sync && git merge v<x.y.z>`.
    repo path contains a space, and `sandbox.test.ts` ("refuses a tool cache
    repointed at the SSH keys") when the checkout lives under `/tmp`. Anything
    else is real.
-6. Fast-forward main to the merge, push, and let CI (`ci.yml`) go green. Tag
-   `godik-v<x.y.z>` only if godik-sync isn't going to do it.
+6. Fast-forward main to the merge, push, and let CI (`ci.yml`) go green. Then
+   run godik-sync (`gh workflow run godik-sync.yml -f upstream_tag=v<x.y.z>`):
+   it runs CI on main's HEAD itself before tagging and releasing. Tag
+   `godik-v<x.y.z>` by hand only if godik-sync isn't going to do it.
