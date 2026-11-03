@@ -45,7 +45,10 @@ describe("8D radio", () => {
     const upstream = RADIO_STATIONS.filter((station) => station.effect !== "8d");
     expect(RADIO_STATIONS).toEqual(expect.arrayContaining([...EIGHT_D_STATIONS]));
     for (const station of EIGHT_D_STATIONS) {
+      expect(station.id).toMatch(/^8d-/);
       expect(station.name).toMatch(/^8D · /);
+      expect(station.description).toMatch(/circling your head \(use headphones\)$/);
+      expect(station.effect).toBe("8d");
       expect(upstream.map((s) => s.url)).toContain(station.url);
     }
   });

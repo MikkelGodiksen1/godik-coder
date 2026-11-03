@@ -29,6 +29,27 @@ export const EIGHT_D_STATIONS: readonly RadioStation[] = [
     url: "https://radio.plaza.one/mp3",
     effect: "8d",
   },
+  {
+    id: "8d-darksynth",
+    name: "8D · Darksynth",
+    description: "Hard, driving synthwave circling your head (use headphones)",
+    url: "https://stream.nightride.fm/darksynth.mp3",
+    effect: "8d",
+  },
+  {
+    id: "8d-datawave",
+    name: "8D · Datawave",
+    description: "Energetic retro electronic circling your head (use headphones)",
+    url: "https://stream.nightride.fm/datawave.mp3",
+    effect: "8d",
+  },
+  {
+    id: "8d-george-fm",
+    name: "8D · George FM",
+    description: "House and dance circling your head (use headphones)",
+    url: "https://mediaworks.streamguys1.com/george_net_icy",
+    effect: "8d",
+  },
 ];
 
 /**
