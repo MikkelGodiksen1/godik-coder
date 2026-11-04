@@ -58,14 +58,21 @@ import { pruneCheckpointSessions } from "./core/checkpoint-store.js";
 import {
   dualAuthProvider,
   discoverLocalModels,
+  findProbedModel,
+  isLocalModelId,
   formatLocalModelId,
   parseLocalModelId,
   probeEndpoint,
+  ollamaServedContext,
   toModelInfo as localModelInfo,
   type LocalEndpoint,
   type LocalEndpointProbe,
 } from "@kenkaiiii/gg-core";
-import { listAllEndpoints, syncEndpointCredentials } from "./core/local-endpoint-store.js";
+import {
+  listAllEndpoints,
+  listCustomEndpoints,
+  syncEndpointCredentials,
+} from "./core/local-endpoint-store.js";
 import type { OAuthLoginCallbacks } from "./core/oauth/types.js";
 import {
   AUTH_PROVIDERS,
@@ -136,6 +143,7 @@ import {
   goalPhase,
   goalsRoot,
   isGoalDir,
+  isGoalStartMessage,
   startGoalOnAnswer,
   readGoal,
 } from "./core/goals-store.js";
@@ -726,7 +734,7 @@ async function createSession(
   // parsing); the daemon owns the real listen host.
   const host = "127.0.0.1";
 
-  const saved = loadSavedSettings(paths.settingsFile);
+  const saved = loadSavedSettings(paths.settingsFile, { localModels: true });
   // Native login/logout and other live sessions share auth.json. Refresh the
   // daemon-level snapshot before choosing this session's provider so a project
   // never boots against credentials that were just replaced or disconnected.
@@ -811,18 +819,28 @@ async function createSession(
   }
 
   /**
-   * Guidance for a connection failure against the ACTIVE local endpoint, or
+   * Guidance for a connection or auth failure against the ACTIVE local endpoint, or
    * undefined when that isn't the situation (so the generic wording stands).
    * "Disable your VPN / allow us through the firewall" is useless advice for a
    * server running on this machine — name what the user has to restart.
    */
-  function localNetworkGuidance(source: string | undefined): string | undefined {
-    if (source !== "network") return undefined;
+  function localEndpointGuidance(
+    source: string | undefined,
+    reason: string | undefined,
+  ): string | undefined {
+    if (source !== "network" && reason !== "auth") return undefined;
     const state = session.getState();
     if (state.provider !== "local") return undefined;
     const parsed = parseLocalModelId(state.model);
     const probe = localProbes.find((p) => p.endpoint.id === parsed?.endpointId);
     if (!probe) return undefined;
+    // Custom endpoints live in the Local models tile, not the provider sign-in tiles.
+    if (reason === "auth") {
+      return (
+        `${probe.endpoint.label} rejected the request at ${probe.endpoint.baseUrl}. ` +
+        "Check its key under Local models in AI Providers settings."
+      );
+    }
     return (
       `${probe.endpoint.label} stopped responding at ${probe.endpoint.baseUrl}. ` +
       "Start it again and retry, or pick another model."
@@ -842,7 +860,7 @@ async function createSession(
   ): void {
     const f = formatChatError(err);
     const message = f.message ? desktopGuidance(f.message) : undefined;
-    const guidance = localNetworkGuidance(f.source) ?? desktopGuidance(f.guidance);
+    const guidance = localEndpointGuidance(f.source, f.reason) ?? desktopGuidance(f.guidance);
     const payload = createAppErrorPayload(
       { ...f, ...(message ? { message } : {}), guidance },
       type,
@@ -938,9 +956,10 @@ async function createSession(
       new Date(),
       questions,
     ).catch((err: unknown) => {
-      log("WARN", "app-sidecar", "couldn't record goal start", {
-        error: err instanceof Error ? err.message : String(err),
-      });
+      const message = err instanceof Error ? err.message : String(err);
+      log("WARN", "app-sidecar", "couldn't record goal start", { error: message });
+      // Silent, GG Goals just asked the start question again and again.
+      broadcastError("error", "goal start", new Error(`Couldn't start the goal: ${message}`));
       return null;
     });
     if (started) {
@@ -948,6 +967,12 @@ async function createSession(
       broadcast("goal_state", { id: started.id, phase: goalPhase(started) });
       void trophies.count("goalsStarted", opts.id);
     }
+  };
+  // A typed "start the goal now" starts it like the card does: small local
+  // models often never show the card (#133).
+  const startGoalFromMessage = async (text: string): Promise<void> => {
+    if (!goal || goal.record.startedAt || !isGoalStartMessage(text)) return;
+    await startGoalFrom({ action: "answer", answers: { message: text } }, []);
   };
   const askUserTool = createAskUserTool(async (request) => {
     const result = await asks.park(request);
@@ -1085,9 +1110,66 @@ async function createSession(
   // frame when it lands.
   let localProbes: LocalEndpointProbe[] = [];
 
+  // Context Ollama served each model with, learned when it was last loaded
+  // ("<endpointId>/<rawId>"). A model Ollama has since unloaded keeps its size.
+  const servedContexts = new Map<string, number>();
+
+  function withServedContexts(probe: LocalEndpointProbe): LocalEndpointProbe {
+    if (probe.endpoint.kind !== "ollama") return probe;
+    return {
+      ...probe,
+      models: probe.models.map((m) => {
+        const served = servedContexts.get(`${m.endpointId}/${m.rawId}`);
+        return served === undefined || m.contextWindowKnown
+          ? m
+          : { ...m, contextWindow: served, contextWindowKnown: true };
+      }),
+    };
+  }
+
+  /**
+   * Learn the context an Ollama model really runs with and use it everywhere.
+   * `load` (on an explicit pick) loads the model first; after a run it's
+   * already loaded and `/api/ps` alone answers.
+   */
+  async function learnServedContext(modelId: string, load: boolean): Promise<void> {
+    const parsed = parseLocalModelId(modelId);
+    const probe = localProbes.find((p) => p.endpoint.id === parsed?.endpointId);
+    if (!parsed || !probe || probe.endpoint.kind !== "ollama") return;
+    const served = await ollamaServedContext(probe.endpoint, parsed.rawId, { load });
+    if (served === undefined) return;
+    const known = probe.models.find((m) => m.rawId === parsed.rawId);
+    if (known?.contextWindowKnown && known.contextWindow === served) return;
+    servedContexts.set(`${parsed.endpointId}/${parsed.rawId}`, served);
+    localProbes = localProbes.map((p) =>
+      p.endpoint.id !== parsed.endpointId
+        ? p
+        : {
+            ...p,
+            models: p.models.map((m) =>
+              m.rawId === parsed.rawId
+                ? { ...m, contextWindow: served, contextWindowKnown: true }
+                : m,
+            ),
+          },
+    );
+    const updated = findProbedModel(localProbes, modelId);
+    if (updated) registerRuntimeModels([localModelInfo(updated.model, updated.endpoint)]);
+    log("INFO", "app-sidecar", "learned served context", {
+      model: modelId,
+      contextWindow: String(served),
+    });
+    broadcast("extras", footerExtras());
+    broadcast("models_change", { local: localStatePayload() });
+  }
+
   async function scanLocalModels(force: boolean): Promise<LocalEndpointProbe[]> {
     const endpoints = await listAllEndpoints();
-    const { probes, models } = await discoverLocalModels(endpoints, { force });
+    const discovered = await discoverLocalModels(endpoints, { force });
+    const probes = discovered.probes.map(withServedContexts);
+    const models = probes.flatMap((probe) =>
+      probe.models.map((model) => localModelInfo(model, probe.endpoint)),
+    );
     localProbes = probes;
     // Only endpoints that answered get a credential: writing one for a server
     // that isn't running would make `hasProviderAuth("local")` true forever.
@@ -1172,7 +1254,7 @@ async function createSession(
     if (!endpoint)
       return `Unknown local endpoint "${parsed.endpointId}" — re-scan for local models.`;
 
-    const probe = await probeEndpoint(endpoint);
+    const probe = withServedContexts(await probeEndpoint(endpoint));
     // Keep the cached view honest: this probe is fresher than the last scan.
     localProbes = localProbes.map((p) => (p.endpoint.id === endpoint.id ? probe : p));
     if (!probe.reachable) {
@@ -1279,8 +1361,26 @@ async function createSession(
     };
   }
 
-  void scanLocalModels(false)
-    .then(() => {
+  // Startup resolves the model before discovery runs, so a saved local model
+  // isn't registered yet and boot falls back. Switch to it once the scan finds it,
+  // unless the user has already picked something else or a run has started.
+  async function restoreSavedLocalModel(): Promise<void> {
+    if (preferred !== "local" || !savedModel || parseLocalModelId(savedModel) === undefined) return;
+    const stillBootModel = (): boolean => !running && session.getState().model === model;
+    if (savedModel === model || !stillBootModel() || !getModel(savedModel)) return;
+    const blocker = await localModelBlocker(savedModel);
+    if (blocker) {
+      log("WARN", "app-sidecar", "saved local model not restored", { model: savedModel, blocker });
+      return;
+    }
+    if (!stillBootModel()) return;
+    await session.switchModel("local", savedModel);
+    log("INFO", "app-sidecar", "restored saved local model", { model: savedModel });
+  }
+
+  const initialLocalScan = scanLocalModels(false)
+    .then(async () => {
+      await restoreSavedLocalModel();
       clampLocalThinking();
       broadcast("extras", footerExtras());
     })
@@ -1292,6 +1392,18 @@ async function createSession(
         error: err instanceof Error ? err.message : String(err),
       });
     });
+  // A run that starts before the scan would run on the fallback model; a goal's
+  // kickoff fires as its window opens and lost that race (#133). Never rejects.
+  let savedLocalModelPending: Promise<void> | null =
+    preferred === "local" &&
+    savedModel !== undefined &&
+    savedModel !== model &&
+    isLocalModelId(savedModel)
+      ? initialLocalScan
+      : null;
+  void initialLocalScan.finally(() => {
+    savedLocalModelPending = null;
+  });
 
   // tool_call_end carries no tool name (only the id), so remember each call's
   // name from tool_call_start to log a useful line on completion. Mirrors the
@@ -1872,6 +1984,8 @@ async function createSession(
     run: () => Promise<void>,
     reviewPending: () => boolean = () => false,
   ): Promise<void> {
+    // Only at boot: afterwards runAgent stays synchronous up to its first await.
+    if (savedLocalModelPending) await savedLocalModelPending;
     const ownsGeneration = !runLifecycle.running;
     const generation = ownsGeneration
       ? runLifecycle.begin(abortOwnedWork).generation
@@ -1983,6 +2097,11 @@ async function createSession(
       // cycle; its outer finalizer emits the one terminal cancelled run_end.
       if (!(cancelled && !ownsGeneration)) {
         if (cancelled) cancelledRunEndGenerations.add(generation);
+        // The run loaded the model, so Ollama can now say what size it served.
+        const runModel = session.getState().model;
+        if (session.getState().provider === "local") {
+          void learnServedContext(runModel, false).catch(() => {});
+        }
         broadcast("run_end", {
           ...(cancelled ? { cancelled: true } : {}),
           ...(verificationProblem ? { unverified: true } : {}),
@@ -2260,6 +2379,7 @@ async function createSession(
       priorityNote?: string;
       methodGuidance: AuthMethodMeta[];
     })[];
+    localConnected: boolean;
   }> {
     const providers = await Promise.all(
       AUTH_PROVIDERS.map(async (p) => {
@@ -2316,7 +2436,13 @@ async function createSession(
         };
       }),
     );
-    return { providers };
+    // Local endpoints have no tile here, but they are a usable model source. An
+    // auto-detected server's credential outlives it, so it counts only while it
+    // answered the last scan with a model; a user-added endpoint always counts.
+    const localConnected =
+      (await listCustomEndpoints()).length > 0 ||
+      localProbes.some((probe) => probe.reachable && probe.models.length > 0);
+    return { providers, localConnected };
   }
 
   // Background tasks have no event source (the bash tool just spawns them), so
@@ -2591,6 +2717,8 @@ async function createSession(
       localProbes = v;
     },
     localModelBlocker,
+    learnServedContext,
+    startGoalFromMessage,
     get kenModelOverride() {
       return kenModelOverride;
     },

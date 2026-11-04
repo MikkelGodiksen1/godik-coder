@@ -113,6 +113,9 @@ export interface SessionRouteContext {
   readonly auth: AuthStorage;
   localProbes: LocalEndpointProbe[];
   readonly localModelBlocker: (modelId: string) => Promise<string | undefined>;
+  readonly learnServedContext: (modelId: string, load: boolean) => Promise<void>;
+  /** Starts a goal in its briefing when the user's message says to. */
+  readonly startGoalFromMessage: (text: string) => Promise<void>;
   kenModelOverride: KenModelPref | null;
   readonly syncKenAutoModel: (provider: Provider, model: string) => Promise<void>;
   autopilotReviewing: boolean;
@@ -133,6 +136,7 @@ export interface SessionRouteContext {
       priorityNote?: string | undefined;
       methodGuidance: AuthMethodMeta[];
     })[];
+    localConnected: boolean;
   }>;
   readonly broadcastAll: (type: string, data: unknown) => void;
   oauthInFlight: boolean;

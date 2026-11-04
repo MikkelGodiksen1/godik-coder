@@ -22,6 +22,23 @@ export interface ChangelogEntry {
 /** Newest first. Prepended by the `/release` flow. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.102.0",
+    date: "2026-11-04",
+    items: [
+      "MiniMax just got a serious upgrade. `MiniMax M3.1 Flash` is now the default, it works on MiniMax plan keys, and you pick how hard it thinks, from quick to `max`. Your key now finds its own region by itself, whether it came from the global or the China site, and plan problems finally say MiniMax instead of pretending to be Anthropic.",
+      "Xiaomi `Token Plan` keys from Europe and China now just work. I made GG Coder find the cluster that issued your key instead of rejecting it as invalid and throwing it away.",
+      "`GG Goals` now starts when you tell it to, even on small local models. Type `start the goal now` and it goes, a new window opens straight on your saved local model, and one bad setting can no longer wipe the rest of your preferences.",
+    ],
+  },
+  {
+    version: "0.101.0",
+    date: "2026-11-04",
+    items: [
+      "Local models just grew up. The tile is now `Local models`, and LM Studio, llama.cpp, vLLM or any OpenAI-compatible gateway is one `Add endpoint` away, with or without a key. I made GG Coder learn the real context size each model runs with, bring your saved local model back after a restart, group the picker by server, and open your workspace even if local models are all you use.",
+      "Long sessions got leaner and cheaper. On Claude, web search now runs off to the side so whole result pages stop piling into your chat, web pages are read in tidy chunks that can jump straight to a `#section`, and giant command output gets trimmed at `30 KB`. I also stopped busy tool loops from rebuilding the cache, so you wait less and spend less.",
+    ],
+  },
+  {
     version: "0.100.1",
     date: "2026-11-03",
     items: [

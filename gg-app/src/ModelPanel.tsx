@@ -5,7 +5,7 @@ import { PanelHead } from "./DeckPanelHead";
 import { Icon } from "./icons";
 import { modelDisplayName } from "./model-name";
 import { searchModels } from "./model-search";
-import { providerLabel } from "./provider-labels";
+import { modelSourceLabel } from "./provider-labels";
 import { thinkingLabel, ThinkingDots } from "./thinking-display";
 
 /** Who the picker is choosing for: GG itself, or its second agent. */
@@ -132,7 +132,7 @@ export function ModelPanel({
           return {
             id: model.id,
             name: model.name,
-            provider: providerLabel(model.provider),
+            provider: modelSourceLabel(model),
             disabled: model.supportsTools === false || paidForSecond,
             // Fast modes change what the user pays, so the row says so up front.
             hint:
