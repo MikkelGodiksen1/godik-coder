@@ -71,6 +71,7 @@ import {
 } from "./goal-farm-use";
 import {
   drawFarm,
+  COORDINATOR_NAMEPLATE,
   paintSwayBase,
   swaySurface,
   farmTargets,
@@ -82,6 +83,9 @@ import {
 import { PixelBuffer } from "./goal-map-pixels";
 import { TILE } from "./goal-map-ground";
 import { BODY, SolidMask, planRoute, roamPose } from "./goal-farm-roam";
+import { MENTOR_NAME } from "./brand";
+import { textWidth } from "./pixel-text";
+import { M5X7 } from "./pixel-font-m5x7";
 
 const farm = buildFarm();
 
@@ -1050,7 +1054,7 @@ describe("goal farm play", () => {
     expect(water && farm.surface[water.y * farm.width + water.x]).toBe(SURFACE.water);
   });
 
-  it("marks GG Goals with its gold crown and a KEN nameplate, and no worker", () => {
+  it("marks GG Goals with its gold crown and a GODIK (MENTOR_NAME) nameplate, and no worker", () => {
     const w = createFarmWorld(farm, () => 0.4);
     const agents = collectWorldAgents({
       running: true,
@@ -1062,15 +1066,19 @@ describe("goal farm play", () => {
       syncFarm(w, agents, t);
       stepFarm(w, t);
     }
-    // Colours drawn while drawing the farm once.
+    // Colours drawn while drawing the farm once, and the gold plate's widths.
     const fills = new Set<string>();
+    const plateWidths: number[] = [];
     let style = "";
     const ctx = new Proxy(
       {},
       {
         get: (_target, key) =>
           key === "fillRect"
-            ? () => fills.add(style)
+            ? (_x: number, _y: number, rw: number) => {
+                fills.add(style);
+                if (style === "#e9af54") plateWidths.push(rw);
+              }
             : key === "fillStyle"
               ? style
               : () => undefined,
@@ -1085,6 +1093,13 @@ describe("goal farm play", () => {
     expect(fills.has("#ffd23a")).toBe(true);
     expect(fills.has("#e8313f")).toBe(true);
     expect(fills.has("#e9af54")).toBe(true);
+    // GODIK CODER: the sign reads the mentor's name (GODIK), not "KEN". The
+    // plate is sized to its text: textWidth(text) + 8, minus its outline.
+    expect(COORDINATOR_NAMEPLATE).toBe(MENTOR_NAME.toUpperCase());
+    expect(COORDINATOR_NAMEPLATE).toBe("GODIK");
+    expect(plateWidths).toEqual([textWidth("GODIK") + 6]);
+    expect(textWidth("GODIK")).not.toBe(textWidth("KEN"));
+    for (const ch of COORDINATOR_NAMEPLATE) expect(M5X7[ch], ch).toBeDefined();
     // Without GG Goals on the farm, none of it.
     const alone = createFarmWorld(farm, () => 0.4);
     const workersOnly = agents.filter((a) => !a.coordinator);

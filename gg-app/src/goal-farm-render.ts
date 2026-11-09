@@ -47,6 +47,7 @@ import {
   SHIBA_COLORS,
 } from "./goal-map-topdown";
 import { drawText, LINE_PITCH, textWidth, wrapText } from "./pixel-text";
+import { MENTOR_NAME } from "./brand";
 import { SURFACE, type Farm } from "./goal-farm-map";
 import { ARRIVE_MS, LEAVE_MS, type Actor, type FarmWorld } from "./goal-farm-sim";
 import { tripPose, type Spot } from "./goal-farm-travel";
@@ -404,6 +405,10 @@ function drawSummon(
 /** The widest a speech bubble's text runs before it wraps onto a second line (pixels). */
 export const BUBBLE_TEXT_MAX = 104;
 
+/** GODIK CODER: the gold sign under the little man (the coordinator) carries
+ *  the mentor's name, not upstream's "KEN". Internal ids stay "ken". */
+export const COORDINATOR_NAMEPLATE = MENTOR_NAME.toUpperCase();
+
 /** GG Royale's speech bubble: blue-white paper, ink outline, a shaded lip. */
 const BUBBLE = { ink: "#1e0c1f", paper: "#cedbf9", shade: "#a9b8e4", text: "#1e0c1f" };
 
@@ -669,7 +674,7 @@ function actorItems(
       }
       if (actor.coordinator) {
         drawKenCrown(ctx, px, top, now);
-        drawNameplate(ctx, "KEN", px, py + 3);
+        drawNameplate(ctx, COORDINATOR_NAMEPLATE, px, py + 3);
       }
       if (working && actor.doing) {
         drawFarmWork(ctx, actor.doing, px, py, facing, now, world.farm.lookAt[actor.station]);

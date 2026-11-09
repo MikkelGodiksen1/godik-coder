@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { KEN_LINES, WORKER_LINES, pickWorkLine } from "./goal-farm-lines";
 import { M5X7 } from "./pixel-font-m5x7";
+import { MENTOR_NAME } from "./brand";
 import { BUBBLE_TEXT_MAX } from "./goal-farm-render";
 import { textWidth, wrapText } from "./pixel-text";
 import { WORK_KINDS } from "./goal-world-agents";
@@ -21,6 +22,14 @@ describe("what the farm's critters say", () => {
     // Ken's lines are his own, not the workers' with his name on.
     const shared = KEN_LINES.read.filter((l) => WORKER_LINES.read.includes(l));
     expect(shared.length).toBeLessThan(3);
+  });
+
+  // GODIK CODER: the little man is the mentor (MENTOR_NAME), never upstream's
+  // "Ken". No line names anyone today; if one ever names the mentor, it must
+  // use MENTOR_NAME (the internal KEN_LINES id stays, it's in tests and saves).
+  it("never calls the little man Ken; any name in a line is MENTOR_NAME", () => {
+    for (const line of all) expect(line, line).not.toMatch(/\bken\b/i);
+    expect(MENTOR_NAME).toBe("Godik");
   });
 
   it("says only what the pixel font can draw, in at most two short lines", () => {
