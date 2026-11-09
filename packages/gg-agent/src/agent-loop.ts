@@ -67,7 +67,13 @@ function isInterruptibleTool(tool: AgentTool | undefined, name: string): boolean
   return !ATOMIC_TOOL_NAMES.has(name);
 }
 
-function markSteerInterrupted(record: ToolExecutionRecord): ToolExecutionRecord {
+/**
+ * Label a tool result cut short by a steering message. The result becomes an
+ * error, and Anthropic rejects an error tool_result holding anything but text
+ * (a 400 that repeats on every later request), so image/video blocks in the
+ * partial output (a screenshot, a read of a PNG) are dropped here and counted.
+ */
+export function markSteerInterrupted(record: ToolExecutionRecord): ToolExecutionRecord {
   const content = record.content;
   let next: ToolResultContent;
   if (typeof content === "string") {
@@ -75,9 +81,12 @@ function markSteerInterrupted(record: ToolExecutionRecord): ToolExecutionRecord 
       ? `${STEER_INTERRUPTED_TEXT}\nPartial output:\n${content}`
       : STEER_INTERRUPTED_TEXT;
   } else {
+    const texts = content.filter((block) => block.type === "text");
+    const dropped = content.length - texts.length;
+    const note = dropped > 0 ? `\n[${dropped} image(s) dropped]` : "";
     next = [
-      { type: "text" as const, text: `${STEER_INTERRUPTED_TEXT}\nPartial output:` },
-      ...content,
+      { type: "text" as const, text: `${STEER_INTERRUPTED_TEXT}${note}\nPartial output:` },
+      ...texts,
     ];
   }
   return { toolCallId: record.toolCallId, content: next, isError: true };
@@ -2262,7 +2271,7 @@ function canonicalToolArgs(value: unknown): unknown {
   return value;
 }
 
-interface ToolExecutionRecord {
+export interface ToolExecutionRecord {
   toolCallId: string;
   content: ToolResultContent;
   isError: boolean;

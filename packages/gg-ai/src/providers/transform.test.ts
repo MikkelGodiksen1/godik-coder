@@ -1100,3 +1100,72 @@ describe("toLocalReasoningEffort", () => {
     expect(levels.map((l) => toLocalReasoningEffort(l))).not.toContain("xhigh");
   });
 });
+
+// Regression: a steered tool call left an isError result holding a screenshot,
+// and the API 400'd "tool_result: all content must be type `text` if
+// `is_error` is true" on that request and every later one in the session.
+describe("toAnthropicMessages error tool results are text only", () => {
+  const PNG = "iVBORw0KGgo=";
+  const history = (isError: boolean, loadedTools?: string[]): Message[] => [
+    { role: "user", content: "take a screenshot" },
+    {
+      role: "assistant",
+      content: [{ type: "tool_call", id: "toolu_shot", name: "screenshot", args: {} }],
+    },
+    {
+      role: "tool",
+      content: [
+        {
+          type: "tool_result",
+          toolCallId: "toolu_shot",
+          isError,
+          ...(loadedTools ? { loadedTools } : {}),
+          content: [
+            { type: "text", text: "Interrupted: the user sent a new message.\nPartial output:" },
+            { type: "image", mediaType: "image/png", data: PNG },
+            { type: "text", text: "after" },
+            { type: "video", mediaType: "video/mp4", data: "AAAA" },
+          ],
+        },
+      ],
+    },
+  ];
+  type Wire = { type: string; content?: unknown; is_error?: boolean };
+  const wireBlocks = (result: ReturnType<typeof toAnthropicMessages>): Wire[] =>
+    result.messages.flatMap((m) => (typeof m.content === "string" ? [] : (m.content as Wire[])));
+
+  it("an isError result with an image block is sent as text only", () => {
+    const toolResult = wireBlocks(toAnthropicMessages(history(true))).find(
+      (b) => b.type === "tool_result",
+    );
+    expect(toolResult?.is_error).toBe(true);
+    expect(toolResult?.content).toBe(
+      "Interrupted: the user sent a new message.\nPartial output:\n" +
+        "[image omitted: error result]\nafter\n[image omitted: error result]",
+    );
+    expect(JSON.stringify(toolResult)).not.toContain(PNG);
+  });
+
+  it("a successful result keeps its image block", () => {
+    const toolResult = wireBlocks(toAnthropicMessages(history(false))).find(
+      (b) => b.type === "tool_result",
+    );
+    expect((toolResult?.content as Wire[]).map((b) => b.type)).toEqual([
+      "text",
+      "image",
+      "text",
+      "video",
+    ]);
+  });
+
+  it("the tool_reference branch also sends no image for an error result", () => {
+    const result = toAnthropicMessages(history(true, ["steroids"]), undefined, {
+      toolReferences: new Set(["steroids"]),
+    });
+    const blocks = wireBlocks(result);
+    expect(blocks.map((b) => b.type)).not.toContain("image");
+    expect(blocks.map((b) => b.type)).not.toContain("video");
+    expect(JSON.stringify(blocks)).not.toContain(PNG);
+    expect(JSON.stringify(blocks)).toContain("[image omitted: error result]");
+  });
+});

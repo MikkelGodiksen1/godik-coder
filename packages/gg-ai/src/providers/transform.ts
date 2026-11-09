@@ -905,6 +905,29 @@ function toAnthropicToolResultContent(
   });
 }
 
+/** Stands in for an image or video block inside an error tool_result. */
+export const ERROR_RESULT_MEDIA_PLACEHOLDER = "[image omitted: error result]";
+
+/**
+ * The one chokepoint for tool_result content sent to Anthropic. The API 400s
+ * with "tool_result: all content must be type `text` if `is_error` is true",
+ * and every later request repeats the poisoned block. So an error result is
+ * sent as text only: text kept, each image/video block replaced by
+ * {@link ERROR_RESULT_MEDIA_PLACEHOLDER}, collapsed to one string. Applied on
+ * every request, so it also heals session histories saved before the fix.
+ */
+function toAnthropicToolResultContentFor(result: {
+  content: ToolResultContent;
+  isError?: boolean;
+}): string | AnthropicToolResultBlock[] {
+  if (!result.isError || typeof result.content === "string") {
+    return toAnthropicToolResultContent(result.content);
+  }
+  return result.content
+    .map((block) => (block.type === "text" ? block.text : ERROR_RESULT_MEDIA_PLACEHOLDER))
+    .join("\n");
+}
+
 /**
  * Anthropic requires tool_use IDs to match `^[a-zA-Z0-9_-]+$`. Codex tool IDs
  * are composite (`callId|itemId`) and other providers may include dots/colons.
@@ -1061,12 +1084,12 @@ export function toAnthropicMessages(
           return {
             type: "tool_result" as const,
             tool_use_id: toolUseId,
-            content: toAnthropicToolResultContent(result.content),
+            content: toAnthropicToolResultContentFor(result),
             is_error: result.isError,
           };
         }
         for (const name of refs) referencedTools.add(name);
-        const original = toAnthropicToolResultContent(result.content);
+        const original = toAnthropicToolResultContentFor(result);
         const parts = typeof original === "string" ? [{ type: "text", text: original }] : original;
         const first = parts.findIndex((part) => part.type === "text" && part.text !== "");
         parts.forEach((part, index) => {

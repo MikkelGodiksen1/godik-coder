@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { z } from "zod";
 import type { Message, StreamEvent, StreamOptions, StreamResponse } from "@kenkaiiii/gg-ai";
-import { agentLoop, STEER_INTERRUPTED_TEXT } from "./agent-loop.js";
+import { agentLoop, markSteerInterrupted, STEER_INTERRUPTED_TEXT } from "./agent-loop.js";
 import { Agent } from "./agent.js";
 import type { AgentEvent, AgentOptions, AgentResult, AgentTool } from "./types.js";
 
@@ -269,5 +269,42 @@ describe("instant interrupt (steering preempts tools)", () => {
     }
     expect(Date.now() - t0).toBeLessThan(2_000);
     expect(calls[1]!.at(-1)).toMatchObject({ role: "user", content: "new direction" });
+  });
+});
+
+// Regression: the interrupted result is an error, and Anthropic rejects an
+// error tool_result holding an image (400 on every later request).
+describe("markSteerInterrupted with image blocks in the partial output", () => {
+  it("drops image/video blocks, keeps the text, and says how many were dropped", () => {
+    const marked = markSteerInterrupted({
+      toolCallId: "call_shot",
+      isError: false,
+      content: [
+        { type: "text", text: "Captured window" },
+        { type: "image", mediaType: "image/png", data: "iVBORw0KGgo=" },
+        { type: "video", mediaType: "video/mp4", data: "AAAA" },
+      ],
+    });
+    expect(marked.isError).toBe(true);
+    expect(marked.toolCallId).toBe("call_shot");
+    expect(marked.content).toEqual([
+      {
+        type: "text",
+        text: `${STEER_INTERRUPTED_TEXT}\n[2 image(s) dropped]\nPartial output:`,
+      },
+      { type: "text", text: "Captured window" },
+    ]);
+  });
+
+  it("text-only partial content gets no dropped note", () => {
+    const marked = markSteerInterrupted({
+      toolCallId: "call_text",
+      isError: false,
+      content: [{ type: "text", text: "half done" }],
+    });
+    expect(marked.content).toEqual([
+      { type: "text", text: `${STEER_INTERRUPTED_TEXT}\nPartial output:` },
+      { type: "text", text: "half done" },
+    ]);
   });
 });
