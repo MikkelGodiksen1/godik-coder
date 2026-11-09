@@ -1092,19 +1092,30 @@ export function toAnthropicMessages(
         const original = toAnthropicToolResultContentFor(result);
         const parts = typeof original === "string" ? [{ type: "text", text: original }] : original;
         const first = parts.findIndex((part) => part.type === "text" && part.text !== "");
+        // GODIK CODER: an error result that loads a tool (a deferred tool
+        // called by name with bad arguments) can't keep is_error on its
+        // tool_result: is_error demands text-only content and the reference
+        // must ride alone (both are API 400s; seen live as "messages.27.
+        // content.0.tool_result: all content must be type text if is_error is
+        // true"). The reference still loads the tool, and the error is said in
+        // the text that follows, so the model still sees the call failed.
+        const label = result.isError
+          ? `Error result of tool call ${toolUseId} (the call failed):`
+          : `Result of tool call ${toolUseId}:`;
         parts.forEach((part, index) => {
           if (part.type === "text" && part.text === "") return;
           trailing.push(
             index === first && part.type === "text"
-              ? { type: "text", text: `Result of tool call ${toolUseId}:\n${part.text}` }
+              ? { type: "text", text: `${label}\n${part.text}` }
               : part,
           );
         });
+        if (first === -1 && result.isError) trailing.push({ type: "text", text: label });
         return {
           type: "tool_result" as const,
           tool_use_id: toolUseId,
           content: refs.map((name) => ({ type: "tool_reference" as const, tool_name: name })),
-          is_error: result.isError,
+          ...(result.isError ? {} : { is_error: result.isError }),
         };
       });
       out.push({

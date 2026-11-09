@@ -1169,3 +1169,120 @@ describe("toAnthropicMessages error tool results are text only", () => {
     expect(JSON.stringify(blocks)).toContain("[image omitted: error result]");
   });
 });
+
+// Regression (live, 9 Nov 17:00, session eea75b12 line 28): a deferred tool
+// called by name with bad arguments. Its error result is where the tool loads
+// (loadedTools), so it went down the tool_reference branch and was sent as
+// tool_reference blocks WITH is_error: true -> 400 "messages.27.content.0.
+// tool_result: all content must be type `text` if `is_error` is true".
+describe("an error result that loads a deferred tool", () => {
+  const INVALID_ARGS =
+    'Invalid arguments for tool `screenshot`:\n✖ Invalid option: expected one of "click"|"type"|"wait"';
+  const history = (content: string | unknown[]): Message[] => [
+    { role: "user", content: "take a screenshot" },
+    {
+      role: "assistant",
+      content: [{ type: "tool_call", id: "toolu_01Xq5", name: "screenshot", args: { url: "x" } }],
+    },
+    {
+      role: "tool",
+      content: [
+        {
+          type: "tool_result",
+          toolCallId: "toolu_01Xq5",
+          isError: true,
+          loadedTools: ["screenshot"],
+          content: content as never,
+        },
+      ],
+    },
+  ];
+  type Wire = { type: string; content?: unknown; is_error?: boolean; text?: string };
+  const send = (messages: Message[]) =>
+    toAnthropicMessages(messages, undefined, { toolReferences: new Set(["screenshot"]) });
+  const blocksOf = (result: ReturnType<typeof toAnthropicMessages>): Wire[] =>
+    result.messages.flatMap((m) => (typeof m.content === "string" ? [] : (m.content as Wire[])));
+
+  /** The API's rule: an is_error tool_result holds text only. */
+  function expectNoNonTextErrorResult(blocks: Wire[]): void {
+    for (const b of blocks) {
+      if (b.type !== "tool_result" || b.is_error !== true) continue;
+      if (typeof b.content === "string") continue;
+      for (const part of b.content as Wire[]) expect(part.type).toBe("text");
+    }
+  }
+
+  it("still loads the tool, without is_error on the reference-only tool_result", () => {
+    const blocks = blocksOf(send(history(INVALID_ARGS)));
+    expectNoNonTextErrorResult(blocks);
+    const toolResult = blocks.find((b) => b.type === "tool_result");
+    expect(toolResult).toEqual({
+      type: "tool_result",
+      tool_use_id: "toolu_01Xq5",
+      content: [{ type: "tool_reference", tool_name: "screenshot" }],
+    });
+    expect(toolResult).not.toHaveProperty("is_error");
+  });
+
+  it("says the call failed in the text that follows, with the error itself", () => {
+    const blocks = blocksOf(send(history(INVALID_ARGS)));
+    const after = blocks.slice(blocks.findIndex((b) => b.type === "tool_result") + 1);
+    expect(after).toEqual([
+      {
+        type: "text",
+        text: `Error result of tool call toolu_01Xq5 (the call failed):\n${INVALID_ARGS}`,
+      },
+    ]);
+  });
+
+  it("an error result with images that loads a tool: text only, images replaced", () => {
+    const blocks = blocksOf(
+      send(
+        history([
+          { type: "text", text: "partial" },
+          { type: "image", mediaType: "image/png", data: "iVBORw0KGgo=" },
+        ]),
+      ),
+    );
+    expectNoNonTextErrorResult(blocks);
+    expect(JSON.stringify(blocks)).not.toContain("iVBORw0KGgo=");
+    // The user turn is a plain string, so the blocks start at the tool call.
+    expect(blocks.map((b) => b.type)).toEqual(["tool_use", "tool_result", "text"]);
+    expect(blocks.at(-1)?.text).toBe(
+      "Error result of tool call toolu_01Xq5 (the call failed):\npartial\n[image omitted: error result]",
+    );
+  });
+
+  it("an empty error result that loads a tool still says it failed", () => {
+    const blocks = blocksOf(send(history("")));
+    expectNoNonTextErrorResult(blocks);
+    expect(blocks.at(-1)).toEqual({
+      type: "text",
+      text: "Error result of tool call toolu_01Xq5 (the call failed):",
+    });
+  });
+
+  it("a successful loading result is unchanged", () => {
+    const ok: Message[] = history("1 tool(s) now available").map((m) =>
+      m.role === "tool" ? { ...m, content: m.content.map((r) => ({ ...r, isError: false })) } : m,
+    );
+    const blocks = blocksOf(send(ok));
+    expect(blocks.find((b) => b.type === "tool_result")).toEqual({
+      type: "tool_result",
+      tool_use_id: "toolu_01Xq5",
+      content: [{ type: "tool_reference", tool_name: "screenshot" }],
+      is_error: false,
+    });
+    expect(blocks.at(-1)?.text).toBe("Result of tool call toolu_01Xq5:\n1 tool(s) now available");
+  });
+
+  it("without tool references (non-Anthropic-first-party), the error stays a plain is_error text result", () => {
+    const blocks = blocksOf(toAnthropicMessages(history(INVALID_ARGS)));
+    expect(blocks.find((b) => b.type === "tool_result")).toEqual({
+      type: "tool_result",
+      tool_use_id: "toolu_01Xq5",
+      content: INVALID_ARGS,
+      is_error: true,
+    });
+  });
+});
