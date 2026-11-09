@@ -339,3 +339,131 @@ describe("whole-task activity", () => {
     }
   });
 });
+
+// GODIK CODER: a Mentor-ordre review settles only with mentor_order_result.
+// In production (order 97a2ff55) the sidecar settled the order "done" after
+// 5 s while this status kept saying "Godik reviewing…" for 20 min.
+describe("Mentor-ordre review", () => {
+  // The real sequence while an order is pending: run_end announces the review
+  // (reviewPending), then the order's review starts.
+  const reviewing = (verification: Record<string, unknown> = {}) =>
+    event(
+      event(edit(start()), "run_end", { reviewPending: true, ...verification }),
+      "autopilot_review_start",
+      {},
+      2000,
+    );
+  const result = (s: TaskActivity, outcome: string, data: Record<string, unknown> = {}) =>
+    event(s, "mentor_order_result", { id: "97a2ff55", outcome, ...data }, 7000);
+
+  it("starts in the reviewing state", () => {
+    const s = reviewing();
+    expect(s.phase).toBe("reviewing");
+    expect(s.label).toBe("Godik reviewing…");
+    expect(s.reviewPending).toBe(true);
+  });
+
+  it("done finishes the review as reviewed, with the order's reason as the note", () => {
+    const s = result(reviewing({ verification: "passed", verifiedChecks: 2 }), "done", {
+      reason: "Testene kørte og bestod.",
+    });
+    expect(s.phase).toBe("done");
+    expect(s.label).toBe("Done · checks passed");
+    expect(s.reviewPending).toBe(false);
+    expect(s.endedAt).toBe(7000);
+    expect(s.reviewed).toBe(true);
+    expect(s.detail).toContain("Godik reviewed this task.");
+    expect(s.detail).toContain("Testene kørte og bestod.");
+  });
+
+  it("done without a reason still finishes", () => {
+    const s = result(reviewing(), "done");
+    expect(s.phase).toBe("done");
+    expect(s.label).toBe("Changes saved");
+    expect(s.reviewPending).toBe(false);
+  });
+
+  it("prompted is like autopilot_prompted: GC keeps working on the correction", () => {
+    const s = result(reviewing(), "prompted");
+    expect(s).toMatchObject({
+      phase: "working",
+      label: "Applying Godik’s corrections…",
+      reviewPending: true,
+      endedAt: null,
+    });
+    expect(s).toEqual(event(reviewing(), "autopilot_prompted", {}, 7000));
+    // The prompted run then continues and settles as usual.
+    const next = event(event(s, "run_start", { continued: true }, 8000), "run_end", {}, 9000);
+    expect(next.phase).toBe("done");
+    expect(next.reviewPending).toBe(false);
+  });
+
+  it("held ends the review and shows the order's reason", () => {
+    const s = result(reviewing(), "held", {
+      reason: "Ordren er risikabel og er holdt. Bed GC køre testene, og giv så ordren igen.",
+    });
+    expect(s.phase).toBe("attention");
+    expect(s.label).toBe("Your decision needed");
+    expect(s.detail).toBe(
+      "Ordren er risikabel og er holdt. Bed GC køre testene, og giv så ordren igen.",
+    );
+    expect(s.reviewPending).toBe(false);
+    expect(s.endedAt).toBe(7000);
+  });
+
+  it("held while checks are unfinished settles on the verification state, with the reason", () => {
+    const pending = event(edit(start()), "run_end", { reviewPending: true });
+    const s = result({ ...pending, verification: "incomplete" }, "held", {
+      reason: "Ikke dækket.",
+    });
+    expect(s.phase).toBe("unverified");
+    expect(s.reviewPending).toBe(false);
+    expect(s.detail).toContain("Ikke dækket.");
+  });
+
+  it.each(["nothing", "cancelled"])("%s ends the review without a verdict", (outcome) => {
+    const s = result(reviewing(), outcome, { reason: "Ordren blev annulleret." });
+    expect(s.phase).toBe("done");
+    expect(s.reviewPending).toBe(false);
+    expect(s.reviewed).toBe(false);
+    expect(s.endedAt).toBe(7000);
+    expect(s.detail).toContain("Godik did not review this task.");
+    expect(s.detail).toContain("Ordren blev annulleret.");
+    // Same settled state as autopilot_ignored, plus the order's note.
+    const ignored = event(reviewing(), "autopilot_ignored", {}, 7000);
+    expect({ ...s, detail: "", reviewNote: "" }).toEqual({
+      ...ignored,
+      detail: "",
+      reviewNote: "",
+    });
+  });
+
+  it("an order held before any review ends the 'Preparing review…' handoff", () => {
+    const preparing = event(edit(start()), "run_end", { reviewPending: true });
+    expect(preparing.label).toBe("Preparing Godik’s review…");
+    const s = result(preparing, "held", { reason: "Holdt: planen venter på din beslutning." });
+    expect(s.phase).toBe("attention");
+    expect(s.reviewPending).toBe(false);
+  });
+
+  it("no longer hangs: the production sequence leaves the reviewing state", () => {
+    // Before the fix this stayed { phase: "reviewing", reviewPending: true }
+    // forever, because nothing else arrives after mentor_order_result.
+    let s = reviewing({ verification: "passed", verifiedChecks: 1 });
+    s = result(s, "done");
+    expect(s.phase).not.toBe("reviewing");
+    expect(s.label).not.toContain("reviewing");
+    expect(s.reviewPending).toBe(false);
+    expect(s.endedAt).not.toBeNull();
+    // Once settled, a late duplicate or stray review frame changes nothing.
+    expect(result(s, "done")).toBe(s);
+    expect(event(s, "autopilot_review_start")).toBe(s);
+  });
+
+  it("a result with no review in flight is ignored", () => {
+    const done = event(start(), "run_end");
+    expect(result(done, "done")).toBe(done);
+    const working = start();
+    expect(result(working, "held", { reason: "x" })).toBe(working);
+  });
+});

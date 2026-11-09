@@ -214,6 +214,7 @@ const PROGRESS_EVENTS = new Set([
   "autopilot_human",
   "autopilot_capped",
   "autopilot_error",
+  "mentor_order_result",
 ]);
 
 /** Only event/evidence fields set outcomes. Assistant prose never determines success. */
@@ -646,6 +647,51 @@ export function reduceTaskActivity(s: TaskActivity, e: SidecarEvent, now: number
         endedAt: now,
         reviewPending: false,
       };
+    // GODIK CODER: a Mentor-ordre review starts with autopilot_review_start (and
+    // run_end announces it with reviewPending) but settles ONLY with
+    // mentor_order_result; the cycle's autopilot_done/ignored/human/capped are
+    // mapped onto the order and never broadcast. Without this case the status
+    // stayed on "reviewing…" forever. An order held before any review (risky,
+    // pending plan) also ends the "Preparing review…" handoff here.
+    case "mentor_order_result": {
+      if (!s.reviewPending) return s;
+      const note = reason(d, "");
+      switch (d.outcome) {
+        case "prompted":
+          return {
+            ...s,
+            phase: "working",
+            label: `Applying ${MENTOR_NAME}’s corrections…`,
+            reviewPending: true,
+            endedAt: null,
+          };
+        case "done":
+          return finish({ ...s, phase: "working", reviewed: true, reviewNote: note }, now);
+        case "held":
+          if (s.verification === "failed" || s.verification === "incomplete")
+            return finish({ ...s, phase: "working", detail: reason(d, s.detail) }, now);
+          return {
+            ...s,
+            phase: "attention",
+            label: "Your decision needed",
+            detail: reason(d, `Review ${MENTOR_NAME}’s order result in chat before continuing.`),
+            endedAt: now,
+            reviewPending: false,
+          };
+        default:
+          // "nothing", "cancelled", or an outcome this build does not know:
+          // the review is over without a verdict, like autopilot_ignored.
+          return finish(
+            {
+              ...s,
+              phase: s.phase === "reviewing" ? "working" : s.phase,
+              reviewed: false,
+              reviewNote: note,
+            },
+            now,
+          );
+      }
+    }
     case "error":
       return ["working", "reviewing"].includes(s.phase)
         ? {
