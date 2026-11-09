@@ -17,6 +17,9 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
  * passing tests. Autopilot itself stays OFF in every scenario.
  *
  * Main agent script: RUN_TESTS runs `npm test` (a real script that exits 0),
+ * SCRATCH_TESTS writes two files into scratch/ (no package.json there) and
+ * runs `cd scratch && node --test` for real; SCRATCH_TESTS_PERSIST does the
+ * same run in the persistent shell (`cd` then `node --test`, both persist).
  * SLOW answers after a delay, anything else answers "Done.". Autopilot Ken is
  * recognised by his verdict-only system prompt and answers `kenVerdict`.
  */
@@ -47,6 +50,8 @@ let kenVerdict = "";
 /** The user-message text of every Autopilot-Ken review call. */
 const kenReviews: string[] = [];
 const openStreams: http.IncomingMessage[] = [];
+/** What GC's tools returned during a SCRATCH_TESTS turn (the last result per request). */
+const scratchToolOutputs: string[] = [];
 
 // ── Scripted model server ───────────────────────────────────────────────────
 
@@ -57,6 +62,32 @@ interface ChatRequest {
 }
 
 type Reply = { text: string } | { tool: string; args: Record<string, unknown> };
+
+const scratchDir = (): string => path.join(tmpProject, "scratch");
+const SCRATCH_SOURCE = "export const slug = (s) => s.trim().toLowerCase().replace(/\\s+/g, '-');\n";
+const SCRATCH_TEST =
+  'import { test } from "node:test";\nimport assert from "node:assert/strict";\n' +
+  'import { slug } from "./slug.mjs";\n' +
+  'test("slug", () => assert.equal(slug(" A  B "), "a-b"));\n';
+
+/** The scratch turn, one tool call per model request (step = tool results so far). */
+function scratchStep(step: number, persist: boolean): Reply {
+  const dir = scratchDir();
+  const steps: Reply[] = [
+    { tool: "write", args: { file_path: path.join(dir, "slug.mjs"), content: SCRATCH_SOURCE } },
+    {
+      tool: "write",
+      args: { file_path: path.join(dir, "slug.test.mjs"), content: SCRATCH_TEST },
+    },
+    ...(persist
+      ? [
+          { tool: "bash", args: { command: `cd "${dir}"`, persist: true } },
+          { tool: "bash", args: { command: "node --test", persist: true } },
+        ]
+      : [{ tool: "bash", args: { command: `cd "${dir}" && node --test` } }]),
+  ];
+  return steps[step] ?? { text: "Done." };
+}
 
 function scriptedReply(body: ChatRequest): Reply {
   const messages = body.messages ?? [];
@@ -73,6 +104,20 @@ function scriptedReply(body: ChatRequest): Reply {
   const isMainAgent = (body.tools ?? []).some((t) =>
     ["ask_user", "tool_search", "exit_plan"].includes(t.function?.name ?? ""),
   );
+  const lastUser = messages.map((m) => m.role).lastIndexOf("user");
+  const userSaid = JSON.stringify(messages[lastUser]?.content ?? "");
+  if (isMainAgent && userSaid.includes("SCRATCH_TESTS")) {
+    const toolResults = messages.slice(lastUser + 1).filter((m) => m.role === "tool").length;
+    const reply = scratchStep(toolResults, userSaid.includes("SCRATCH_TESTS_PERSIST"));
+    scratchToolOutputs.push(
+      ...messages
+        .slice(lastUser + 1)
+        .filter((m) => m.role === "tool")
+        .slice(-1)
+        .map((m) => JSON.stringify(m.content)),
+    );
+    return reply;
+  }
   if (!isMainAgent || last?.role !== "user") return { text: "Done." };
   if (said.includes("RUN_TESTS")) return { tool: "bash", args: { command: "npm test" } };
   return { text: "Done." };
@@ -341,6 +386,7 @@ type Window = { session: string; events: SidecarEvent[] };
 
 beforeEach(async () => {
   kenReviews.length = 0;
+  scratchToolOutputs.length = 0;
   slowMs = 2_500;
   kenVerdict = "PROMPT\nAdd the line ORDER_DONE to README.md.";
   tmpHome = await fs.mkdtemp(path.join(os.tmpdir(), "gg-order-home-"));
@@ -579,5 +625,55 @@ describe("Mentor-ordre (real daemon, Autopilot off)", () => {
     expect(rows).toEqual([
       expect.objectContaining({ text: "add a README line saying ORDER_DONE", status: "lost" }),
     ]);
+  }, 120_000);
+});
+
+// GODIK CODER: an order held with "no successful check covers the current
+// changes" right after GC ran `node --test` green in a folder without
+// package.json. That run happened in the persistent shell, which the host
+// never counts as evidence (on purpose). A plain run counts.
+describe("Mentor-ordre after GC writes files and runs node --test (real daemon)", () => {
+  it("changed files + a passing `node --test` + a plain order: the order reaches the review and is not held", async () => {
+    const w = await openWindow();
+    await fs.mkdir(scratchDir());
+    kenVerdict = "ALL_CLEAR";
+    await promptAndSettle(w, "SCRATCH_TESTS");
+
+    // GC really wrote the files and the real test run passed.
+    expect(await fs.readFile(path.join(scratchDir(), "slug.test.mjs"), "utf-8")).toBe(SCRATCH_TEST);
+    await expect(fs.access(path.join(scratchDir(), "package.json"))).rejects.toThrow();
+    expect(scratchToolOutputs.at(-1)).toMatch(/Exit code: 0/);
+
+    await order(w.session, "tjek at testene faktisk blev kørt og bestod");
+    await waitForResult(w);
+    expect(fired(w)).toBe(1);
+    expect(kenReviews).toHaveLength(1);
+    expect(kenReviews[0]).toContain(ORDER_HEADING);
+    expect(kenReviews[0]).toContain("tjek at testene faktisk blev kørt og bestod");
+    expect(results(w.events)).toEqual([expect.objectContaining({ outcome: "done" })]);
+    expect(prompted(w)).toBe(0);
+    expect(await historyOrders(w.session)).toEqual([expect.objectContaining({ status: "done" })]);
+  }, 120_000);
+
+  it("the same green run in the persistent shell holds with a Danish reason, then the gate's text", async () => {
+    const w = await openWindow();
+    await fs.mkdir(scratchDir());
+    await promptAndSettle(w, "SCRATCH_TESTS_PERSIST");
+    expect(scratchToolOutputs.at(-1)).toMatch(/Exit code: 0/);
+
+    await order(w.session, "tjek at testene faktisk blev kørt og bestod");
+    await waitForResult(w);
+    expect(kenReviews).toHaveLength(0);
+    expect(prompted(w)).toBe(0);
+    const [result] = results(w.events);
+    expect(result?.outcome).toBe("held");
+    const reason = String(result?.reason);
+    expect(reason).toMatch(/^GC's ændringer er ikke dækket af en bestået test/);
+    expect(reason).toContain("vedvarende shell (persist) tæller ikke");
+    expect(reason).toMatch(
+      /\(Værtens besked: Unverified: no successful check covers the current changes\. Run the project's verification before approval\.\)$/,
+    );
+    const [row] = await historyOrders(w.session);
+    expect(row).toEqual(expect.objectContaining({ status: "held", reason }));
   }, 120_000);
 });

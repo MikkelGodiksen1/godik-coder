@@ -8,6 +8,7 @@ import {
   readMentorOrderMarker,
   renderMentorOrderSection,
   testEvidenceProblem,
+  unverifiedOrderHoldReason,
   type MentorOrderMarkerData,
 } from "./mentor-order.js";
 import { buildKenAutopilotContext } from "./ken-context.js";
@@ -85,6 +86,31 @@ describe("test evidence", () => {
     expect(isTestCommand("pnpm lint")).toBe(false);
     expect(isTestCommand("pnpm build")).toBe(false);
     expect(isTestCommand("tsc --noEmit")).toBe(false);
+  });
+
+  // Same classification as the host's verification evidence (not a separate
+  // regex): the old regex never matched `node --test`.
+  it.each([
+    ["node --test x.mjs", true],
+    ["node --test", true],
+    ["cd scratch && node --test 2>&1 | tail -20", true],
+    ["pnpm test", true],
+    ["vitest run", true],
+    ["npx vitest run src/a.test.ts", true],
+    ["cargo test", true],
+    ["go test ./...", true],
+    ["node script.js --test", false],
+    ["node --check x.mjs", false],
+    ["pnpm lint", false],
+    ["eslint .", false],
+    ["git commit -m test", false],
+  ])("isTestCommand(%j) is %s", (command, expected) => {
+    expect(isTestCommand(command)).toBe(expected);
+  });
+
+  it("a green `node --test x.mjs` run is passing test evidence", () => {
+    expect(testEvidenceProblem([ev("node --test x.mjs", "passed")])).toBeNull();
+    expect(testEvidenceProblem([ev("node --test x.mjs", "failed")])).toMatch(/fejlede/);
   });
 
   it("no test run at all is not evidence", () => {
@@ -239,5 +265,37 @@ describe("history row", () => {
     ).toEqual({ id: "o1", text: "deploy", status: "cancelled", reason: "cancelled" });
     expect(readMentorOrderMarker({ id: 1 })).toBeNull();
     expect(readMentorOrderMarker({ id: "x", text: "t", phase: "weird" })).toBeNull();
+  });
+});
+
+describe("unverifiedOrderHoldReason", () => {
+  const NO_CHECK =
+    "Unverified: no successful check covers the current changes. Run the project's verification before approval.";
+  const FAILED =
+    "Unverified: a check failed or did not confirm success. Rerun that check successfully before approval.";
+
+  it("says in Danish what to do, then shows the gate's own text", () => {
+    const reason = unverifiedOrderHoldReason(NO_CHECK);
+    expect(reason).toMatch(/^GC's ændringer er ikke dækket af en bestået test/);
+    expect(reason).toContain("Bed GC køre testene som en almindelig kommando");
+    expect(reason).toContain("vedvarende shell (persist) tæller ikke");
+    expect(reason).toContain("Giv så ordren igen.");
+    expect(reason.endsWith(`(Værtens besked: ${NO_CHECK})`)).toBe(true);
+    expect(reason.indexOf("Giv så ordren igen.")).toBeLessThan(reason.indexOf(NO_CHECK));
+  });
+
+  it("a failed check asks for a fix and a green rerun", () => {
+    const reason = unverifiedOrderHoldReason(FAILED);
+    expect(reason).toMatch(/^Et check fejlede/);
+    expect(reason).toContain("Bed GC rette fejlen og køre checket igen");
+    expect(reason.endsWith(`(Værtens besked: ${FAILED})`)).toBe(true);
+  });
+
+  it("any other gate text still gets a Danish lead and the raw text", () => {
+    const raw =
+      "Unverified: a background check is still running or its result has not been confirmed.";
+    const reason = unverifiedOrderHoldReason(raw);
+    expect(reason).toMatch(/^GC's sidste tur er ikke bekræftet/);
+    expect(reason.endsWith(`(Værtens besked: ${raw})`)).toBe(true);
   });
 });

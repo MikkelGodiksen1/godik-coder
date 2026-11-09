@@ -23,6 +23,10 @@ export interface VerificationCommandClassification {
   /** A non-zero exit may come from a non-check part (`grep` matching nothing),
    *  so it is not recorded as a failed check — only as missing evidence. */
   ambiguousFailure?: boolean;
+  /** GODIK CODER: the command runs a test suite (a test runner or a `test`
+   *  package script), whether or not it is accepted as evidence. Lint, format,
+   *  typecheck and build checks leave it unset. */
+  runsTests?: boolean;
 }
 
 export interface VerificationEvidence {
@@ -128,6 +132,13 @@ function classifyTestRunner(
   executable: string,
   tokens: readonly string[],
 ): VerificationCommandClassification {
+  return { ...classifyTestRunnerMode(executable, tokens), runsTests: true };
+}
+
+function classifyTestRunnerMode(
+  executable: string,
+  tokens: readonly string[],
+): VerificationCommandClassification {
   const flags = lowerFlags(tokens);
   if (hasFlag(flags, LONG_RUNNING_FLAGS) || flags.has("--watch=false")) {
     return rejected(true, "long-running or interactive test mode");
@@ -194,13 +205,15 @@ function classifyDirect(tokens: readonly string[]): VerificationCommandClassific
     if (subcommand === "fmt" && !flags.has("--check")) {
       return rejected(true, "cargo fmt must explicitly use --check", true);
     }
-    return ["check", "clippy", "test", "fmt"].includes(subcommand)
+    if (subcommand === "test") return { ...accepted("bounded Cargo check"), runsTests: true };
+    return ["check", "clippy", "fmt"].includes(subcommand)
       ? accepted("bounded Cargo check")
       : rejected(false, "not a recognized verification command");
   }
   if (executable === "go") {
     const subcommand = tokens[1]?.toLowerCase();
-    return subcommand === "test" || subcommand === "vet"
+    if (subcommand === "test") return { ...accepted("bounded Go check"), runsTests: true };
+    return subcommand === "vet"
       ? accepted("bounded Go check")
       : rejected(
           subcommand === "build" || subcommand === "clean",
@@ -212,6 +225,18 @@ function classifyDirect(tokens: readonly string[]): VerificationCommandClassific
 }
 
 function classifyPackageRunner(tokens: readonly string[]): VerificationCommandClassification {
+  const result = classifyPackageRunnerScript(tokens);
+  return result.script !== undefined && /^test(?::|$)/.test(result.script)
+    ? { ...result.classification, runsTests: true }
+    : result.classification;
+}
+
+/** The package-runner verdict, plus the script name when one was resolved
+ *  (none for `exec`/`dlx`/bare binaries, which classifyDirect judged). */
+function classifyPackageRunnerScript(tokens: readonly string[]): {
+  classification: VerificationCommandClassification;
+  script?: string;
+} {
   const runner = tokens[0].toLowerCase();
   let index = 1;
   while (index < tokens.length) {
@@ -233,12 +258,13 @@ function classifyPackageRunner(tokens: readonly string[]): VerificationCommandCl
   }
 
   const action = tokens[index]?.toLowerCase();
-  if (!action) return rejected(false, "package runner has no command");
-  if (["exec", "x", "dlx"].includes(action)) return classifyDirect(tokens.slice(index + 1));
+  if (!action) return { classification: rejected(false, "package runner has no command") };
+  if (["exec", "x", "dlx"].includes(action))
+    return { classification: classifyDirect(tokens.slice(index + 1)) };
 
   const scriptIndex = action === "run" ? index + 1 : index;
   const script = tokens[scriptIndex]?.toLowerCase();
-  if (!script) return rejected(false, "package runner has no script");
+  if (!script) return { classification: rejected(false, "package runner has no script") };
   if (UNSAFE_PACKAGE_SCRIPTS.test(script)) {
     const result = rejected(
       true,
@@ -258,21 +284,27 @@ function classifyPackageRunner(tokens: readonly string[]): VerificationCommandCl
       !hasFlag(flags, AMBIGUOUS_FLAGS)
     )
       result.snapshotEligible = true;
-    return result;
+    return { classification: result, script };
   }
   if (!SAFE_PACKAGE_SCRIPTS.test(script)) {
     // pnpm permits omitting exec for installed binaries, e.g. pnpm vitest run.
-    if (runner === "pnpm" && action !== "run") return classifyDirect(tokens.slice(index));
-    return rejected(false, "package script is not a recognized verification check");
+    if (runner === "pnpm" && action !== "run")
+      return { classification: classifyDirect(tokens.slice(index)) };
+    return {
+      classification: rejected(false, "package script is not a recognized verification check"),
+      script,
+    };
   }
 
   const scriptArgs = tokens.slice(scriptIndex + 1).filter((token) => token !== "--");
   const flags = lowerFlags(scriptArgs);
-  if (hasFlag(flags, LONG_RUNNING_FLAGS)) return rejected(true, "long-running package-script mode");
-  if (hasFlag(flags, MUTATING_FLAGS)) return rejected(true, "mutating package-script mode", true);
+  if (hasFlag(flags, LONG_RUNNING_FLAGS))
+    return { classification: rejected(true, "long-running package-script mode"), script };
+  if (hasFlag(flags, MUTATING_FLAGS))
+    return { classification: rejected(true, "mutating package-script mode", true), script };
   if (hasFlag(flags, AMBIGUOUS_FLAGS))
-    return rejected(true, "package script does not prove correctness");
-  return accepted(`bounded ${runner} verification script`);
+    return { classification: rejected(true, "package script does not prove correctness"), script };
+  return { classification: accepted(`bounded ${runner} verification script`), script };
 }
 
 /** Trailing stderr redirects that cannot change a check's exit status or write a
@@ -297,6 +329,23 @@ function classifySegment(rawSegment: string): VerificationCommandClassification 
  * cannot rewrite, filter, or otherwise transform what the check proved — the
  * exit status (pipefail-protected) and the kept tail are the full evidence. */
 const PIPE_LIMITER = /^(?:tail|head)(?:\s+(?:-[1-9]\d*|-n\s*\d+|--lines(?:=|\s+)\d+))?\s*$/;
+
+/**
+ * GODIK CODER: true when the command runs tests, judged by the SAME parse the
+ * host's evidence uses (each top-level segment through classifySegment), so a
+ * Mentor-ordre and the verification gate never disagree about what a test run
+ * is. `node --test x.mjs`, `pnpm test`, `npm run test:unit`, `vitest run`,
+ * `cd app && pytest -q 2>&1 | tail` count; lint/typecheck/build do not, and
+ * neither does `node script.js --test` (there `--test` is a script argument).
+ */
+export function isTestRunCommand(command: string): boolean {
+  const segments = topLevelSegments(command);
+  if (!segments) return false;
+  // A pipeline's later stages are filters, never the check itself.
+  return segments.some(
+    (segment) => segment.before !== "|" && classifySegment(segment.text).runsTests === true,
+  );
+}
 
 /** Fail-closed classifier: bounded checks with narrowly allowed non-check preludes.
  *

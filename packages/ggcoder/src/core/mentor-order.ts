@@ -15,7 +15,7 @@
  */
 import { randomUUID } from "node:crypto";
 import { CODER_NAME, MENTOR_NAME } from "./brand.js";
-import type { VerificationEvidence } from "./verification-evidence.js";
+import { isTestRunCommand, type VerificationEvidence } from "./verification-evidence.js";
 
 /** Longest order text accepted. */
 export const MENTOR_ORDER_MAX_CHARS = 4000;
@@ -73,12 +73,13 @@ export function isRiskyOrder(text: string): boolean {
 
 // ── Test evidence ───────────────────────────────────────────────────────────
 
-/** A command that runs tests (not lint/build/typecheck). */
-const TEST_COMMAND =
-  /(?<![\w-])(?:test|tests|test:[\w:-]+|vitest|jest|mocha|ava|pytest|unittest|nosetests|rspec|phpunit|playwright|cypress|ctest|bats|tox)(?![\w-])/i;
-
+/**
+ * A command that runs tests (not lint/build/typecheck). The same parse the
+ * host's verification evidence uses, so `node --test x.mjs` counts here
+ * exactly when it counts there.
+ */
 export function isTestCommand(command: string): boolean {
-  return TEST_COMMAND.test(command);
+  return isTestRunCommand(command);
 }
 
 /**
@@ -113,6 +114,25 @@ export function riskyOrderHoldReason(problem: string): string {
     `migrering), så den kræver beståede tests fra ${CODER_NAME}'s sidste tur først. ${problem} ` +
     `Bed ${CODER_NAME} køre testene, og giv så ordren igen.`
   );
+}
+
+/**
+ * Hold reason when the host's verification gate says GC's changes are not
+ * covered by a passing check: Danish, saying what to do, then the gate's own
+ * text so nothing is hidden.
+ */
+export function unverifiedOrderHoldReason(gateProblem: string): string {
+  const what = /a check failed/i.test(gateProblem)
+    ? `Et check fejlede i ${CODER_NAME}'s arbejde og er ikke kørt grønt igen siden. ` +
+      `Bed ${CODER_NAME} rette fejlen og køre checket igen, og giv så ordren igen.`
+    : /no successful check covers/i.test(gateProblem)
+      ? `${CODER_NAME}'s ændringer er ikke dækket af en bestået test eller et check, som værten selv har set køre. ` +
+        `Bed ${CODER_NAME} køre testene som en almindelig kommando, fx \`node --test\` eller ` +
+        `\`cd mappen && pnpm test\`. En kørsel i den vedvarende shell (persist) tæller ikke. ` +
+        `Giv så ordren igen.`
+      : `${CODER_NAME}'s sidste tur er ikke bekræftet af et bestået check endnu. ` +
+        `Vent til checket er færdigt, eller bed ${CODER_NAME} køre testene igen, og giv så ordren igen.`;
+  return `${what} (Værtens besked: ${gateProblem})`;
 }
 
 export const PLAN_PENDING_HOLD_REASON = `${CODER_NAME} har en plan, der venter på dig. Godkend eller afvis den først, og giv så ordren igen.`;

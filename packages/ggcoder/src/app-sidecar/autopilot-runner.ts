@@ -39,6 +39,7 @@ import {
   PLAN_PENDING_HOLD_REASON,
   REVIEW_STOPPED_REASON,
   riskyOrderHoldReason,
+  unverifiedOrderHoldReason,
   testEvidenceProblem,
   type MentorOrder,
   type MentorOrderOutcome,
@@ -266,7 +267,12 @@ export function createAutopilotRunner(ctx: AutopilotRunnerContext): AutopilotRun
             : ctx.MAX_AUTOPILOT_ROUNDS,
         ...(order ? { requestChecksFirst: false } : {}),
         isCancelled: () => ctx.autopilotCancelled,
-        verificationProblem: () => ctx.session.getVerificationProblem(),
+        // A Mentor-ordre held by the gate gets a Danish reason saying what to
+        // do, with the gate's own text after it.
+        verificationProblem: () => {
+          const problem = ctx.session.getVerificationProblem();
+          return problem && order ? unverifiedOrderHoldReason(problem) : problem;
+        },
         // An injected run entering plan mode WITHOUT submitting (enter_plan,
         // no exit_plan) halts the cycle — Ken never prompts into a read-only
         // plan-mode session. A submitted plan takes the planPending branch.
