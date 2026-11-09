@@ -45,6 +45,15 @@ export interface HistoryEntryForWire {
   infoKind?: "video_warning";
   /** Safety-block chat row (persisted `security` app marker). */
   security?: { rule: string; target: string };
+  /** GODIK CODER: one Mentor-ordre row (its steps folded into the latest). */
+  mentorOrder?: {
+    id: string;
+    text: string;
+    status:
+      "pending" | "reviewing" | "prompted" | "held" | "done" | "nothing" | "cancelled" | "lost";
+    reason?: string;
+    body?: string;
+  };
   /** A command the user ran themselves (persisted `shell` app marker). */
   shell?: {
     runId: string;

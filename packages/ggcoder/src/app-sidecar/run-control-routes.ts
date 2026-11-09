@@ -403,6 +403,8 @@ export function handleRunControlRoutes(
       ctx.autopilotCancelled = true;
       // Stop also drops a pending rule suggestion (and one still in flight).
       ctx.ruleSuggestions.clear();
+      // ...and a Mentor-ordre still waiting for GC's turn to end.
+      ctx.mentorOrders.clear("stopped");
       if (!ctx.runLifecycle.running) {
         ctx.kenAutoAbort.abort();
         ctx.kenAutoAbort = new AbortController();
@@ -452,6 +454,8 @@ export function handleRunControlRoutes(
       json(res, 409, { error: "cannot start a new session while running" });
       return true;
     }
+    // The old conversation's order goes with it (recorded in that file).
+    ctx.mentorOrders.clear("new_session");
     void ctx.session
       .newSession()
       .then(async () => {

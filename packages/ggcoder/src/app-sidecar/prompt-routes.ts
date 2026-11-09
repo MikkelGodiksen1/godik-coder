@@ -16,6 +16,7 @@ import { readBody, json } from "./http.js";
 import { type AppAttachment, prepareAttachments } from "./attachments.js";
 import { getModel } from "../core/model-registry.js";
 import { saveAutopilot } from "./app-settings.js";
+import { MENTOR_ORDER_MAX_CHARS } from "../core/mentor-order.js";
 import { appendAutopilotRule, normalizeRuleLine } from "../core/autopilot-rule-suggestions.js";
 import { lastAssistantText, buildKenContext } from "./ken-context.js";
 import { buildGoalBoard } from "../core/goal-board.js";
@@ -356,7 +357,7 @@ export function handlePromptRoutes(
               await ctx.session.prompt(text);
             }
           },
-          () => ctx.autopilot,
+          () => ctx.autopilot || ctx.mentorOrders.hasPending(),
         );
         if (answersHumanStop && ctx.autopilot) {
           await ctx.suggestRuleFromReply(answersHumanStop, text);
@@ -370,31 +371,35 @@ export function handlePromptRoutes(
         // the ONLY entry point into the cycle besides the stranded-queue drain —
         // it drives any follow-up GG Coder runs itself, so the shared runAgent
         // finally never recurses.
-        const decision = shouldStartAutopilotCycle({
-          enabled: ctx.autopilot,
-          cancelled: ctx.autopilotCancelled,
-          planMode: ctx.session.getPlanMode(),
-          // A submitted plan (exit_plan fired) routes into the PLAN review
-          // branch — the cycle reviews the plan itself instead of skipping.
-          planPending: ctx.pendingPlanPath !== null,
-          workflowCommand,
-          assistantMessagesAdded:
-            countAssistantMessages(ctx.session.getMessages()) - assistantsBefore,
-          // Skip the review API call outright for turns that only started a
-          // background process (dev server/watcher), ran a read-only lookup, or
-          // committed/pushed — Ken's autopilot contract already IGNOREs these,
-          // so there's no reason to pay for that verdict.
-          mechanicalOnly: isMechanicalOnlyTurn(
-            extractTurnToolCalls(ctx.session.getMessages(), messagesBefore),
-          ),
-        });
-        if (decision.start) {
-          log("INFO", "app-sidecar", "autopilot cycle starting", { kind: decision.kind });
-          await ctx.runAutopilotCycle(text);
-          if (!ctx.autopilotCancelled) void ctx.trophies.count("autopilotReviews", ctx.sessionId);
-        } else {
-          ctx.broadcast("autopilot_ignored", { reason: decision.reason });
-          log("INFO", "app-sidecar", "autopilot skipped", { reason: decision.reason });
+        // GODIK CODER: a pending Mentor-ordre takes this turn's review instead
+        // of Autopilot; it fires once the turn has fully settled (finally below).
+        if (!ctx.mentorOrders.hasPending()) {
+          const decision = shouldStartAutopilotCycle({
+            enabled: ctx.autopilot,
+            cancelled: ctx.autopilotCancelled,
+            planMode: ctx.session.getPlanMode(),
+            // A submitted plan (exit_plan fired) routes into the PLAN review
+            // branch — the cycle reviews the plan itself instead of skipping.
+            planPending: ctx.pendingPlanPath !== null,
+            workflowCommand,
+            assistantMessagesAdded:
+              countAssistantMessages(ctx.session.getMessages()) - assistantsBefore,
+            // Skip the review API call outright for turns that only started a
+            // background process (dev server/watcher), ran a read-only lookup, or
+            // committed/pushed — Ken's autopilot contract already IGNOREs these,
+            // so there's no reason to pay for that verdict.
+            mechanicalOnly: isMechanicalOnlyTurn(
+              extractTurnToolCalls(ctx.session.getMessages(), messagesBefore),
+            ),
+          });
+          if (decision.start) {
+            log("INFO", "app-sidecar", "autopilot cycle starting", { kind: decision.kind });
+            await ctx.runAutopilotCycle(text);
+            if (!ctx.autopilotCancelled) void ctx.trophies.count("autopilotReviews", ctx.sessionId);
+          } else {
+            ctx.broadcast("autopilot_ignored", { reason: decision.reason });
+            log("INFO", "app-sidecar", "autopilot skipped", { reason: decision.reason });
+          }
         }
         // A prompt sent while Ken was reviewing (build idle) queued but had no
         // run to steer into — run it now as a fresh turn so it never strands.
@@ -406,6 +411,8 @@ export function handlePromptRoutes(
           ctx.runClaim.release();
           // The claim held the plan back until the turn fully settled.
           ctx.offerPendingPlan();
+          // GODIK CODER: a Mentor-ordre waiting for this turn fires now.
+          queueMicrotask(ctx.fireMentorOrderWhenIdle);
         }
       });
     return true;
@@ -558,6 +565,48 @@ export function handlePromptRoutes(
       log("INFO", "app-sidecar", "autopilot toggled", { enabled: String(enabled) });
       ctx.broadcast("autopilot", { autopilot: enabled });
       json(res, 200, { autopilot: enabled });
+    });
+    return true;
+  }
+
+  // GODIK CODER: Mentor-ordre. POST stores the one order for GC's current or
+  // next finished turn (replacing a pending one); empty text clears it. When GC
+  // is idle with a finished turn, the order fires straight away. GET returns
+  // the pending/firing order and recent results, so a reconnecting window can
+  // tell a finished order from one a restart lost.
+  if (url === "/mentor/order" && (method === "POST" || method === "GET")) {
+    if (ctx.mode !== "code") {
+      json(res, 404, { error: `Mentor orders are only available in ${CODER_NAME}.` });
+      return true;
+    }
+    if (method === "GET") {
+      json(res, 200, ctx.mentorOrders.snapshot());
+      return true;
+    }
+    void readBody(req, res).then((raw) => {
+      if (raw === null) return;
+      let text: string;
+      try {
+        const body = JSON.parse(raw) as { text?: unknown };
+        text = typeof body.text === "string" ? body.text.trim() : "";
+      } catch {
+        json(res, 400, { error: "invalid JSON body" });
+        return;
+      }
+      if (text.length > MENTOR_ORDER_MAX_CHARS) {
+        json(res, 400, {
+          error: `An order can be at most ${MENTOR_ORDER_MAX_CHARS} characters.`,
+        });
+        return;
+      }
+      if (!text) {
+        json(res, 200, { ok: true, cleared: ctx.mentorOrders.clear("cancelled") });
+        return;
+      }
+      const order = ctx.mentorOrders.set(text);
+      log("INFO", "app-sidecar", "mentor order stored", { id: order.id });
+      json(res, 200, { ok: true, order });
+      ctx.fireMentorOrderWhenIdle();
     });
     return true;
   }

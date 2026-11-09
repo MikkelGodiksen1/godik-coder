@@ -659,3 +659,42 @@ describe("driveAutopilotCycle — user autopilot rules", () => {
     expect(deps.emitted).toEqual([{ type: "autopilot_capped", data: { rounds: 3 } }]);
   });
 });
+
+describe("GODIK CODER: one-shot Mentor-ordre settings", () => {
+  it("requestChecksFirst false: unchecked work stops for the human without any prompt", async () => {
+    const deps = makeDeps([{ kind: "prompt", body: "do it" }], {
+      verificationProblem: () => "Unverified: current checks are missing.",
+      requestChecksFirst: false,
+      maxRounds: 1,
+    });
+    await driveAutopilotCycle(deps);
+    expect(deps.ran).toEqual([]);
+    expect(deps.injected).toEqual([]);
+    expect(deps.review).not.toHaveBeenCalled();
+    expect(deps.emitted).toEqual([
+      { type: "autopilot_human", data: { reason: "Unverified: current checks are missing." } },
+    ]);
+  });
+
+  it("maxRounds 1: a PROMPT verdict sends exactly one prompt, then the cycle ends", async () => {
+    const deps = makeDeps(
+      [
+        { kind: "prompt", body: "first" },
+        { kind: "prompt", body: "second" },
+      ],
+      { requestChecksFirst: false, maxRounds: 1 },
+    );
+    await driveAutopilotCycle(deps);
+    expect(deps.ran).toEqual(["first"]);
+    expect(deps.review).toHaveBeenCalledTimes(1);
+    expect(deps.emitted).toEqual([{ type: "autopilot_capped", data: { rounds: 1 } }]);
+  });
+
+  it("requestChecksFirst left out keeps asking for checks once (unchanged default)", async () => {
+    const deps = makeDeps([], {
+      verificationProblem: () => "Unverified: current checks are missing.",
+    });
+    await driveAutopilotCycle(deps);
+    expect(deps.ran).toEqual([AUTOPILOT_VERIFY_PROMPT]);
+  });
+});

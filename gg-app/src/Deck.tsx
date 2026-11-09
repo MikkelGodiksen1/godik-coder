@@ -106,9 +106,10 @@ export interface DeckProps {
   mentor?: { active: boolean; onToggle: () => void } | null;
   /** GODIK CODER: the Max Gas key beside Mentor; null hides it. */
   maxGas?: { active: boolean; onToggle: () => void } | null;
-  /** GODIK CODER: the Autopilot key beside Max Gas (code only); null hides it.
-   *  Disabled while a run or review is active, like the ⋯ menu's switch. */
-  autopilot?: { active: boolean; disabled: boolean; onToggle: () => void } | null;
+  /** GODIK CODER: the Mentor-ordre key beside Max Gas (code only); null hides
+   *  it. While on, the composer's text becomes a one-shot order for the mentor
+   *  instead of a message to GC. It never touches Autopilot (that lives in ⋯). */
+  mentorOrder?: { active: boolean; onToggle: () => void } | null;
 }
 
 /**
@@ -251,7 +252,7 @@ function Rail({
   toggle,
   mentor,
   maxGas,
-  autopilot,
+  mentorOrder,
 }: DeckProps & {
   radio: Radio;
   toggle: (id: DeckPanelId, event: React.MouseEvent<HTMLElement>) => void;
@@ -378,20 +379,19 @@ function Rail({
           <span className="rail-label">Max Gas</span>
         </button>
       )}
-      {autopilot && (
+      {mentorOrder && (
         <button
           type="button"
-          className="key rail-key autopilot-key"
+          className="key rail-key mentor-order-key"
           title={
-            autopilot.active
-              ? `Autopilot on: ${MENTOR_NAME} reviews each turn (rules in .gg/autopilot-rules.md)`
-              : `Autopilot: let ${MENTOR_NAME} review and steer each turn`
+            mentorOrder.active
+              ? `Mentor-ordre til: det du skriver, går til ${MENTOR_NAME} som en ordre, ikke til ${CODER_NAME}`
+              : `Mentor-ordre: giv ${MENTOR_NAME} én ordre til ${CODER_NAME}'s næste færdige tur`
           }
-          aria-pressed={autopilot.active}
-          disabled={autopilot.disabled}
-          onClick={autopilot.onToggle}
+          aria-pressed={mentorOrder.active}
+          onClick={mentorOrder.onToggle}
         >
-          <span className="rail-label">Autopilot</span>
+          <span className="rail-label">Mentor-ordre</span>
         </button>
       )}
       <span className="deck-spacer" />

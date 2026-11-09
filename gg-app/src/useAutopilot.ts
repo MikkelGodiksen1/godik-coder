@@ -135,6 +135,12 @@ export function useAutopilot(opts: {
         case "run_end":
           if (d.cancelled === true) setAutopilotReviewing(false);
           return false;
+        // GODIK CODER: a Mentor-ordre review ends on its own frame (the cycle's
+        // terminal frames go to the order row instead), so stop the spinner
+        // here too and let the order hook render the result.
+        case "mentor_order_result":
+          setAutopilotReviewing(false);
+          return false;
         case "autopilot_error": {
           setAutopilotReviewing(false);
           // The build run already ended (and sounded); this is the cycle

@@ -1,4 +1,4 @@
-import type { AskUserPrompt, PromptSegment } from "./agent";
+import type { AskUserPrompt, MentorOrderStatus, PromptSegment } from "./agent";
 import type { ChatErrorItem } from "./chat-error";
 import type { HookKind, VerificationReason } from "./HookNotice";
 import type { PlanDecision } from "./PlanDecisionNotice";
@@ -121,6 +121,17 @@ export type Item =
       text: string;
       status: "open" | "saving" | "saved" | "error";
       error?: string;
+    }
+  // GODIK CODER: a Mentor-ordre the user gave (deck key). Its status follows
+  // the sidecar's mentor_order_* frames; the outcome is persisted.
+  | {
+      kind: "mentor_order";
+      id: number;
+      orderId: string;
+      text: string;
+      status: MentorOrderStatus;
+      reason?: string;
+      body?: string;
     };
 
 export interface TranscriptImage {

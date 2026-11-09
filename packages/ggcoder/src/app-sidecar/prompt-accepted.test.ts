@@ -25,6 +25,7 @@ vi.mock("../core/autopilot-cycle.js", async (importOriginal) => ({
 const { handlePromptRoutes } = await import("./prompt-routes.js");
 const { createAutopilotRunner } = await import("./autopilot-runner.js");
 const { AutopilotRuleSuggestions } = await import("../core/autopilot-rule-suggestions.js");
+const { MentorOrders } = await import("../core/mentor-order.js");
 
 afterEach(() => {
   vi.clearAllMocks();
@@ -78,6 +79,8 @@ function promptContext(running = false) {
     runAutopilotCycle: vi.fn(async () => {}),
     runStrandedQueue: vi.fn(async () => {}),
     ruleSuggestions: new AutopilotRuleSuggestions(() => {}),
+    mentorOrders: new MentorOrders({ broadcast: () => {}, persist: async () => {} }),
+    fireMentorOrderWhenIdle: vi.fn(),
     suggestRuleFromReply: vi.fn(async () => {}),
     broadcast: vi.fn((type: string, data: Record<string, unknown>) => {
       events.push([type, data]);
@@ -252,6 +255,8 @@ function runnerContext(
     deactivateApprovedPlan: vi.fn(),
     taskRunAll: false,
     ruleSuggestions: new AutopilotRuleSuggestions(() => {}),
+    mentorOrders: new MentorOrders({ broadcast: () => {}, persist: async () => {} }),
+    runClaim: { active: false, claim: () => true, release: vi.fn() },
   } as unknown as AutopilotRunnerContext;
   return { ctx, events, labels, order };
 }

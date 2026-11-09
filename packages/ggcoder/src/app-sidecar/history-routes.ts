@@ -5,6 +5,11 @@ import type { ToolResultContent } from "@kenkaiiii/gg-ai";
 import { restoreAppErrorPayload } from "../app-error.js";
 import type { KenTurnPayload, AppMarkerPayload } from "../core/session-manager.js";
 import {
+  mentorOrderHistoryRow,
+  readMentorOrderMarker,
+  type MentorOrderMarkerData,
+} from "../core/mentor-order.js";
+import {
   normalizeAutopilotMarkersForHistory,
   normalizeAppMarkersForHistory,
   normalizeKenTurnsForHistory,
@@ -185,10 +190,23 @@ export function handleHistoryRoutes(
       // order (FIFO), not by anchor — the summary user message is what
       // positions the notice.
       const compactionCounts: Array<{ originalCount: number; newCount: number }> = [];
+      // GODIK CODER: a Mentor-ordre's steps fold into ONE row at the spot the
+      // order was given, showing its latest step (a lost pending order says so).
+      const mentorOrderSteps = new Map<string, MentorOrderMarkerData[]>();
       for (const marker of normalizeAppMarkersForHistory(
         ctx.session.getAppMarkers(),
         restoredMessageCount,
       )) {
+        if (marker.kind === "mentor_order") {
+          const step = readMentorOrderMarker(marker.data);
+          if (!step) continue;
+          const steps = mentorOrderSteps.get(step.id);
+          if (steps) {
+            steps.push(step);
+            continue;
+          }
+          mentorOrderSteps.set(step.id, [step]);
+        }
         if (marker.kind === "user_hint") {
           userHintByCount.set(marker.afterMessageCount, marker.data);
           continue;
@@ -247,6 +265,11 @@ export function handleHistoryRoutes(
                 ...(typeof d.error === "string" ? { error: d.error } : {}),
               },
             });
+          } else if (marker.kind === "mentor_order" && typeof d.id === "string") {
+            const row = mentorOrderHistoryRow(mentorOrderSteps.get(d.id) ?? [], (id) =>
+              ctx.mentorOrders.liveStatus(id),
+            );
+            if (row) history.push({ role: "assistant", text: "", mentorOrder: row });
           } else if (marker.kind === "interrupted_run") {
             // Rendered as an error row: the run's tools already changed the
             // repo, so the user needs to see it and decide what to do. We

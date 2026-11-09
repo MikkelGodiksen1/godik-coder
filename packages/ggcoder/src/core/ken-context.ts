@@ -23,6 +23,7 @@ import { autopilotPreambleOf } from "./autopilot-cycle.js";
 import { collectVerificationEvidence, type VerificationEvidence } from "./verification-evidence.js";
 import { editTargetPaths } from "../tools/edit-targets.js";
 import { renderAutopilotRulesSection } from "./autopilot-rules.js";
+import { renderMentorOrderSection } from "./mentor-order.js";
 
 /** How many of the most recent build-session messages to inline verbatim. */
 export const KEN_RECENT_MESSAGE_LIMIT = 20;
@@ -354,16 +355,24 @@ export type KenAutopilotContextInput = Omit<KenDigestInput, "question">;
  * transcript instead of answering a user. Pure — no I/O.
  */
 export function buildKenAutopilotContext(
-  input: KenAutopilotContextInput & { autopilotRules?: string },
+  input: KenAutopilotContextInput & {
+    autopilotRules?: string;
+    /** GODIK CODER: the user's one-shot Mentor-ordre, the review's instruction. */
+    mentorOrder?: { text: string; risky: boolean };
+  },
 ): string {
-  const { autopilotRules, ...rest } = input;
+  const { autopilotRules, mentorOrder, ...rest } = input;
   const digest = renderDigest(
     { ...rest, question: AUTOPILOT_REVIEW_INSTRUCTION },
     AUTOPILOT_FRAMING,
   );
   // GODIK CODER: the user's rules (.gg/autopilot-rules.md) sit right before the
   // task, in the per-review digest only — never the cached system prompt.
-  return spliceBeforeTask(digest, renderAutopilotRulesSection(autopilotRules ?? ""));
+  const withRules = spliceBeforeTask(digest, renderAutopilotRulesSection(autopilotRules ?? ""));
+  // The order goes last before the task, so it reads after (and over) the rules.
+  return mentorOrder
+    ? spliceBeforeTask(withRules, renderMentorOrderSection(mentorOrder.text, mentorOrder.risky))
+    : withRules;
 }
 
 /** Insert a section right before the trailing task section (always the last

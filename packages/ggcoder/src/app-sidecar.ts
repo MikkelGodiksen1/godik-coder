@@ -157,6 +157,7 @@ import { ShellRunner } from "./app-sidecar/shell-runs.js";
 import type { SessionRouteContext } from "./app-sidecar/route-context.js";
 import { createHfPullManager } from "./app-sidecar/hf-pull-manager.js";
 import { keepAwake } from "./app-sidecar/keep-awake.js";
+import { MentorOrders } from "./core/mentor-order.js";
 import { createAutopilotRunner } from "./app-sidecar/autopilot-runner.js";
 import { AutopilotRuleSuggestions } from "./core/autopilot-rule-suggestions.js";
 
@@ -1776,6 +1777,11 @@ async function createSession(
   let kenAutoAbort = new AbortController();
   // GODIK CODER: rule suggestions learned from replies to HUMAN stops (v2).
   const ruleSuggestions = new AutopilotRuleSuggestions(broadcast);
+  // GODIK CODER: this window's Mentor-ordre (pending in memory, steps persisted).
+  const mentorOrders = new MentorOrders({
+    broadcast,
+    persist: (data) => session.persistAppMarker("mentor_order", { ...data }),
+  });
   let pendingKenAutoModel: { provider: Provider; model: string } | null = null;
 
   async function syncKenAutoModel(provider: Provider, requested: string): Promise<void> {
@@ -2041,6 +2047,8 @@ async function createSession(
   // Moved to app-sidecar/autopilot-runner.ts
   const autopilotRunner = createAutopilotRunner({
     ruleSuggestions,
+    mentorOrders,
+    runClaim,
     get autopilotReviewing() {
       return autopilotReviewing;
     },
@@ -2192,7 +2200,13 @@ async function createSession(
       taskRunAll = v;
     },
   });
-  const { runAutopilotCycle, runStrandedQueue, runTasks, suggestRuleFromReply } = autopilotRunner;
+  const {
+    runAutopilotCycle,
+    runStrandedQueue,
+    runTasks,
+    suggestRuleFromReply,
+    fireMentorOrderWhenIdle,
+  } = autopilotRunner;
 
   // ── Idle wake for background alerts ────────────────────────
   // A background task that fails, or a child agent that finishes, after the
@@ -2225,6 +2239,7 @@ async function createSession(
         } finally {
           runClaim.release();
           offerPendingPlan();
+          queueMicrotask(fireMentorOrderWhenIdle);
         }
       },
     });
@@ -2540,6 +2555,8 @@ async function createSession(
     },
     runAutopilotCycle,
     ruleSuggestions,
+    mentorOrders,
+    fireMentorOrderWhenIdle,
     suggestRuleFromReply,
     runStrandedQueue,
     offerPendingPlan,

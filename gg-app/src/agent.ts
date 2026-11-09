@@ -1113,6 +1113,52 @@ export async function setAutopilot(enabled: boolean): Promise<boolean> {
   }
 }
 
+/** GODIK CODER: where one Mentor-ordre stands. */
+export type MentorOrderStatus =
+  "pending" | "reviewing" | "prompted" | "held" | "done" | "nothing" | "cancelled" | "lost";
+
+export type MentorOrderSendResult = { ok: true; id: string | null } | { ok: false; error: string };
+
+/** GODIK CODER: store this window's Mentor-ordre for GC's current or next
+ *  finished turn. The text is NOT sent to GC; the mentor reviews the turn with
+ *  it once and may send GC one prompt. Empty text cancels the pending order. */
+export async function setMentorOrder(text: string): Promise<MentorOrderSendResult> {
+  try {
+    await waitForReady();
+    const res = await invoke<{ order?: { id?: unknown }; cleared?: unknown }>(
+      "agent_mentor_order",
+      { text },
+    );
+    const id = typeof res.order?.id === "string" ? res.order.id : null;
+    return { ok: true, id };
+  } catch (e) {
+    const error = typeof e === "string" ? e : e instanceof Error ? e.message : String(e);
+    await logError(`agent_mentor_order failed: ${error}`);
+    return { ok: false, error };
+  }
+}
+
+export interface MentorOrderSnapshot {
+  pending: { id: string; text: string } | null;
+  firing: { id: string; text: string } | null;
+  recent: { id: string; outcome: MentorOrderStatus; reason?: string; body?: string }[];
+}
+
+/** GODIK CODER: the sidecar's pending/firing order and recent results; null on failure. */
+export async function getMentorOrderSnapshot(): Promise<MentorOrderSnapshot | null> {
+  try {
+    const res = await invoke<Partial<MentorOrderSnapshot>>("agent_mentor_order_get");
+    return {
+      pending: res.pending ?? null,
+      firing: res.firing ?? null,
+      recent: Array.isArray(res.recent) ? res.recent : [],
+    };
+  } catch (e) {
+    await logError(`agent_mentor_order_get failed: ${String(e)}`);
+    return null;
+  }
+}
+
 /** GODIK CODER: Save on an Autopilot rule suggestion. The sidecar appends one
  *  line to the project's `.gg/autopilot-rules.md`, only while the suggestion is
  *  still pending (a new prompt or Stop since then makes it stale). */
@@ -1190,6 +1236,15 @@ export interface HistoryEntry {
   /** True when this user prompt came from a Ken "Send to GG Coder" button —
    *  render the shimmering label instead of the prompt body (matches live). */
   kenSent?: boolean;
+  /** GODIK CODER: a Mentor-ordre row, at its latest known step. `lost` = it was
+   *  still waiting when the sidecar restarted, so it never fired. */
+  mentorOrder?: {
+    id: string;
+    text: string;
+    status: MentorOrderStatus;
+    reason?: string;
+    body?: string;
+  };
   /** Enhancer highlight segments, restored for unedited enhanced sends. */
   enhancements?: PromptSegment[];
   /** Plan-mode entry banner (reason), persisted at plan_enter. */

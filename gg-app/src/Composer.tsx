@@ -1,6 +1,7 @@
 import type { Dispatch, MutableRefObject, RefObject, SetStateAction } from "react";
 import { ArrowUpIcon, PaperclipIcon, SquareIcon } from "@phosphor-icons/react";
 import { ShellCommandMenu } from "./ShellCommandMenu";
+import { CODER_NAME, MENTOR_NAME } from "./brand";
 import type { ShellSuggestion } from "./agent";
 import {
   cancelKen,
@@ -78,6 +79,8 @@ export interface ComposerProps {
   enhanceHintVisible: boolean;
   runEnhance: () => Promise<void>;
   kenActive: boolean;
+  /** GODIK CODER: Mentor-ordre mode: the text goes to the mentor as an order. */
+  orderMode?: boolean;
   /** The input starts with `!`: it runs a command instead of messaging GG. */
   shellMode: boolean;
   /** The `!` picker, when it has commands to offer. */
@@ -163,6 +166,7 @@ export function Composer({
   enhanceHintVisible,
   runEnhance,
   kenActive,
+  orderMode = false,
   shellMode,
   shellMenu,
   kenInputParts,
@@ -180,7 +184,9 @@ export function Composer({
       ref={composerRef}
       className={`inputwrap${isFileDragOver ? " dragover" : ""}${
         scheduleInvalid ? " schedule-invalid" : ""
-      }${kenActive ? " ken-active" : ""}${shellMode ? " shell-mode" : ""}`}
+      }${kenActive || orderMode ? " ken-active" : ""}${orderMode ? " order-active" : ""}${
+        shellMode ? " shell-mode" : ""
+      }`}
     >
       <WorkingBeam active={running || kenRunning || autopilotReviewing} />
       {scheduleDraft && (
@@ -290,11 +296,13 @@ export function Composer({
             readOnly={enhanceAnim !== null}
             value={input}
             placeholder={
-              workspaceMode === "chat"
-                ? "Ask anything\u2026"
-                : workspaceMode === "motion"
-                  ? "Describe a video, paste a link, or drop a PDF\u2026"
-                  : displayPlaceholder
+              orderMode
+                ? `Ordre til mentor: sendes til ${MENTOR_NAME}, når ${CODER_NAME} er færdig\u2026`
+                : workspaceMode === "chat"
+                  ? "Ask anything\u2026"
+                  : workspaceMode === "motion"
+                    ? "Describe a video, paste a link, or drop a PDF\u2026"
+                    : displayPlaceholder
             }
             onPaste={(e) => {
               const files = Array.from(e.clipboardData.files);

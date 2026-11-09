@@ -140,6 +140,10 @@ export interface AutopilotCycleDeps {
   onInjected: (body: string, round: number, rule?: string) => void;
   /** Broadcast one of the cycle's terminal SSE frames. */
   emit: (event: AutopilotCycleEmit) => void;
+  /** GODIK CODER: ask GC once for its checks before reviewing unchecked work
+   *  (default true). A one-shot Mentor-ordre passes false: unchecked work then
+   *  stops for the human straight away, so the order never costs two prompts. */
+  requestChecksFirst?: boolean;
 }
 
 /**
@@ -168,7 +172,7 @@ export async function driveAutopilotCycle(deps: AutopilotCycleDeps): Promise<voi
     if (!deps.verificationProblem()) return true;
     // A pending plan is reviewed by Ken in plan mode, where checks cannot run;
     // its outcome (or the user) decides what happens to the unchecked work.
-    if (deps.planPending()) {
+    if (deps.planPending() || deps.requestChecksFirst === false) {
       stopIfUnverified();
       return false;
     }

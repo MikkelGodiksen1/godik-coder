@@ -30,6 +30,7 @@ import {
   sendKenPrompt,
   cancelKen,
   setAutopilot,
+  setMentorOrder,
   saveAutopilotRule,
   cancel,
   newSession,
@@ -68,6 +69,7 @@ import {
   type FileHit,
   searchFiles,
   type PromptSegment,
+  type SidecarEvent,
   answerAskUser,
 } from "./agent";
 import {
@@ -87,6 +89,7 @@ import { KenActivityBar } from "./KenActivityBar";
 import { useTaskActivity } from "./useTaskActivity";
 import { useKenMentor } from "./useKenMentor";
 import { useAutopilot } from "./useAutopilot";
+import { useMentorOrders } from "./useMentorOrders";
 import { useAgentEvents, type RunEnd } from "./useAgentEvents";
 import { LiveToolPanel, type LiveToolEntry } from "./LiveToolPanel";
 import { CritterFloor, collectFloorAgents, type CritterGroup } from "./CritterFloor";
@@ -280,7 +283,16 @@ function App(): React.ReactElement {
   // Autopilot Ken (auto-reviewer): consumes the `autopilot_*` event family into
   // compact transcript markers + a "Ken reviewing…" flag. Separate hook, same
   // shared setItems/nextId pattern as useKenMentor.
-  const { autopilotReviewing, handleAutopilotEvent } = useAutopilot({ setItems, nextId });
+  const { autopilotReviewing, handleAutopilotEvent: handleAutopilotFrame } = useAutopilot({
+    setItems,
+    nextId,
+  });
+  const { addOrder, handleMentorOrderEvent } = useMentorOrders({ setItems, nextId });
+  // Autopilot first: it peeks at mentor_order_result (spinner) and passes it on.
+  const handleAutopilotEvent = useCallback(
+    (e: SidecarEvent) => handleAutopilotFrame(e) || handleMentorOrderEvent(e),
+    [handleAutopilotFrame, handleMentorOrderEvent],
+  );
   const { snapshot: progress, levelUp, levelUpNonce, levelUpOrigin } = useProgress();
   const trophies = useTrophies();
   const [, setRankCelebrateNonce] = useState<string | null>(null);
@@ -481,6 +493,10 @@ function App(): React.ReactElement {
   // GODIK CODER: Max Gas, per window and off by default. While on, a send goes
   // to Ken wrapped in the production brief (max-gas.ts) instead of to GG.
   const [maxGas, setMaxGas] = useState(false);
+  // GODIK CODER: the deck's Mentor-ordre key. While on, the composer's text is
+  // stored as a one-shot order for the mentor instead of going to GC.
+  const [orderMode, setOrderMode] = useState(false);
+  const orderSendingRef = useRef(false);
   // Footer extras mirrored from the sidecar: live background tasks and the
   // running context-window usage (input-side tokens of the latest turn).
   const [tasks, setTasks] = useState<BackgroundTask[]>([]);
@@ -1233,6 +1249,16 @@ function App(): React.ReactElement {
               if (h.infoKind === "video_warning")
                 return { kind: "info", id: nextId(), text: VIDEO_CAPABILITY_WARNING };
               if (h.shell) return shellItemFromHistory(h.shell, nextId(), pendingShellRuns);
+              if (h.mentorOrder)
+                return {
+                  kind: "mentor_order",
+                  id: nextId(),
+                  orderId: h.mentorOrder.id,
+                  text: h.mentorOrder.text,
+                  status: h.mentorOrder.status,
+                  ...(h.mentorOrder.reason ? { reason: h.mentorOrder.reason } : {}),
+                  ...(h.mentorOrder.body ? { body: h.mentorOrder.body } : {}),
+                };
               // Ken "Send to GG Coder" prompts: restore the shimmer label, not the
               // full prompt body (matches live).
               if (h.kenSent && h.role === "user")
@@ -1586,6 +1612,7 @@ function App(): React.ReactElement {
   // on an empty composer it fills a default question and selects it.
   function toggleMentor(): void {
     setDeckPanel(null);
+    setOrderMode(false);
     const { text, selection } = toggleMentorPrefix(input);
     fillComposer(text, selection);
   }
@@ -1595,7 +1622,33 @@ function App(): React.ReactElement {
     setDeckPanel(null);
     setMaxGas((on) => !on);
   }
-  // GODIK CODER: one Autopilot switch for the ⋯ menu and the deck's rail key.
+  // GODIK CODER: the Mentor-ordre key. Never touches Autopilot.
+  function toggleOrderMode(): void {
+    setDeckPanel(null);
+    setOrderMode((on) => !on);
+    requestAnimationFrame(() => inputRef.current?.focus());
+  }
+  // Store the composer text as the window's one order; GC never sees it.
+  async function sendOrder(text: string): Promise<void> {
+    if (orderSendingRef.current) return;
+    orderSendingRef.current = true;
+    try {
+      const res = await setMentorOrder(text);
+      if (!res.ok) {
+        toast(`Kunne ikke gemme ordren: ${res.error}`, "error");
+        return;
+      }
+      chatLayout.capture();
+      stickToBottomRef.current = true;
+      if (res.id) addOrder(res.id, text);
+      setInput((current) => (current.trim() === text ? "" : current));
+      // One order, then the key turns itself off.
+      setOrderMode(false);
+    } finally {
+      orderSendingRef.current = false;
+    }
+  }
+  // GODIK CODER: the ⋯ menu's Autopilot switch.
   function changeAutopilot(next: boolean): void {
     setState((s) => (s ? { ...s, autopilot: next } : s));
     void setAutopilot(next);
@@ -2359,6 +2412,17 @@ function App(): React.ReactElement {
       return;
     }
     if (!readyRef.current) return;
+    // GODIK CODER: Mentor-ordre mode: the text becomes the mentor's order for
+    // GC's current or next finished turn. Nothing goes to GC from here.
+    if (orderMode && workspaceMode === "code") {
+      if (attachments.length > 0) {
+        toast("En ordre til mentor kan ikke have vedhæftede filer. Fjern dem først.", "warning");
+        return;
+      }
+      if (!trimmed) return;
+      void sendOrder(trimmed);
+      return;
+    }
     if (!trimmed && attachments.length === 0 && mentionedPaths.length === 0) return;
 
     // `!cmd` runs a command for the user, in the project folder, with no agent
@@ -3146,14 +3210,8 @@ function App(): React.ReactElement {
                 workspaceMode === "code" ? { active: kenActive, onToggle: toggleMentor } : null
               }
               maxGas={workspaceMode === "code" ? { active: maxGas, onToggle: toggleMaxGas } : null}
-              autopilot={
-                workspaceMode === "code"
-                  ? {
-                      active: state?.autopilot ?? false,
-                      disabled: running || autopilotReviewing,
-                      onToggle: () => changeAutopilot(!(state?.autopilot ?? false)),
-                    }
-                  : null
+              mentorOrder={
+                workspaceMode === "code" ? { active: orderMode, onToggle: toggleOrderMode } : null
               }
               running={running}
               contextPct={contextPct}
@@ -3408,6 +3466,7 @@ function App(): React.ReactElement {
                   shellMenu={shellMenu}
                   runEnhance={runEnhance}
                   kenActive={kenActive}
+                  orderMode={orderMode && workspaceMode === "code"}
                   kenInputParts={kenInputParts}
                   attachInput={attachInput}
                   displayPlaceholder={displayPlaceholder}

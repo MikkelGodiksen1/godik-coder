@@ -185,6 +185,8 @@ pub fn run() {
             commands::agent::agent_ken_cancel,
             commands::agent::agent_autopilot_set,
             commands::agent::agent_autopilot_rule_save,
+            commands::agent::agent_mentor_order,
+            commands::agent::agent_mentor_order_get,
             commands::agent::agent_shell_run,
             commands::agent::agent_shell_cancel,
             commands::agent::agent_shell_trust,

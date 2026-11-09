@@ -18,6 +18,7 @@ import { AskBand } from "./AskBand";
 import { ShellBlock } from "./ShellBlock";
 import type { ShellActions } from "./useShellRuns";
 import { Markdown } from "./Markdown";
+import { MentorOrderRow } from "./MentorOrderRow";
 import { Skeleton } from "./Skeleton";
 import { segmentDoneMarkers, hasDoneMarker } from "./plan-steps";
 import { hidePartialKenLine, stripKenLine } from "./goal-ken-talk";
@@ -239,6 +240,8 @@ function TranscriptRowBody({
   shellActions?: ShellActions;
 }): React.ReactElement | null {
   switch (item.kind) {
+    case "mentor_order":
+      return <MentorOrderRow key={item.id} item={item} />;
     case "rule_suggestion":
       return <RuleSuggestionCard key={item.id} item={item} onAction={onRuleSuggestion} />;
     case "user":

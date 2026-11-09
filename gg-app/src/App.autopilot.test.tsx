@@ -11,10 +11,14 @@ const agent = await import("./agent");
 const notifications = await import("./toast");
 const scrollToDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "scrollTo");
 
-const KEY_OFF = "Autopilot: let Godik review and steer each turn";
-const KEY_ON = "Autopilot on: Godik reviews each turn (rules in .gg/autopilot-rules.md)";
+const ORDER_OFF = "Mentor-ordre: giv Godik én ordre til GC's næste færdige tur";
+const ORDER_ON = "Mentor-ordre til: det du skriver, går til Godik som en ordre, ikke til GC";
+
+/** What the (fake) sidecar says it still holds, for the reconnect check. */
+let sidecarOrders: Record<string, unknown> = { pending: null, firing: null, recent: [] };
 
 beforeEach(() => {
+  sidecarOrders = { pending: null, firing: null, recent: [] };
   vi.stubGlobal("matchMedia", (media: string) => ({
     matches: false,
     media,
@@ -39,6 +43,10 @@ interface Window {
   emit: (type: string, data: Record<string, unknown>) => void;
   toggles: ReturnType<typeof vi.fn>;
   saves: ReturnType<typeof vi.fn>;
+  /** Every agent_mentor_order call's text. */
+  orders: ReturnType<typeof vi.fn>;
+  /** Every agent_prompt call's text (messages to GC). */
+  prompts: ReturnType<typeof vi.fn>;
 }
 
 async function setup(history: HistoryEntry[] = [], autopilot = false): Promise<Window> {
@@ -51,6 +59,9 @@ async function setup(history: HistoryEntry[] = [], autopilot = false): Promise<W
   });
   const toggles = vi.fn();
   const saves = vi.fn();
+  const orders = vi.fn();
+  const prompts = vi.fn();
+  let orderSeq = 0;
   const state: AgentState = {
     cwd: "/workspaces/autopilot",
     mode: "code",
@@ -81,6 +92,18 @@ async function setup(history: HistoryEntry[] = [], autopilot = false): Promise<W
         toggles(enabled);
         return { autopilot: enabled };
       }
+      case "agent_mentor_order": {
+        const { text } = payload as { text: string };
+        orders(text);
+        if (!text) return { ok: true, cleared: `order-${orderSeq}` };
+        orderSeq++;
+        return { ok: true, order: { id: `order-${orderSeq}`, text } };
+      }
+      case "agent_mentor_order_get":
+        return sidecarOrders;
+      case "agent_prompt":
+        prompts((payload as { text: string }).text);
+        return null;
       case "agent_autopilot_rule_save": {
         const { id, text } = payload as { id: string; text: string };
         saves(id, text);
@@ -100,28 +123,178 @@ async function setup(history: HistoryEntry[] = [], autopilot = false): Promise<W
       for (const listener of listeners) listener({ type, data } as SidecarEvent);
     });
   };
-  return { emit, toggles, saves };
+  return { emit, toggles, saves, orders, prompts };
 }
 
-describe("deck Autopilot key", () => {
-  it("toggles the existing Autopilot and reflects it in aria-pressed", async () => {
+/** The composer box (its wrapper carries the blue order look). */
+function composerWrap(): HTMLElement {
+  const wrap = screen.getByRole("textbox").closest(".inputwrap");
+  if (!(wrap instanceof HTMLElement)) throw new Error("no composer");
+  return wrap;
+}
+
+/** Turn the key on, type `text` and press Enter. */
+async function giveOrder(text: string): Promise<void> {
+  fireEvent.click(screen.getByTitle(ORDER_OFF));
+  const input = screen.getByRole<HTMLTextAreaElement>("textbox");
+  fireEvent.change(input, { target: { value: text } });
+  fireEvent.keyDown(input, { key: "Enter" });
+  await screen.findByRole("region", { name: "Ordre til mentor" });
+}
+
+describe("deck Mentor-ordre key", () => {
+  it("toggles order mode, turns the composer blue, and never touches Autopilot", async () => {
     const { toggles } = await setup();
-    const off = screen.getByTitle(KEY_OFF);
-    expect(off.getAttribute("aria-pressed")).toBe("false");
+    const key = screen.getByTitle(ORDER_OFF);
+    expect(key.textContent).toBe("Mentor-ordre");
+    expect(key.getAttribute("aria-pressed")).toBe("false");
+    expect(composerWrap().classList.contains("ken-active")).toBe(false);
 
-    fireEvent.click(off);
-    await waitFor(() => expect(toggles).toHaveBeenCalledExactlyOnceWith(true));
-    expect(screen.getByTitle(KEY_ON).getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(key);
+    expect(screen.getByTitle(ORDER_ON).getAttribute("aria-pressed")).toBe("true");
+    expect(composerWrap().classList.contains("ken-active")).toBe(true);
+    expect(composerWrap().classList.contains("order-active")).toBe(true);
 
-    fireEvent.click(screen.getByTitle(KEY_ON));
-    await waitFor(() => expect(toggles).toHaveBeenLastCalledWith(false));
-    expect(toggles).toHaveBeenCalledTimes(2);
-    expect(screen.getByTitle(KEY_OFF).getAttribute("aria-pressed")).toBe("false");
+    fireEvent.click(screen.getByTitle(ORDER_ON));
+    expect(screen.getByTitle(ORDER_OFF).getAttribute("aria-pressed")).toBe("false");
+    expect(composerWrap().classList.contains("ken-active")).toBe(false);
+    expect(toggles).not.toHaveBeenCalled();
   });
 
-  it("starts pressed when the project already has Autopilot on", async () => {
+  it("sends the composer text to the order, not to GC, and turns itself off", async () => {
+    const { orders, prompts, toggles } = await setup();
+    await giveOrder("sæt det live når testene er grønne");
+
+    expect(orders).toHaveBeenCalledExactlyOnceWith("sæt det live når testene er grønne");
+    expect(prompts).not.toHaveBeenCalled();
+    expect(toggles).not.toHaveBeenCalled();
+    const row = screen.getByRole("region", { name: "Ordre til mentor" });
+    expect(row.textContent).toContain("sæt det live når testene er grønne");
+    expect(row.textContent).toContain("Venter på at GC bliver færdig");
+    // One order, then the key is off and the composer talks to GC again.
+    await waitFor(() =>
+      expect(screen.getByTitle(ORDER_OFF).getAttribute("aria-pressed")).toBe("false"),
+    );
+    expect(screen.getByRole<HTMLTextAreaElement>("textbox").value).toBe("");
+
+    const input = screen.getByRole<HTMLTextAreaElement>("textbox");
+    fireEvent.change(input, { target: { value: "a normal message" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    await waitFor(() => expect(prompts).toHaveBeenCalledExactlyOnceWith("a normal message"));
+    expect(orders).toHaveBeenCalledTimes(1);
+  });
+
+  it("the row follows the order: reviewing, then held with the reason", async () => {
+    const { emit } = await setup();
+    await giveOrder("deploy it");
+    const row = screen.getByRole("region", { name: "Ordre til mentor" });
+
+    emit("mentor_order_fired", { id: "order-1" });
+    await waitFor(() => expect(row.textContent).toContain("Godik læser GC's tur"));
+    emit("mentor_order_result", {
+      id: "order-1",
+      outcome: "held",
+      reason: "Jeg så ingen testkørsel i GC's sidste tur.",
+    });
+    await waitFor(() => expect(row.textContent).toContain("Holdt"));
+    expect(row.textContent).toContain("Jeg så ingen testkørsel");
+    expect(screen.queryByRole("button", { name: "Annuller ordre" })).toBeNull();
+  });
+
+  it("a prompted order shows what went to GC", async () => {
+    const { emit } = await setup();
+    await giveOrder("add a README line");
+    emit("mentor_order_result", { id: "order-1", outcome: "prompted", body: "Add ORDER_DONE." });
+    const row = screen.getByRole("region", { name: "Ordre til mentor" });
+    await waitFor(() => expect(row.textContent).toContain("Sendt til GC"));
+    expect(row.textContent).toContain("Add ORDER_DONE.");
+  });
+
+  it("Annuller ordre on a waiting order clears it with empty text", async () => {
+    const { emit, orders } = await setup();
+    await giveOrder("add a README line");
+    fireEvent.click(screen.getByRole("button", { name: "Annuller ordre" }));
+    await waitFor(() => expect(orders).toHaveBeenLastCalledWith(""));
+    emit("mentor_order_cleared", { id: "order-1", reason: "cancelled" });
+    const row = screen.getByRole("region", { name: "Ordre til mentor" });
+    await waitFor(() => expect(row.textContent).toContain("Annulleret"));
+    expect(screen.queryByRole("button", { name: "Annuller ordre" })).toBeNull();
+  });
+
+  it("a reconnect to a sidecar that no longer holds the waiting order marks it lost", async () => {
+    const { emit } = await setup();
+    await giveOrder("add a README line");
+    // Still held: a reconnect leaves it waiting.
+    sidecarOrders = {
+      pending: { id: "order-1", text: "add a README line" },
+      firing: null,
+      recent: [],
+    };
+    emit("ready", { sessionId: "s" });
+    const row = screen.getByRole("region", { name: "Ordre til mentor" });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+    });
+    expect(row.textContent).toContain("Venter");
+    // The sidecar restarted: nothing pending, no result → lost, said out loud.
+    sidecarOrders = { pending: null, firing: null, recent: [] };
+    emit("ready", { sessionId: "s2" });
+    await waitFor(() => expect(row.textContent).toContain("Mistet"));
+  });
+
+  it("a reload restores the outcome, and a lost order says so", async () => {
+    await setup([
+      { role: "user", text: "hello" },
+      {
+        role: "assistant",
+        text: "",
+        mentorOrder: { id: "o1", text: "deploy", status: "held", reason: "no tests" },
+      },
+      {
+        role: "assistant",
+        text: "",
+        mentorOrder: { id: "o2", text: "add a line", status: "lost" },
+      },
+    ]);
+    const rows = await screen.findAllByRole("region", { name: "Ordre til mentor" });
+    expect(rows).toHaveLength(2);
+    expect(rows[0]?.textContent).toContain("Holdt");
+    expect(rows[0]?.textContent).toContain("no tests");
+    expect(rows[1]?.textContent).toContain("Mistet");
+  });
+});
+
+/** Open ⋯ (if closed) and return its Autopilot switch. */
+function autopilotSwitch(): HTMLElement {
+  const open = screen.queryByRole("switch", { name: "Autopilot" });
+  if (open) return open;
+  fireEvent.click(screen.getByRole("button", { name: "More" }));
+  return screen.getByRole("switch", { name: "Autopilot" });
+}
+
+describe("⋯ menu Autopilot switch", () => {
+  it("toggles the existing Autopilot and reflects it in aria-checked", async () => {
+    const { toggles, orders } = await setup();
+    expect(autopilotSwitch().getAttribute("aria-checked")).toBe("false");
+
+    fireEvent.click(autopilotSwitch());
+    await waitFor(() => expect(toggles).toHaveBeenCalledExactlyOnceWith(true));
+    expect(autopilotSwitch().getAttribute("aria-checked")).toBe("true");
+
+    fireEvent.click(autopilotSwitch());
+    await waitFor(() => expect(toggles).toHaveBeenLastCalledWith(false));
+    expect(toggles).toHaveBeenCalledTimes(2);
+    expect(autopilotSwitch().getAttribute("aria-checked")).toBe("false");
+    // Autopilot and Mentor-ordre are separate: the switch never stores an order
+    // and never turns order mode on.
+    expect(orders).not.toHaveBeenCalled();
+    expect(screen.getByTitle(ORDER_OFF).getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("starts checked when the project already has Autopilot on", async () => {
     await setup([], true);
-    expect(screen.getByTitle(KEY_ON).getAttribute("aria-pressed")).toBe("true");
+    expect(autopilotSwitch().getAttribute("aria-checked")).toBe("true");
+    expect(screen.getByTitle(ORDER_OFF).getAttribute("aria-pressed")).toBe("false");
   });
 });
 

@@ -12,7 +12,12 @@ import {
   isMechanicalOnlyTurn,
   type WorkflowCommandSpec,
 } from "../core/autopilot-gate.js";
-import { driveAutopilotCycle, frameAutopilotInjection } from "../core/autopilot-cycle.js";
+import {
+  autopilotPreambleOf,
+  driveAutopilotCycle,
+  frameAutopilotInjection,
+  type AutopilotCycleEmit,
+} from "../core/autopilot-cycle.js";
 import type { RunOutcome } from "../core/session-manager.js";
 import { autopilotMarkerCopySeed } from "../core/session-history.js";
 import { readAutopilotRules, trustRuleTag } from "../core/autopilot-rules.js";
@@ -28,6 +33,17 @@ import {
   markTaskInProgress,
 } from "../core/tasks-store.js";
 import { log } from "../core/logger.js";
+import type { RunClaim } from "../core/run-claim.js";
+import {
+  isRiskyOrder,
+  PLAN_PENDING_HOLD_REASON,
+  REVIEW_STOPPED_REASON,
+  riskyOrderHoldReason,
+  testEvidenceProblem,
+  type MentorOrder,
+  type MentorOrderOutcome,
+  type MentorOrders,
+} from "../core/mentor-order.js";
 import { lastAssistantText } from "./ken-context.js";
 
 const AUTOMATION_PROVENANCE: MessageProvenance = {
@@ -86,6 +102,9 @@ export interface AutopilotRunnerContext {
   taskRunAll: boolean;
   /** GODIK CODER: Autopilot rule suggestions (v2) for this window. */
   readonly ruleSuggestions: AutopilotRuleSuggestions;
+  /** GODIK CODER: this window's pending Mentor-ordre. */
+  readonly mentorOrders: MentorOrders;
+  readonly runClaim: RunClaim;
 }
 
 export interface AutopilotRunnerContextApi {
@@ -93,6 +112,8 @@ export interface AutopilotRunnerContextApi {
   runAutopilotPlanReview: (originalRequest: string) => Promise<AutopilotVerdict | null>;
   runAutopilotCycle: (originalRequest: string) => Promise<void>;
   runStrandedQueue: () => Promise<void>;
+  /** GODIK CODER: fire a pending Mentor-ordre now if GC is idle and has a finished turn. */
+  fireMentorOrderWhenIdle: () => void;
   runTaskById: (taskId: string) => Promise<boolean>;
   runTasks: (startId: string | null, all: boolean) => Promise<void>;
   suggestRuleFromReply: (stop: HumanStop, reply: string) => Promise<void>;
@@ -105,7 +126,10 @@ export function createAutopilotRunner(ctx: AutopilotRunnerContext): AutopilotRun
   // an autopilot_error frame) so the cycle stops rather than looping blind.
   // `originalRequest` is the user prompt that started the turn under review —
   // pinned in the digest so it can't scroll out during multi-round cycles.
-  async function runAutopilotReview(originalRequest: string): Promise<AutopilotVerdict | null> {
+  async function runAutopilotReview(
+    originalRequest: string,
+    mentorOrder?: { text: string; risky: boolean },
+  ): Promise<AutopilotVerdict | null> {
     ctx.autopilotReviewing = true;
     ctx.broadcast("autopilot_review_start", {});
     try {
@@ -122,6 +146,7 @@ export function createAutopilotRunner(ctx: AutopilotRunnerContext): AutopilotRun
         injectedPrompts: [...ctx.injectedAutopilotPrompts],
         workflowCommands: await ctx.loadWorkflowCommandSpecs(),
         autopilotRules,
+        ...(mentorOrder ? { mentorOrder } : {}),
       });
       await ken.prompt(digest);
       return trustRuleTag(
@@ -193,8 +218,34 @@ export function createAutopilotRunner(ctx: AutopilotRunnerContext): AutopilotRun
   // error paths, so there's no recursion and no guard tangle. The loop's
   // control flow lives in driveAutopilotCycle (core/autopilot-cycle.ts) so
   // every exit path is unit-tested; this only wires the real dependencies.
-  async function runAutopilotCycle(originalRequest: string): Promise<void> {
-    if (!ctx.autopilot || ctx.autopilotCancelled) return;
+  // GODIK CODER: with a Mentor-ordre, the SAME cycle runs once for the order
+  // (one review, at most one prompt, no check request first) whether or not
+  // Autopilot is on, and its verdict lands on the order row instead of the
+  // usual Autopilot bubbles. A PROMPT still goes out through onInjected, i.e.
+  // the existing autopilot_prompted path.
+  async function runAutopilotCycle(originalRequest: string, order?: MentorOrder): Promise<void> {
+    if (order && ctx.autopilotCancelled) {
+      ctx.mentorOrders.resolve(order, "cancelled");
+      return;
+    }
+    if (!order && (!ctx.autopilot || ctx.autopilotCancelled)) return;
+    let orderSettled = false;
+    const settleOrder = (
+      outcome: MentorOrderOutcome,
+      extra?: { reason?: string; body?: string },
+    ) => {
+      if (!order || orderSettled) return;
+      orderSettled = true;
+      ctx.mentorOrders.resolve(order, outcome, extra);
+    };
+    const orderEmit = (event: AutopilotCycleEmit): void => {
+      if (event.type === "autopilot_done") settleOrder("done", { reason: event.data.reason });
+      else if (event.type === "autopilot_ignored") settleOrder("nothing");
+      else if (event.type === "autopilot_human") settleOrder("held", { reason: event.data.reason });
+      else if (event.type === "autopilot_capped")
+        settleOrder("held", { reason: REVIEW_STOPPED_REASON });
+    };
+    const mentorOrder = order ? { text: order.text, risky: isRiskyOrder(order.text) } : undefined;
     // Unchecked work enters the cycle too: driveAutopilotCycle asks for the
     // checks once before Ken reviews, and hands back only if still unchecked.
     const generation = ctx.runLifecycle.begin(ctx.abortOwnedWork).generation;
@@ -208,8 +259,12 @@ export function createAutopilotRunner(ctx: AutopilotRunnerContext): AutopilotRun
         // A plan-pending cycle needs extra rounds: approve+implement and the
         // post-implement work review each consume one, so +2 keeps a real fix
         // round available.
-        maxRounds:
-          ctx.pendingPlanPath !== null ? ctx.MAX_AUTOPILOT_ROUNDS + 2 : ctx.MAX_AUTOPILOT_ROUNDS,
+        maxRounds: order
+          ? 1
+          : ctx.pendingPlanPath !== null
+            ? ctx.MAX_AUTOPILOT_ROUNDS + 2
+            : ctx.MAX_AUTOPILOT_ROUNDS,
+        ...(order ? { requestChecksFirst: false } : {}),
         isCancelled: () => ctx.autopilotCancelled,
         verificationProblem: () => ctx.session.getVerificationProblem(),
         // An injected run entering plan mode WITHOUT submitting (enter_plan,
@@ -263,7 +318,7 @@ export function createAutopilotRunner(ctx: AutopilotRunnerContext): AutopilotRun
         resetReviewer: async () => {
           await ctx.kenAutoSession?.newSession().catch(() => {});
         },
-        review: () => runAutopilotReview(originalRequest),
+        review: () => runAutopilotReview(originalRequest, mentorOrder),
         // prompt → record the injected body (so later digests label it as
         // Ken's, not the user's), show a compact Ken-tinted marker (not the
         // prompt body), then feed GG Coder bracketed by runAgent so the run
@@ -281,6 +336,7 @@ export function createAutopilotRunner(ctx: AutopilotRunnerContext): AutopilotRun
           ctx.injectedAutopilotPrompts.push(frameAutopilotInjection(body));
           ctx.broadcast("autopilot_prompted", rule ? { round, body, rule } : { round, body });
           void ctx.session.persistAutopilotMarker("prompted", rule ? { body, rule } : { body });
+          settleOrder("prompted", { body });
         },
         // Autopilot-injected run: GG Coder receives the framed prompt (no human
         // is watching this turn) while run_start keeps the clean label.
@@ -290,6 +346,10 @@ export function createAutopilotRunner(ctx: AutopilotRunnerContext): AutopilotRun
             await ctx.session.prompt(frameAutopilotInjection(body), AUTOMATION_PROVENANCE);
           }),
         emit: (event) => {
+          if (order) {
+            orderEmit(event);
+            return;
+          }
           // Persist the terminal verdict marker so a resumed session renders the
           // same Ken bubble the live run showed instead of dropping it or
           // falling back to the raw verdict text (e.g. ALL_CLEAR).
@@ -321,6 +381,9 @@ export function createAutopilotRunner(ctx: AutopilotRunnerContext): AutopilotRun
         },
       });
     } finally {
+      // A review that failed or was stopped still closes the order's row.
+      if (ctx.autopilotCancelled) settleOrder("cancelled");
+      else settleOrder("held", { reason: REVIEW_STOPPED_REASON });
       ctx.autopilotActive = false;
       ctx.finishOwnedGeneration(
         generation,
@@ -366,6 +429,57 @@ export function createAutopilotRunner(ctx: AutopilotRunnerContext): AutopilotRun
     }
   }
 
+  // ── GODIK CODER: Mentor-ordre ─────────────────────────────
+  // Fire the pending order against GC's last finished turn. The order is used
+  // up here. Holds that need no model call (a plan waiting for the user, a
+  // risky order without host-observed passing tests) settle straight away.
+  async function fireMentorOrder(originalRequest: string): Promise<void> {
+    const order = ctx.mentorOrders.take();
+    if (!order) return;
+    // Giving an order is the user acting again: an earlier Stop no longer applies.
+    ctx.autopilotCancelled = false;
+    log("INFO", "app-sidecar", "mentor order firing", { id: order.id });
+    if (ctx.pendingPlanPath !== null) {
+      ctx.mentorOrders.resolve(order, "held", { reason: PLAN_PENDING_HOLD_REASON });
+      return;
+    }
+    if (isRiskyOrder(order.text)) {
+      const problem = testEvidenceProblem(ctx.session.getRunVerificationActivity().evidence);
+      if (problem) {
+        ctx.mentorOrders.resolve(order, "held", { reason: riskyOrderHoldReason(problem) });
+        return;
+      }
+    }
+    await runAutopilotCycle(originalRequest, order);
+  }
+
+  function fireMentorOrderWhenIdle(): void {
+    if (!ctx.mentorOrders.hasPending()) return;
+    if (
+      ctx.running ||
+      ctx.runClaim.active ||
+      ctx.runLifecycle.running ||
+      ctx.autopilotActive ||
+      ctx.autopilotReviewing ||
+      ctx.drainingStrandedQueue ||
+      ctx.taskRunAll ||
+      ctx.session.getQueuedCount() > 0
+    )
+      return;
+    const messages = ctx.session.getMessages();
+    // No finished turn yet: the order waits for GC's first run to end.
+    if (countAssistantMessages(messages) === 0) return;
+    if (!ctx.runClaim.claim()) return;
+    void fireMentorOrder(lastUserRequest(messages))
+      .catch((err: unknown) => {
+        log("WARN", "app-sidecar", "mentor order failed", { err: String(err) });
+      })
+      .finally(() => {
+        ctx.runClaim.release();
+        ctx.offerPendingPlan();
+      });
+  }
+
   async function runStrandedQueue(): Promise<void> {
     if (ctx.drainingStrandedQueue) return;
     ctx.drainingStrandedQueue = true;
@@ -404,9 +518,11 @@ export function createAutopilotRunner(ctx: AutopilotRunnerContext): AutopilotRun
               await ctx.session.prompt(next.text);
             }
           },
-          () => ctx.autopilot,
+          () => ctx.autopilot || ctx.mentorOrders.hasPending(),
         );
         if (humanStop && ctx.autopilot) await suggestRuleFromReply(humanStop, next.text);
+        // GODIK CODER: a pending Mentor-ordre takes this turn's review instead.
+        if (ctx.mentorOrders.hasPending()) continue;
         const decision = shouldStartAutopilotCycle({
           enabled: ctx.autopilot,
           cancelled: ctx.autopilotCancelled,
@@ -440,6 +556,7 @@ export function createAutopilotRunner(ctx: AutopilotRunnerContext): AutopilotRun
     } finally {
       ctx.drainingStrandedQueue = false;
       ctx.offerPendingPlan();
+      queueMicrotask(fireMentorOrderWhenIdle);
     }
   }
 
@@ -493,8 +610,28 @@ export function createAutopilotRunner(ctx: AutopilotRunnerContext): AutopilotRun
     runAutopilotPlanReview,
     runAutopilotCycle,
     runStrandedQueue,
+    fireMentorOrderWhenIdle,
     runTaskById,
     runTasks,
     suggestRuleFromReply,
   };
+}
+
+/** The user's last ask in the build session (skips Autopilot's own injections). */
+function lastUserRequest(messages: ReturnType<AgentSession["getMessages"]>): string {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (m.role !== "user") continue;
+    const text =
+      typeof m.content === "string"
+        ? m.content
+        : m.content
+            .map((c) =>
+              c.type === "text" && "text" in c && typeof c.text === "string" ? c.text : "",
+            )
+            .join("");
+    if (!text.trim() || autopilotPreambleOf(text)) continue;
+    return text;
+  }
+  return "";
 }

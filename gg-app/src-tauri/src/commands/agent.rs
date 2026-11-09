@@ -886,6 +886,40 @@ pub(crate) async fn agent_autopilot_rule_save(
     sidecar_json(res).await
 }
 
+/// GODIK CODER: the JSON body for a Mentor-ordre (empty text cancels it).
+pub(crate) fn mentor_order_body(text: &str) -> serde_json::Value {
+    serde_json::json!({ "text": text })
+}
+
+/// Proxy: store this window's Mentor-ordre for GC's current or next finished
+/// turn (empty text cancels the pending one); returns `{ ok, order? , cleared? }`.
+#[tauri::command]
+pub(crate) async fn agent_mentor_order(
+    webview: WebviewWindow,
+    client: State<'_, reqwest::Client>,
+    text: String,
+) -> Result<serde_json::Value, String> {
+    let port = port_for(&webview).ok_or("daemon not ready")?;
+    let gg_sid = session_for(&webview).ok_or("session not ready")?;
+    let res = client
+        .post(format!("{}/mentor/order", sidecar_base(port)))
+        .header("x-gg-session", &gg_sid)
+        .json(&mentor_order_body(&text))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    sidecar_json(res).await
+}
+
+/// Proxy: this window's pending/firing Mentor-ordre and its recent results.
+#[tauri::command]
+pub(crate) async fn agent_mentor_order_get(
+    webview: WebviewWindow,
+    client: State<'_, reqwest::Client>,
+) -> Result<serde_json::Value, String> {
+    sidecar_get_json(&webview, &client, "/mentor/order").await
+}
+
 /// Proxy: run a command the user typed as `!cmd` in this window's project.
 /// `confirmed` is true only after the user approved this exact command; the
 /// sidecar refuses unconfirmed runs unless the project is trusted.
@@ -1217,6 +1251,15 @@ mod tests {
             body,
             serde_json::json!({ "id": "rule-1-1", "text": "if \"x\", send: y" })
         );
+    }
+
+    #[test]
+    fn mentor_order_body_carries_text_verbatim_and_empty_cancels() {
+        assert_eq!(
+            mentor_order_body("sæt det \"live\""),
+            serde_json::json!({ "text": "sæt det \"live\"" })
+        );
+        assert_eq!(mentor_order_body(""), serde_json::json!({ "text": "" }));
     }
 
     #[test]

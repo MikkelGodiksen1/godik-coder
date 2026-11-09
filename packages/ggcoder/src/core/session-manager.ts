@@ -240,7 +240,10 @@ export interface AppMarkerPayload extends RecordedPosition {
     | "security"
     /** A command the user ran themselves (`!cmd`); `data` carries
      *  { runId, command, cwd, exitCode, durationMs, cancelled, output, truncated }. */
-    | "shell";
+    | "shell"
+    /** GODIK CODER: one Mentor-ordre step; `data` carries
+     *  { id, text, phase, reason?, body? } (see core/mentor-order.ts). */
+    | "mentor_order";
   afterMessageCount: number;
   /** Kind-specific display fields (reason/title/headline/kenSent/counts/…). */
   data: Record<string, unknown>;
@@ -1666,7 +1669,8 @@ export class SessionManager {
             kind === "import" ||
             kind === "interrupted_run" ||
             kind === "security" ||
-            kind === "shell")
+            kind === "shell" ||
+            kind === "mentor_order")
         ) {
           return [
             {
