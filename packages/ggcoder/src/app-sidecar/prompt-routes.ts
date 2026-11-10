@@ -17,6 +17,7 @@ import { type AppAttachment, prepareAttachments } from "./attachments.js";
 import { getModel } from "../core/model-registry.js";
 import { saveAutopilot } from "./app-settings.js";
 import { MENTOR_ORDER_MAX_CHARS } from "../core/mentor-order.js";
+import { orderReviewingPlan } from "../core/plan-handoff.js";
 import { appendAutopilotRule, normalizeRuleLine } from "../core/autopilot-rule-suggestions.js";
 import { lastAssistantText, buildKenContext } from "./ken-context.js";
 import { buildGoalBoard } from "../core/goal-board.js";
@@ -229,6 +230,20 @@ export function handlePromptRoutes(
           // an injected one on the same session. Attachments are persisted to
           // .gg/uploads first so the queued media rides the same native-block
           // path as a non-queued attachment prompt when it drains.
+          // GODIK CODER: a message (the review box's Reject or Feedback, or
+          // anything else) sent while a Mentor-ordre reviews the plan
+          // supersedes the plan now, as it would when it drains: the order's
+          // review is discarded and the user's message runs next.
+          if (
+            orderReviewingPlan({
+              orderFiring: ctx.mentorOrders.isFiring(),
+              reviewing: ctx.autopilotReviewing,
+              planPath: ctx.pendingPlanPath,
+              running: ctx.running,
+            })
+          ) {
+            ctx.clearPendingPlan();
+          }
           const prepared =
             attachments.length > 0 ? await prepareAttachments(ctx.cwd, attachments) : [];
           // kenSent rides the queue entry: the user_hint below is skipped for a

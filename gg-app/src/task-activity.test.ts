@@ -441,7 +441,7 @@ describe("Mentor-ordre review", () => {
   it("an order held before any review ends the 'Preparing review…' handoff", () => {
     const preparing = event(edit(start()), "run_end", { reviewPending: true });
     expect(preparing.label).toBe("Preparing Godik’s review…");
-    const s = result(preparing, "held", { reason: "Holdt: planen venter på din beslutning." });
+    const s = result(preparing, "held", { reason: "Holdt: ordren kræver beståede tests først." });
     expect(s.phase).toBe("attention");
     expect(s.reviewPending).toBe(false);
   });
@@ -458,6 +458,52 @@ describe("Mentor-ordre review", () => {
     // Once settled, a late duplicate or stray review frame changes nothing.
     expect(result(s, "done")).toBe(s);
     expect(event(s, "autopilot_review_start")).toBe(s);
+  });
+
+  // An order given against a submitted plan: the mentor approves it, the plan
+  // is accepted into a fresh session, GC implements it, and the order's work
+  // review settles it. Nothing may leave the status on "reviewing".
+  it("auto-accept → implementation → work review → done, never stuck reviewing", () => {
+    let s = event(start(), "plan_exit", { planPath: "/p.md", content: "# Plan" });
+    s = event(s, "run_end", { reviewPending: true }, 1500);
+    expect(s.phase).toBe("reviewing");
+    s = event(s, "autopilot_review_start", {}, 2000);
+    expect(s.label).toBe("Godik reviewing…");
+    s = event(s, "autopilot_plan_accepted", {}, 3000);
+    expect(s).toMatchObject({ phase: "working", reviewPending: true, pendingPlan: false });
+    s = event(s, "session_reset", { planTotal: 2 }, 3001);
+    expect(s.phase).toBe("working");
+    s = event(s, "plan_progress", { total: 2, completed: [] }, 3002);
+    s = event(s, "run_start", { continued: true }, 3003);
+    expect(s.phase).toBe("working");
+    s = event(s, "plan_progress", { total: 0, completed: [] }, 5000);
+    s = event(
+      s,
+      "run_end",
+      { reviewPending: true, verification: "passed", verifiedChecks: 1 },
+      6000,
+    );
+    expect(s.phase).toBe("reviewing");
+    s = event(s, "autopilot_review_start", {}, 6500);
+    expect(s.phase).toBe("reviewing");
+    s = result(s, "done");
+    expect(s.phase).toBe("done");
+    expect(s.reviewPending).toBe(false);
+    expect(s.reviewed).toBe(true);
+    expect(s.endedAt).toBe(7000);
+  });
+
+  it("the user's own Accept mid-review leaves no review hanging", () => {
+    let s = event(start(), "plan_exit", { planPath: "/p.md", content: "# Plan" });
+    s = event(s, "run_end", { reviewPending: true }, 1500);
+    s = event(s, "autopilot_review_start", {}, 2000);
+    // POST /plan/accept: autopilot_ignored, then the fresh session.
+    s = event(s, "autopilot_ignored", {}, 2500);
+    s = event(s, "session_reset", { planTotal: 2 }, 2501);
+    expect(s.phase).not.toBe("reviewing");
+    expect(s.reviewPending).toBe(false);
+    // The order drops quietly afterwards; nothing changes.
+    expect(result(s, "cancelled", { reason: "Du tog selv stilling til planen." })).toBe(s);
   });
 
   it("a result with no review in flight is ignored", () => {

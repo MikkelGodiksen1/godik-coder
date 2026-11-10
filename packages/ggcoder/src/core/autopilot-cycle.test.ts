@@ -698,3 +698,91 @@ describe("GODIK CODER: one-shot Mentor-ordre settings", () => {
     expect(deps.ran).toEqual([AUTOPILOT_VERIFY_PROMPT]);
   });
 });
+
+describe("GODIK CODER: Mentor-ordre against a pending plan", () => {
+  // The runner's settings for an order fired with a plan pending: one round
+  // plus the plan's +2, no check request first, stop after one prompt.
+  const orderSettings = { maxRounds: 1 + 2, requestChecksFirst: false, stopAfterPrompt: true };
+
+  it("approve → accept → implement → one work review → autopilot_done", async () => {
+    const pending = pendingFlag();
+    const deps = makeDeps(
+      [{ kind: "all_clear" }],
+      {
+        ...orderSettings,
+        planPending: pending.get,
+        acceptPlan: async () => {
+          deps.counters.accepted++;
+          pending.set(false);
+          return true;
+        },
+      },
+      [{ kind: "all_clear" }],
+    );
+    await driveAutopilotCycle(deps);
+    expect(deps.counters).toEqual({ accepted: 1, implemented: 1 });
+    expect(deps.reviewPlan).toHaveBeenCalledTimes(1);
+    expect(deps.review).toHaveBeenCalledTimes(1);
+    expect(deps.injected).toEqual([]);
+    expect(deps.emitted).toEqual([{ type: "autopilot_done", data: {} }]);
+  });
+
+  it("a bad plan gets one revision prompt and the cycle stops, even if GC resubmits", async () => {
+    const pending = pendingFlag();
+    const deps = makeDeps(
+      [],
+      {
+        ...orderSettings,
+        planPending: pending.get,
+        onInjected: (body, round) => {
+          deps.injected.push({ body, round });
+          pending.set(false);
+        },
+        runPrompt: async (body) => {
+          deps.ran.push(body);
+          pending.set(true); // exit_plan again
+        },
+      },
+      [{ kind: "prompt", body: "Add a rollback step." }, { kind: "all_clear" }],
+    );
+    await driveAutopilotCycle(deps);
+    const body = buildPlanRevisionPrompt("Add a rollback step.");
+    expect(deps.injected).toEqual([{ body, round: 1 }]);
+    expect(deps.ran).toEqual([body]);
+    expect(deps.reviewPlan).toHaveBeenCalledTimes(1);
+    expect(deps.counters).toEqual({ accepted: 0, implemented: 0 });
+    expect(deps.emitted).toEqual([]);
+  });
+
+  it("after implementing, the work review's fix prompt is the last thing sent", async () => {
+    const pending = pendingFlag();
+    const deps = makeDeps(
+      [{ kind: "prompt", body: "Add the missing test." }, { kind: "all_clear" }],
+      {
+        ...orderSettings,
+        planPending: pending.get,
+        acceptPlan: async () => {
+          pending.set(false);
+          return true;
+        },
+      },
+      [{ kind: "all_clear" }],
+    );
+    await driveAutopilotCycle(deps);
+    expect(deps.counters.implemented).toBe(1);
+    expect(deps.ran).toEqual(["Add the missing test."]);
+    expect(deps.review).toHaveBeenCalledTimes(1);
+    expect(deps.emitted).toEqual([]);
+  });
+
+  it("stopAfterPrompt left out keeps the multi-round loop (unchanged default)", async () => {
+    const deps = makeDeps([
+      { kind: "prompt", body: "one" },
+      { kind: "prompt", body: "two" },
+      { kind: "all_clear" },
+    ]);
+    await driveAutopilotCycle(deps);
+    expect(deps.ran).toEqual(["one", "two"]);
+    expect(deps.emitted).toEqual([{ type: "autopilot_done", data: {} }]);
+  });
+});

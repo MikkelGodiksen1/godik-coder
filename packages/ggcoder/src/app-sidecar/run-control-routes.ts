@@ -9,6 +9,7 @@ import {
   isThinkingLevelSupported,
 } from "../core/thinking-level.js";
 import { log } from "../core/logger.js";
+import { orderReviewingPlan } from "../core/plan-handoff.js";
 import { readBody, json } from "./http.js";
 import {
   ALL_PROVIDERS,
@@ -496,7 +497,15 @@ export function handleRunControlRoutes(
         json(res, 400, { error: "invalid JSON body" });
         return;
       }
-      if (ctx.running || ctx.runClaim.active) {
+      // GODIK CODER: a Mentor-ordre reviewing this plan holds the run claim;
+      // the user's own Accept still wins (the plan generation discards it).
+      const orderReview = orderReviewingPlan({
+        orderFiring: ctx.mentorOrders.isFiring(),
+        reviewing: ctx.autopilotReviewing,
+        planPath: ctx.pendingPlanPath,
+        running: ctx.running,
+      });
+      if (ctx.running || (ctx.runClaim.active && !orderReview)) {
         json(res, 409, { error: "cannot accept a plan while the agent is running" });
         return;
       }

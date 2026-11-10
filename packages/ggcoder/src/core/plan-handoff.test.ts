@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { shouldOfferPendingPlan, type PendingPlanOfferInput } from "./plan-handoff.js";
+import {
+  orderReviewingPlan,
+  shouldOfferPendingPlan,
+  type PendingPlanOfferInput,
+} from "./plan-handoff.js";
 
 const settled: PendingPlanOfferInput = {
   planPath: "/repo/.gg/plans/p.md",
@@ -23,11 +27,28 @@ describe("shouldOfferPendingPlan", () => {
     ["a run is about to start", { starting: true }],
     ["Ken is still reviewing", { autopilotActive: true }],
     ["a queued message will supersede it", { queued: 1 }],
+    ["a Mentor-ordre will decide about it first", { orderPending: true }],
   ])("holds back when %s", (_label, change) => {
     expect(shouldOfferPendingPlan({ ...settled, ...change })).toBe(false);
   });
 
   it("offers a resubmitted plan again (new generation)", () => {
     expect(shouldOfferPendingPlan({ ...settled, generation: 5, offeredGeneration: 3 })).toBe(true);
+  });
+});
+
+describe("orderReviewingPlan", () => {
+  const reviewing = {
+    orderFiring: true,
+    reviewing: true,
+    planPath: "/p/plan.md",
+    running: false,
+  };
+  it("is true only while a firing order reviews a pending plan with GC idle", () => {
+    expect(orderReviewingPlan(reviewing)).toBe(true);
+    expect(orderReviewingPlan({ ...reviewing, orderFiring: false })).toBe(false);
+    expect(orderReviewingPlan({ ...reviewing, reviewing: false })).toBe(false);
+    expect(orderReviewingPlan({ ...reviewing, planPath: null })).toBe(false);
+    expect(orderReviewingPlan({ ...reviewing, running: true })).toBe(false);
   });
 });

@@ -201,6 +201,45 @@ describe("deck Mentor-ordre key", () => {
     expect(screen.queryByRole("button", { name: "Annuller ordre" })).toBeNull();
   });
 
+  it("an approved plan's fresh session clears the row; the result brings it back", async () => {
+    const { emit } = await setup();
+    await giveOrder("godkend planen når den er færdig");
+    emit("mentor_order_fired", { id: "order-1" });
+    // Auto-accept starts a fresh session: the transcript (and the row) go.
+    emit("autopilot_plan_accepted", {});
+    emit("session_reset", { planTotal: 2 });
+    await waitFor(() =>
+      expect(screen.queryByRole("region", { name: "Ordre til mentor" })).toBeNull(),
+    );
+    emit("mentor_order_result", {
+      id: "order-1",
+      outcome: "done",
+      text: "godkend planen når den er færdig",
+    });
+    const row = await screen.findByRole("region", { name: "Ordre til mentor" });
+    expect(row.textContent).toContain("godkend planen når den er færdig");
+    expect(row.textContent).toContain("Udført");
+    // A duplicate result does not add a second row.
+    emit("mentor_order_result", {
+      id: "order-1",
+      outcome: "done",
+      text: "godkend planen når den er færdig",
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 20));
+    });
+    expect(screen.getAllByRole("region", { name: "Ordre til mentor" })).toHaveLength(1);
+  });
+
+  it("a result without text for an unknown order adds nothing", async () => {
+    const { emit } = await setup();
+    emit("mentor_order_result", { id: "order-x", outcome: "done" });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 20));
+    });
+    expect(screen.queryByRole("region", { name: "Ordre til mentor" })).toBeNull();
+  });
+
   it("a prompted order shows what went to GC", async () => {
     const { emit } = await setup();
     await giveOrder("add a README line");

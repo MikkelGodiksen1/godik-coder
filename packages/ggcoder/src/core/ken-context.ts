@@ -23,7 +23,7 @@ import { autopilotPreambleOf } from "./autopilot-cycle.js";
 import { collectVerificationEvidence, type VerificationEvidence } from "./verification-evidence.js";
 import { editTargetPaths } from "../tools/edit-targets.js";
 import { renderAutopilotRulesSection } from "./autopilot-rules.js";
-import { renderMentorOrderSection } from "./mentor-order.js";
+import { renderMentorOrderSection, type MentorOrderStage } from "./mentor-order.js";
 
 /** How many of the most recent build-session messages to inline verbatim. */
 export const KEN_RECENT_MESSAGE_LIMIT = 20;
@@ -358,7 +358,7 @@ export function buildKenAutopilotContext(
   input: KenAutopilotContextInput & {
     autopilotRules?: string;
     /** GODIK CODER: the user's one-shot Mentor-ordre, the review's instruction. */
-    mentorOrder?: { text: string; risky: boolean };
+    mentorOrder?: { text: string; risky: boolean; stage?: MentorOrderStage };
   },
 ): string {
   const { autopilotRules, mentorOrder, ...rest } = input;
@@ -371,7 +371,10 @@ export function buildKenAutopilotContext(
   const withRules = spliceBeforeTask(digest, renderAutopilotRulesSection(autopilotRules ?? ""));
   // The order goes last before the task, so it reads after (and over) the rules.
   return mentorOrder
-    ? spliceBeforeTask(withRules, renderMentorOrderSection(mentorOrder.text, mentorOrder.risky))
+    ? spliceBeforeTask(
+        withRules,
+        renderMentorOrderSection(mentorOrder.text, mentorOrder.risky, mentorOrder.stage),
+      )
     : withRules;
 }
 
@@ -415,15 +418,26 @@ export const AUTOPILOT_PLAN_REVIEW_INSTRUCTION =
  * instruction that references it.
  */
 export function buildKenAutopilotPlanContext(
-  input: KenAutopilotContextInput & { planContent: string },
+  input: KenAutopilotContextInput & {
+    planContent: string;
+    /** GODIK CODER: a Mentor-ordre fired against this plan (read as a wish, not an approval). */
+    mentorOrder?: { text: string; risky: boolean };
+  },
 ): string {
-  const { planContent, ...rest } = input;
+  const { planContent, mentorOrder, ...rest } = input;
   const digest = renderDigest(
     { ...rest, question: AUTOPILOT_PLAN_REVIEW_INSTRUCTION },
     AUTOPILOT_FRAMING,
   );
   const planSection = `## Plan under review\n${capContext(planContent.trim(), PLAN_CONTENT_CAP, "plan")}`;
-  return spliceBeforeTask(digest, planSection);
+  const withPlan = spliceBeforeTask(digest, planSection);
+  // The order sits after the plan, right before the task.
+  return mentorOrder
+    ? spliceBeforeTask(
+        withPlan,
+        renderMentorOrderSection(mentorOrder.text, mentorOrder.risky, "plan"),
+      )
+    : withPlan;
 }
 
 /**

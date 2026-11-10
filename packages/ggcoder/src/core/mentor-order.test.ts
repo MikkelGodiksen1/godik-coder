@@ -5,13 +5,16 @@ import {
   isTestCommand,
   mentorOrderHistoryRow,
   MentorOrders,
+  orderPlanVerdict,
+  PLAN_NOT_APPROVED_ORDER_REASON,
+  planHumanOrderReason,
   readMentorOrderMarker,
   renderMentorOrderSection,
   testEvidenceProblem,
   unverifiedOrderHoldReason,
   type MentorOrderMarkerData,
 } from "./mentor-order.js";
-import { buildKenAutopilotContext } from "./ken-context.js";
+import { buildKenAutopilotContext, buildKenAutopilotPlanContext } from "./ken-context.js";
 import type { VerificationEvidence } from "./verification-evidence.js";
 import { VerificationGate } from "./verification-gate.js";
 
@@ -297,5 +300,78 @@ describe("unverifiedOrderHoldReason", () => {
     const reason = unverifiedOrderHoldReason(raw);
     expect(reason).toMatch(/^GC's sidste tur er ikke bekræftet/);
     expect(reason.endsWith(`(Værtens besked: ${raw})`)).toBe(true);
+  });
+});
+
+describe("an order against a submitted plan", () => {
+  it("only an explicit approval or a revision passes through", () => {
+    expect(orderPlanVerdict({ kind: "all_clear" })).toEqual({ kind: "all_clear" });
+    expect(orderPlanVerdict({ kind: "prompt", body: "fix step 2" })).toEqual({
+      kind: "prompt",
+      body: "fix step 2",
+    });
+    expect(orderPlanVerdict({ kind: "ignore" })).toEqual({
+      kind: "human",
+      reason: PLAN_NOT_APPROVED_ORDER_REASON,
+    });
+    expect(orderPlanVerdict({ kind: "human", reason: "Drops a table." })).toEqual({
+      kind: "human",
+      reason: planHumanOrderReason("Drops a table."),
+    });
+    expect(planHumanOrderReason("Drops a table.")).toMatch(
+      /godkendte ikke planen.*Drops a table\./,
+    );
+    expect(planHumanOrderReason("  ")).not.toContain(":");
+  });
+
+  it("the plan digest carries the order after the plan, read as a wish", () => {
+    const digest = buildKenAutopilotPlanContext({
+      cwd: "/p",
+      gitBranch: "main",
+      messages: [],
+      planContent: "# Plan\n1. step",
+      mentorOrder: { text: "godkend planen når den er færdig", risky: false },
+    });
+    const plan = digest.indexOf("## Plan under review");
+    const order = digest.indexOf("## The user's order for this review");
+    expect(plan).toBeGreaterThan(-1);
+    expect(order).toBeGreaterThan(plan);
+    expect(digest).toContain("not an approval by itself");
+    expect(digest).toContain("Never IGNORE a plan.");
+    expect(digest).toContain("Order:\ngodkend planen når den er færdig");
+    // Without an order the plan digest is unchanged.
+    const plain = buildKenAutopilotPlanContext({
+      cwd: "/p",
+      gitBranch: "main",
+      messages: [],
+      planContent: "# Plan\n1. step",
+    });
+    expect(plain).not.toContain("## The user's order for this review");
+  });
+
+  it("the implemented stage reviews the work against the plan", () => {
+    const section = renderMentorOrderSection("godkend planen", false, "implemented");
+    expect(section).toContain("You approved the plan");
+    expect(section).toContain("reply ALL_CLEAR");
+    expect(section).toContain("Order:\ngodkend planen");
+    // The work stage (default) is unchanged.
+    expect(renderMentorOrderSection("x", false)).toBe(renderMentorOrderSection("x", false, "work"));
+  });
+
+  it("the store says while an order is firing, and the result carries the text", () => {
+    const broadcast = vi.fn();
+    const orders = new MentorOrders({ broadcast, persist: async () => {} });
+    const order = orders.set("godkend planen");
+    expect(orders.isFiring()).toBe(false);
+    orders.take();
+    expect(orders.isFiring()).toBe(true);
+    orders.resolve(order, "done");
+    expect(orders.isFiring()).toBe(false);
+    expect(broadcast).toHaveBeenLastCalledWith("mentor_order_result", {
+      id: order.id,
+      outcome: "done",
+      text: "godkend planen",
+    });
+    expect(orders.snapshot().recent).toEqual([{ id: order.id, outcome: "done" }]);
   });
 });

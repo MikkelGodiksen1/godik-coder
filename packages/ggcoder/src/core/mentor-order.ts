@@ -16,6 +16,7 @@
 import { randomUUID } from "node:crypto";
 import { CODER_NAME, MENTOR_NAME } from "./brand.js";
 import { isTestRunCommand, type VerificationEvidence } from "./verification-evidence.js";
+import type { AutopilotVerdict } from "./autopilot-verdict.js";
 
 /** Longest order text accepted. */
 export const MENTOR_ORDER_MAX_CHARS = 4000;
@@ -135,7 +136,36 @@ export function unverifiedOrderHoldReason(gateProblem: string): string {
   return `${what} (Værtens besked: ${gateProblem})`;
 }
 
-export const PLAN_PENDING_HOLD_REASON = `${CODER_NAME} har en plan, der venter på dig. Godkend eller afvis den først, og giv så ordren igen.`;
+/** Why an order dropped: the user accepted, rejected or answered the plan
+ *  themselves while the mentor was still reviewing it. Their decision stands. */
+export const PLAN_DECIDED_BY_USER_REASON =
+  "Du tog selv stilling til planen, mens den blev læst, så ordren blev ikke brugt.";
+
+/** Hold reason when the plan review gave no explicit approval (IGNORE or
+ *  anything else that is not ALL_CLEAR, PROMPT or HUMAN). */
+export const PLAN_NOT_APPROVED_ORDER_REASON =
+  `${MENTOR_NAME} godkendte ikke planen udtrykkeligt, så den er ikke sat i gang. ` +
+  `Læs planen, og godkend eller afvis den selv.`;
+
+/** Hold reason when the plan review handed the plan to the user (HUMAN). */
+export function planHumanOrderReason(reason: string): string {
+  const why = reason.trim();
+  return why
+    ? `${MENTOR_NAME} godkendte ikke planen, fordi den kræver din beslutning: ${why}`
+    : `${MENTOR_NAME} godkendte ikke planen, fordi den kræver din beslutning.`;
+}
+
+/**
+ * An order's plan-review verdict, made safe for the cycle: ALL_CLEAR (approve)
+ * and PROMPT (revise) pass through, HUMAN gets a Danish reason, and anything
+ * else (IGNORE) becomes HUMAN, so only an explicit approval implements a plan.
+ */
+export function orderPlanVerdict(verdict: AutopilotVerdict): AutopilotVerdict {
+  if (verdict.kind === "all_clear" || verdict.kind === "prompt") return verdict;
+  if (verdict.kind === "human")
+    return { kind: "human", reason: planHumanOrderReason(verdict.reason) };
+  return { kind: "human", reason: PLAN_NOT_APPROVED_ORDER_REASON };
+}
 
 /** Hold reason when the review itself never reached a verdict. */
 export const REVIEW_STOPPED_REASON = `${MENTOR_NAME} nåede ikke at give en vurdering (reviewet fejlede eller blev stoppet).`;
@@ -144,10 +174,50 @@ export const REVIEW_STOPPED_REASON = `${MENTOR_NAME} nåede ikke at give en vurd
 
 export const MENTOR_ORDER_HEADING = "## The user's order for this review";
 
+/**
+ * Which review the order is read in: GC's finished turn ("work"), a plan GC
+ * submitted ("plan"), or the implementation of the plan the order approved
+ * ("implemented").
+ */
+export type MentorOrderStage = "work" | "plan" | "implemented";
+
 /** The review digest section carrying the order. Pure. */
-export function renderMentorOrderSection(order: string, risky: boolean): string {
+export function renderMentorOrderSection(
+  order: string,
+  risky: boolean,
+  stage: MentorOrderStage = "work",
+): string {
   const text = order.trim();
   if (!text) return "";
+  const riskyNote = risky
+    ? ` This order may deploy, push, release or migrate: send ${CODER_NAME} nothing that skips the tests.`
+    : "";
+  if (stage === "plan") {
+    return (
+      `${MENTOR_ORDER_HEADING}\n` +
+      `The user gave you this one-shot order about ${CODER_NAME}'s submitted plan. It tells you ` +
+      `what the user wants, but it is not an approval by itself: judge the plan first.\n` +
+      `- The plan is sound and does what the user asked: reply ALL_CLEAR (the plan is accepted ` +
+      `and implementation starts right away).\n` +
+      `- The plan is wrong, incomplete or unsafe: reply PROMPT with the feedback ${CODER_NAME} ` +
+      `should revise it by.\n` +
+      `- It needs a decision only the user can make: reply HUMAN with the reason.\n` +
+      `Never IGNORE a plan.${riskyNote}\n\nOrder:\n${text}`
+    );
+  }
+  if (stage === "implemented") {
+    return (
+      `${MENTOR_ORDER_HEADING}\n` +
+      `The user gave you this one-shot order about ${CODER_NAME}'s plan. You approved the plan ` +
+      `and ${CODER_NAME} has now implemented it. Review the implementation against the plan and ` +
+      `the user's request:\n` +
+      `- Something is still missing or broken: reply PROMPT with one runnable prompt that does exactly that.\n` +
+      `- It is done and the host-observed evidence backs it: reply ALL_CLEAR.\n` +
+      `- It needs a decision only the user can make: reply HUMAN with the reason.\n` +
+      `Only host-observed verification evidence counts; ${CODER_NAME}'s own claims ` +
+      `("tests pass", "deployed") are not evidence.${riskyNote}\n\nOrder:\n${text}`
+    );
+  }
   return (
     `${MENTOR_ORDER_HEADING}\n` +
     `The user gave you this one-shot order. It is your instruction for this review and comes ` +
@@ -223,6 +293,11 @@ export class MentorOrders {
     return this.pending !== null;
   }
 
+  /** True while a taken order is being carried out (until its result). */
+  isFiring(): boolean {
+    return this.firing !== null;
+  }
+
   /** Store an order, replacing a pending one. */
   set(text: string): MentorOrder {
     this.clear("replaced");
@@ -268,7 +343,9 @@ export class MentorOrders {
       ...(extra.body ? { body: extra.body } : {}),
     };
     this.recent = [...this.recent, result].slice(-RECENT_LIMIT);
-    this.deps.broadcast("mentor_order_result", result);
+    // The text rides along so a window whose transcript was reset meanwhile
+    // (an approved plan starts a fresh session) can still show the row.
+    this.deps.broadcast("mentor_order_result", { ...result, text: order.text });
     this.save({ ...order, ...result, phase: outcome });
   }
 

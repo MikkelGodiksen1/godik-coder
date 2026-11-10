@@ -36,13 +36,15 @@ import { log } from "../core/logger.js";
 import type { RunClaim } from "../core/run-claim.js";
 import {
   isRiskyOrder,
-  PLAN_PENDING_HOLD_REASON,
+  orderPlanVerdict,
+  PLAN_DECIDED_BY_USER_REASON,
   REVIEW_STOPPED_REASON,
   riskyOrderHoldReason,
   unverifiedOrderHoldReason,
   testEvidenceProblem,
   type MentorOrder,
   type MentorOrderOutcome,
+  type MentorOrderStage,
   type MentorOrders,
 } from "../core/mentor-order.js";
 import { lastAssistantText } from "./ken-context.js";
@@ -110,7 +112,10 @@ export interface AutopilotRunnerContext {
 
 export interface AutopilotRunnerContextApi {
   runAutopilotReview: (originalRequest: string) => Promise<AutopilotVerdict | null>;
-  runAutopilotPlanReview: (originalRequest: string) => Promise<AutopilotVerdict | null>;
+  runAutopilotPlanReview: (
+    originalRequest: string,
+    mentorOrder?: { text: string; risky: boolean },
+  ) => Promise<AutopilotVerdict | null>;
   runAutopilotCycle: (originalRequest: string) => Promise<void>;
   runStrandedQueue: () => Promise<void>;
   /** GODIK CODER: fire a pending Mentor-ordre now if GC is idle and has a finished turn. */
@@ -129,7 +134,7 @@ export function createAutopilotRunner(ctx: AutopilotRunnerContext): AutopilotRun
   // pinned in the digest so it can't scroll out during multi-round cycles.
   async function runAutopilotReview(
     originalRequest: string,
-    mentorOrder?: { text: string; risky: boolean },
+    mentorOrder?: { text: string; risky: boolean; stage?: MentorOrderStage },
   ): Promise<AutopilotVerdict | null> {
     ctx.autopilotReviewing = true;
     ctx.broadcast("autopilot_review_start", {});
@@ -173,7 +178,11 @@ export function createAutopilotRunner(ctx: AutopilotRunnerContext): AutopilotRun
   // on failure; a failure caused by the user's own action racing the review
   // (cancel or a manual Accept/Reject that bumped planGeneration) stays
   // SILENT — no autopilot_error — because the user's decision already won.
-  async function runAutopilotPlanReview(originalRequest: string): Promise<AutopilotVerdict | null> {
+  // GODIK CODER: a Mentor-ordre fired against the plan rides in the digest.
+  async function runAutopilotPlanReview(
+    originalRequest: string,
+    mentorOrder?: { text: string; risky: boolean },
+  ): Promise<AutopilotVerdict | null> {
     const planPath = ctx.pendingPlanPath;
     if (planPath === null) return null;
     const genAtStart = ctx.planGeneration;
@@ -194,6 +203,7 @@ export function createAutopilotRunner(ctx: AutopilotRunnerContext): AutopilotRun
         injectedPrompts: [...ctx.injectedAutopilotPrompts],
         workflowCommands: await ctx.loadWorkflowCommandSpecs(),
         planContent,
+        ...(mentorOrder ? { mentorOrder } : {}),
       });
       await ken.prompt(digest);
       if (ctx.autopilotCancelled || ctx.planGeneration !== genAtStart) return null;
@@ -223,7 +233,11 @@ export function createAutopilotRunner(ctx: AutopilotRunnerContext): AutopilotRun
   // (one review, at most one prompt, no check request first) whether or not
   // Autopilot is on, and its verdict lands on the order row instead of the
   // usual Autopilot bubbles. A PROMPT still goes out through onInjected, i.e.
-  // the existing autopilot_prompted path.
+  // the existing autopilot_prompted path. An order given against a pending
+  // plan takes the plan branch: the plan review (with the order in its digest)
+  // approves, revises or hands it back; an approval accepts the plan, runs the
+  // implementation and then reviews that work once. The user's own Accept,
+  // Reject or new message during the plan review wins: the order drops quietly.
   async function runAutopilotCycle(originalRequest: string, order?: MentorOrder): Promise<void> {
     if (order && ctx.autopilotCancelled) {
       ctx.mentorOrders.resolve(order, "cancelled");
@@ -247,6 +261,13 @@ export function createAutopilotRunner(ctx: AutopilotRunnerContext): AutopilotRun
         settleOrder("held", { reason: REVIEW_STOPPED_REASON });
     };
     const mentorOrder = order ? { text: order.text, risky: isRiskyOrder(order.text) } : undefined;
+    // The plan generation this order fired against. It moves without us only
+    // when the user decided the plan themselves (Accept, Reject, a new message).
+    const orderPlanGen = order && ctx.pendingPlanPath !== null ? ctx.planGeneration : null;
+    let ownPlanChange = false;
+    let orderPlanApproved = false;
+    const userTookPlan = (): boolean =>
+      orderPlanGen !== null && !ownPlanChange && ctx.planGeneration !== orderPlanGen;
     // Unchecked work enters the cycle too: driveAutopilotCycle asks for the
     // checks once before Ken reviews, and hands back only if still unchecked.
     const generation = ctx.runLifecycle.begin(ctx.abortOwnedWork).generation;
@@ -259,14 +280,10 @@ export function createAutopilotRunner(ctx: AutopilotRunnerContext): AutopilotRun
       await driveAutopilotCycle({
         // A plan-pending cycle needs extra rounds: approve+implement and the
         // post-implement work review each consume one, so +2 keeps a real fix
-        // round available.
-        maxRounds: order
-          ? 1
-          : ctx.pendingPlanPath !== null
-            ? ctx.MAX_AUTOPILOT_ROUNDS + 2
-            : ctx.MAX_AUTOPILOT_ROUNDS,
-        ...(order ? { requestChecksFirst: false } : {}),
-        isCancelled: () => ctx.autopilotCancelled,
+        // round available. A Mentor-ordre gets the same +2 on its one round.
+        maxRounds: (order ? 1 : ctx.MAX_AUTOPILOT_ROUNDS) + (ctx.pendingPlanPath !== null ? 2 : 0),
+        ...(order ? { requestChecksFirst: false, stopAfterPrompt: true } : {}),
+        isCancelled: () => ctx.autopilotCancelled || userTookPlan(),
         // A Mentor-ordre held by the gate gets a Danish reason saying what to
         // do, with the gate's own text after it.
         verificationProblem: () => {
@@ -280,7 +297,9 @@ export function createAutopilotRunner(ctx: AutopilotRunnerContext): AutopilotRun
         planPending: () => ctx.pendingPlanPath !== null,
         reviewPlan: async () => {
           planGenAtReview = ctx.planGeneration;
-          return runAutopilotPlanReview(originalRequest);
+          const verdict = await runAutopilotPlanReview(originalRequest, mentorOrder);
+          // An order implements a plan only on an explicit approval.
+          return order && verdict ? orderPlanVerdict(verdict) : verdict;
         },
         // Auto-accept: the inlined POST /plan/accept body. Returns false when
         // the plan generation moved since the review (user acted) — the cycle
@@ -288,6 +307,7 @@ export function createAutopilotRunner(ctx: AutopilotRunnerContext): AutopilotRun
         acceptPlan: async (reason) => {
           if (ctx.pendingPlanPath === null || ctx.planGeneration !== planGenAtReview) return false;
           const planPath = ctx.pendingPlanPath;
+          ownPlanChange = true;
           let planTotal: number;
           try {
             await ctx.session.newSession(true);
@@ -305,6 +325,7 @@ export function createAutopilotRunner(ctx: AutopilotRunnerContext): AutopilotRun
           ctx.broadcast("plan_progress", ctx.planProgressPayload());
           // Persisted into the NEW session so a resume shows the marker.
           void ctx.session.persistAutopilotMarker("plan_approved", { reason });
+          orderPlanApproved = true;
           return true;
         },
         runImplement: () => {
@@ -324,7 +345,13 @@ export function createAutopilotRunner(ctx: AutopilotRunnerContext): AutopilotRun
         resetReviewer: async () => {
           await ctx.kenAutoSession?.newSession().catch(() => {});
         },
-        review: () => runAutopilotReview(originalRequest, mentorOrder),
+        review: () =>
+          runAutopilotReview(
+            originalRequest,
+            mentorOrder && orderPlanApproved
+              ? { ...mentorOrder, stage: "implemented" }
+              : mentorOrder,
+          ),
         // prompt → record the injected body (so later digests label it as
         // Ken's, not the user's), show a compact Ken-tinted marker (not the
         // prompt body), then feed GG Coder bracketed by runAgent so the run
@@ -334,6 +361,7 @@ export function createAutopilotRunner(ctx: AutopilotRunnerContext): AutopilotRun
           // A revision injection supersedes the pending plan — if the run
           // resubmits via exit_plan, onExitPlan re-sets it (no-op for work-
           // branch injections, where nothing is pending).
+          ownPlanChange = true;
           ctx.clearPendingPlan();
           // Record the FRAMED string (what actually lands in the build session,
           // see runPrompt) so Ken's digest matches and labels it as injected.
@@ -387,8 +415,10 @@ export function createAutopilotRunner(ctx: AutopilotRunnerContext): AutopilotRun
         },
       });
     } finally {
-      // A review that failed or was stopped still closes the order's row.
-      if (ctx.autopilotCancelled) settleOrder("cancelled");
+      // A review that failed or was stopped still closes the order's row. The
+      // user deciding the plan themselves drops the order quietly.
+      if (userTookPlan()) settleOrder("cancelled", { reason: PLAN_DECIDED_BY_USER_REASON });
+      else if (ctx.autopilotCancelled) settleOrder("cancelled");
       else settleOrder("held", { reason: REVIEW_STOPPED_REASON });
       ctx.autopilotActive = false;
       ctx.finishOwnedGeneration(
@@ -437,18 +467,14 @@ export function createAutopilotRunner(ctx: AutopilotRunnerContext): AutopilotRun
 
   // ── GODIK CODER: Mentor-ordre ─────────────────────────────
   // Fire the pending order against GC's last finished turn. The order is used
-  // up here. Holds that need no model call (a plan waiting for the user, a
-  // risky order without host-observed passing tests) settle straight away.
+  // up here. A pending plan goes through the cycle's plan branch. A risky
+  // order without host-observed passing tests holds before any model call.
   async function fireMentorOrder(originalRequest: string): Promise<void> {
     const order = ctx.mentorOrders.take();
     if (!order) return;
     // Giving an order is the user acting again: an earlier Stop no longer applies.
     ctx.autopilotCancelled = false;
     log("INFO", "app-sidecar", "mentor order firing", { id: order.id });
-    if (ctx.pendingPlanPath !== null) {
-      ctx.mentorOrders.resolve(order, "held", { reason: PLAN_PENDING_HOLD_REASON });
-      return;
-    }
     if (isRiskyOrder(order.text)) {
       const problem = testEvidenceProblem(ctx.session.getRunVerificationActivity().evidence);
       if (problem) {

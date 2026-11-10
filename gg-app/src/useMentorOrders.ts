@@ -91,11 +91,24 @@ export function useMentorOrders({
         case "mentor_order_result": {
           const outcome = d.outcome as MentorOrderStatus;
           if (orderId && OUTCOMES.includes(outcome)) {
-            update(orderId, {
+            const patch = {
               status: outcome,
               ...(str(d.reason) ? { reason: str(d.reason) } : {}),
               ...(str(d.body) ? { body: str(d.body) } : {}),
-            });
+            };
+            const text = str(d.text);
+            // An approved plan starts a fresh session, which clears the
+            // transcript and the order's row with it. The result carries the
+            // order text, so the row comes back with its outcome.
+            setItems((prev) =>
+              prev.some((it) => it.kind === "mentor_order" && it.orderId === orderId)
+                ? prev.map((it) =>
+                    it.kind === "mentor_order" && it.orderId === orderId ? { ...it, ...patch } : it,
+                  )
+                : text
+                  ? [...prev, { kind: "mentor_order", id: nextId(), orderId, text, ...patch }]
+                  : prev,
+            );
           }
           return true;
         }
@@ -110,7 +123,7 @@ export function useMentorOrders({
           return false;
       }
     },
-    [addOrder, update, reconcile],
+    [addOrder, update, reconcile, setItems, nextId],
   );
 
   return { addOrder, handleMentorOrderEvent };

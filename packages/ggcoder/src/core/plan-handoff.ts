@@ -26,12 +26,31 @@ export interface PendingPlanOfferInput {
   autopilotActive: boolean;
   /** Messages waiting to drain as the next turn; they supersede the plan. */
   queued: number;
+  /** GODIK CODER: a Mentor-ordre waits for the turn to end. It fires next and
+   *  decides about the plan first; the box opens afterwards if it is still
+   *  pending. */
+  orderPending?: boolean;
+}
+
+/**
+ * GODIK CODER: a Mentor-ordre is reviewing the submitted plan right now. The
+ * order holds the run claim, yet the user's own decision must still win: an
+ * Accept is let through, and a message sent meanwhile supersedes the plan.
+ */
+export function orderReviewingPlan(input: {
+  orderFiring: boolean;
+  reviewing: boolean;
+  planPath: string | null;
+  running: boolean;
+}): boolean {
+  return input.orderFiring && input.reviewing && input.planPath !== null && !input.running;
 }
 
 export function shouldOfferPendingPlan(input: Readonly<PendingPlanOfferInput>): boolean {
   if (input.planPath === null) return false;
   if (input.generation === input.offeredGeneration) return false;
   if (input.running || input.starting || input.autopilotActive) return false;
+  if (input.orderPending) return false;
   return input.queued === 0;
 }
 

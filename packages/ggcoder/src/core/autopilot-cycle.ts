@@ -144,6 +144,10 @@ export interface AutopilotCycleDeps {
    *  (default true). A one-shot Mentor-ordre passes false: unchecked work then
    *  stops for the human straight away, so the order never costs two prompts. */
   requestChecksFirst?: boolean;
+  /** GODIK CODER: stop right after the first prompt GC gets from a verdict (a
+   *  fix or a plan revision). A one-shot Mentor-ordre sends at most one; the
+   *  "implement the approved plan" run is not such a prompt. */
+  stopAfterPrompt?: boolean;
 }
 
 /**
@@ -200,6 +204,7 @@ export async function driveAutopilotCycle(deps: AutopilotCycleDeps): Promise<voi
         const body = buildPlanRevisionPrompt(verdict.body);
         deps.onInjected(body, round);
         await deps.runPrompt(body, { planRevision: true });
+        if (deps.stopAfterPrompt) return;
         continue;
       }
       // Only an explicit approval can authorize implementation of a plan.
@@ -247,7 +252,7 @@ export async function driveAutopilotCycle(deps: AutopilotCycleDeps): Promise<voi
     }
     deps.onInjected(verdict.body, round, verdict.rule);
     await deps.runPrompt(verdict.body);
-    if (deps.isCancelled()) return;
+    if (deps.isCancelled() || deps.stopAfterPrompt) return;
   }
   deps.emit({ type: "autopilot_capped", data: { rounds: deps.maxRounds } });
 }

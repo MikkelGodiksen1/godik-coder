@@ -1619,6 +1619,7 @@ async function createSession(
       starting: runClaim.active,
       autopilotActive,
       queued: session.getQueuedCount(),
+      orderPending: mentorOrders.hasPending(),
     });
     return offer && pendingPlanPath !== null
       ? { planPath: pendingPlanPath, content: pendingPlanContent }
