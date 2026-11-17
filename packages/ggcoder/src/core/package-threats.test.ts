@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   checkPackageInstall,
   clearPackageThreatCache,
+  flushPackageVerdicts,
   damerauLevenshtein,
   parseLockfile,
   parseLockfileAsync,
@@ -397,7 +398,7 @@ describe("serious known flaws", () => {
       const first = flawNet({ advisories });
       const o = { ...flawOpts(first), cacheDir: dir };
       expect(await checkPackageInstall("npm i widget@0.21.1", o)).toHaveLength(1);
-      await new Promise((r) => setTimeout(r, 100)); // background cache write
+      await flushPackageVerdicts(); // the background cache write, however slow the disk
       clearPackageThreatCache(); // "restart": memory gone, disk kept
       const calls: string[] = [];
       const second = flawNet({ advisories, calls });
