@@ -75,7 +75,7 @@ import {
   type AuthMethodMeta,
   type AuthProviderMeta,
 } from "./core/auth-providers.js";
-import { VERSION, ensureAppDirs, loadSavedSettings } from "./config.js";
+import { VERSION, ensureAppDirs, loadSavedSettings, projectScopeAllowed } from "./config.js";
 import { SettingsManager } from "./core/settings-manager.js";
 import {
   getModel,
@@ -100,7 +100,9 @@ import { installTerminationHandlers } from "./core/shutdown.js";
 import { stopRadio } from "./core/radio.js";
 import { enrichProcessPath } from "./core/shell-path.js";
 import type { ServeController } from "./modes/serve-mode.js";
-import { createElicitationBridge } from "./core/mcp/index.js";
+import { createElicitationBridge, loadServers, saveMcpServer } from "./core/mcp/index.js";
+import { probeMcp } from "./app-sidecar/mcp-rows.js";
+import { createMcpAddTool } from "./tools/mcp-add.js";
 import {
   askSoftDeadlineMs,
   createAskUserBridge,
@@ -1030,9 +1032,51 @@ async function createSession(
       additionalTools: [askUserTool],
     });
   } else {
+    // Same save path as the MCP settings page; the approval band is ask_user's.
+    const mcpAddTool = createMcpAddTool({
+      cwd: () => cwd,
+      save: (config, scope, dir) =>
+        saveMcpServer(config, scope, dir, false, {
+          probe: probeMcp,
+          trustProject: (trusted) => session.trustProject(trusted),
+          onAdded: () => void trophies.count("mcpServersAdded", opts.id),
+        }),
+      approve: async ({ question, detail }) => {
+        const result = await asks.park({
+          questions: [
+            {
+              id: "mcp_add",
+              question,
+              kind: "choice",
+              detail,
+              options: [
+                { label: "Add it", value: "yes" },
+                { label: "Don't add", value: "no" },
+              ],
+              allowOther: false,
+            },
+          ],
+        });
+        if (result.action === "deferred") return "pending";
+        return result.action === "answer" && result.answers.mcp_add === "yes"
+          ? "approved"
+          : "declined";
+      },
+      untrustedProjectServers: async (dir, adding) => {
+        const settings = loadSavedSettings(paths.settingsFile);
+        if (projectScopeAllowed(settings.trustProjectMcpServers, settings.trustedProjects, dir)) {
+          return [];
+        }
+        return (await loadServers(dir))
+          .filter((s) => s.scope === "project" && s.config.name !== adding)
+          .map((s) => s.config.name)
+          .sort();
+      },
+    });
     session = new AgentSession({
       ...baseSessionOptions,
-      additionalTools: [askUserTool],
+      // Appended last: the tool block stays append-only (prompt-cache invariant).
+      additionalTools: [askUserTool, mcpAddTool],
       // A run must not end mid-plan with nothing submitted: nobody could review it.
       planSubmissionGate: true,
       // Plan mode belongs only to the coding agent.

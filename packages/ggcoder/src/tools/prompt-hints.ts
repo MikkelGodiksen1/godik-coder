@@ -40,6 +40,8 @@ export const TOOL_PROMPT_HINTS: Record<string, string> = {
   tool_search: "Load on-demand and integration tools by capability.",
   generate_image: "Images; only if asked.",
   steroids: "Real-repo examples.",
+  mcp_add:
+    "Add an MCP server. On \"connect to X mcp\": get X's official `claude mcp add` line from X's own docs (web_search/web_fetch), then call this.",
 };
 
 /**
@@ -130,6 +132,7 @@ export const BUILTIN_TOOL_NAMES: readonly string[] = [
   "interrupt_agent",
   "list_agents",
   "ls",
+  "mcp_add",
   "read",
   "screenshot",
   "send_message",

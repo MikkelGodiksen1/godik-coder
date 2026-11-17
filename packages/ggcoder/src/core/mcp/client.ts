@@ -5,6 +5,7 @@ import {
   OAuthError,
   OAuthErrorCode,
   ProtocolError,
+  RegistrationRejectedError,
   SdkError,
   SdkErrorCode,
   SdkHttpError,
@@ -624,7 +625,9 @@ export class MCPClientManager {
         };
       }
       const requiresAuth = isUnauthorized(result.reason);
-      const error = requiresAuth ? "Requires login." : formatConnectError(result.reason);
+      const error = requiresAuth
+        ? "Requires login."
+        : formatConnectError(result.reason, enabled[i].url);
       log("WARN", "mcp", `Failed to connect to MCP server "${name}"`, { error });
       return { name, ok: false, toolCount: 0, tools: [], error, requiresAuth };
     });
@@ -664,7 +667,7 @@ export class MCPClientManager {
       return { name: config.name, ok: true, toolCount: tools.length, tools };
     } catch (err) {
       const requiresAuth = isUnauthorized(err);
-      const error = requiresAuth ? "Requires login." : formatConnectError(err);
+      const error = requiresAuth ? "Requires login." : formatConnectError(err, config.url);
       return { name: config.name, ok: false, toolCount: 0, tools: [], error, requiresAuth };
     }
   }
@@ -798,7 +801,7 @@ export class MCPClientManager {
       await verifyClient.close().catch(() => {});
       return { ok: true, toolCount: tools.length };
     } catch (err) {
-      return { ok: false, toolCount: 0, error: formatConnectError(err) };
+      return { ok: false, toolCount: 0, error: formatConnectError(err, config.url) };
     } finally {
       clearTimeout(overallTimeout);
       server.close();
@@ -1207,15 +1210,33 @@ export class MCPClientManager {
       // For localhost, always try the SSE fallback — a 401 from localhost is
       // almost certainly a protocol mismatch (e.g. Playwright MCP serves SSE),
       // not an auth requirement. For remote servers, a 401 means OAuth is needed
-      // so skip the fallback and surface "requires login".
-      if (!isLocal && isUnauthorized(streamableErr)) throw streamableErr;
+      // and a rejected client registration is the auth server's final answer,
+      // so skip the fallback and surface those as they are.
+      if (
+        !isLocal &&
+        (isUnauthorized(streamableErr) || RegistrationRejectedError.isInstance(streamableErr))
+      ) {
+        throw streamableErr;
+      }
       log("INFO", "mcp", `StreamableHTTP failed for "${config.name}", trying SSE fallback`, {
         error: String(streamableErr),
       });
-      const transport = sseTransport();
-      const client = this.createClient(config.name, negotiate);
-      await client.connect(transport, connectOptions);
-      return { client, transport };
+      try {
+        const transport = sseTransport();
+        const client = this.createClient(config.name, negotiate);
+        await client.connect(transport, connectOptions);
+        return { client, transport };
+      } catch (sseErr) {
+        // Localhost keeps the SSE error: its "SSE error" wording is what
+        // triggers the IPv4/IPv6 loopback retry in connectServer.
+        if (isLocal || isUnauthorized(sseErr)) throw sseErr;
+        // A modern server's real answer came from Streamable HTTP; the
+        // fallback's GET only adds a misleading "405 Method Not Allowed".
+        log("INFO", "mcp", `SSE fallback failed too for "${config.name}"`, {
+          error: String(sseErr),
+        });
+        throw streamableErr;
+      }
     }
   }
 
@@ -1274,8 +1295,40 @@ export class MCPClientManager {
   }
 }
 
+/** Figma's remote server only registers allow-listed OAuth clients. */
+const FIGMA_REMOTE_HOST = "mcp.figma.com";
+/** The Figma desktop app's local MCP server (Dev Mode), which needs no OAuth. */
+export const FIGMA_DESKTOP_MCP_URL = "http://127.0.0.1:3845/mcp";
+
+/**
+ * Wording for an OAuth dynamic client registration the auth server refused.
+ * A 401/403 there means the provider only lets approved apps in, which no
+ * login can fix, so say so and point at a route that works where we know one.
+ */
+function formatRegistrationRejected(status: number, serverUrl: string | undefined): string {
+  let host: string | undefined;
+  try {
+    host = serverUrl ? new URL(serverUrl).hostname.toLowerCase() : undefined;
+  } catch {
+    host = undefined;
+  }
+  const who = host ?? "This server";
+  if (status !== 401 && status !== 403) {
+    return `${who} refused to register ${APP_NAME} as an OAuth client (HTTP ${status}), so it can't sign in.`;
+  }
+  const base =
+    `${who} only lets approved apps connect: it refused to register ${APP_NAME} as an ` +
+    `OAuth client (HTTP ${status} from client registration). Signing in again won't help.`;
+  if (host !== FIGMA_REMOTE_HOST) return base;
+  return (
+    `${base} Use Figma's desktop MCP server instead: in the Figma desktop app, switch to ` +
+    `Dev Mode and turn on the MCP server, then add ${FIGMA_DESKTOP_MCP_URL}.`
+  );
+}
+
 /**
  * Turn a thrown connection error into a short human-readable string.
+ * `serverUrl` lets an auth refusal name the provider and suggest a fix.
  *
  * v2 splits the old `McpError` into `ProtocolError` (a JSON-RPC error that
  * crossed the wire) and `SdkError` (a purely local failure: timeout, closed
@@ -1283,7 +1336,10 @@ export class MCPClientManager {
  * than sniffing message text, which survives only as the fallback for errors
  * thrown before the SDK's machinery engages (raw fetch failures).
  */
-function formatConnectError(reason: unknown): string {
+export function formatConnectError(reason: unknown, serverUrl?: string): string {
+  if (RegistrationRejectedError.isInstance(reason)) {
+    return formatRegistrationRejected(reason.status, serverUrl);
+  }
   if (SdkHttpError.isInstance(reason)) {
     if (reason.status === 429) return "Rate limited (429) — try again in a moment.";
     const statusText = reason.statusText ? ` ${reason.statusText}` : "";

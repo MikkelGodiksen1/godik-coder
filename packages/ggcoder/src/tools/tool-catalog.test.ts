@@ -48,6 +48,7 @@ const OPT_IN_TOOLS = new Set([
   "exit_plan", // needs onExitPlan callback
   "generate_image", // gated on OpenAI auth
   "steroids", // gated on the `steroids` binary being on this machine
+  "mcp_add", // app code windows only: needs the sidecar's save path and approval band
 ]);
 
 /** Deterministic JSON: object keys sorted at every depth, stable stringification. */

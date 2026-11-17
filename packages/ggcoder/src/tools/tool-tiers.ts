@@ -100,6 +100,8 @@ export const DEFERRED_TOOL_NAMES: readonly string[] = [
   "wait_agent",
   "list_agents",
   "interrupt_agent",
+  // App code windows only (appended after ask_user): adding an MCP server is rare.
+  "mcp_add",
 ];
 
 const DEFERRED_SET: ReadonlySet<string> = new Set(DEFERRED_TOOL_NAMES);

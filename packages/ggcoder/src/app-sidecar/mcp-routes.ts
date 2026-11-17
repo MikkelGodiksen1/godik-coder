@@ -2,10 +2,10 @@ import { emitMcpTokensChanged } from "../core/mcp/oauth-events.js";
 import type http from "node:http";
 import { log } from "../core/logger.js";
 import {
-  addServer,
   removeServer,
   getServer,
   parseMcpAddCommand,
+  saveMcpServer,
   MCPClientManager,
   McpOAuthStore,
   type MCPScope,
@@ -75,27 +75,19 @@ export function handleMcpRoutes(
         // CLI). probeMcp swallows connect errors; the try/catch guards the
         // persist step so a write failure returns a 500 instead of becoming
         // an unhandled rejection that would crash the sidecar.
-        const probe = await probeMcp(config);
-        const saved = await addServer(config, scope, targetCwd, true);
+        // Adding a project-scope server is an explicit trust signal — the
+        // user chose to put a server in this repo's .gg/mcp.json, so
+        // saveMcpServer auto-trusts the project.
+        const saved = await saveMcpServer(config, scope, targetCwd, true, {
+          probe: probeMcp,
+          trustProject: (dir) => ctx.session.trustProject(dir),
+          onAdded: () => void ctx.trophies.count("mcpServersAdded", ctx.sessionId),
+        });
         if (!saved.ok) {
           json(res, 400, { error: saved.error });
           return;
         }
-        // Adding a project-scope server is an explicit trust signal — the
-        // user chose to put a server in this repo's .gg/mcp.json. Auto-trust
-        // the project so all project-scope servers connect on next load.
-        if (scope === "project") {
-          await ctx.session.trustProject(targetCwd);
-        }
-        void ctx.trophies.count("mcpServersAdded", ctx.sessionId);
-        json(res, 200, {
-          ok: true,
-          name: config.name,
-          connected: probe.ok,
-          toolCount: probe.toolCount,
-          error: probe.error,
-          requiresAuth: probe.requiresAuth,
-        });
+        json(res, 200, saved);
       } catch (err) {
         json(res, 500, {
           error: err instanceof Error ? err.message : String(err),

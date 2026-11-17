@@ -27,6 +27,8 @@ export {
 } from "./store.js";
 export type { MCPScope, ScopedServer } from "./store.js";
 export { parseMcpAddCommand } from "./parse-add-command.js";
+export { saveMcpServer } from "./save-server.js";
+export type { McpProbeOutcome, SaveMcpServerDeps, SaveMcpServerResult } from "./save-server.js";
 export type { ParsedAddCommand } from "./parse-add-command.js";
 export { McpToolGuard, hiddenToolMessage } from "./tool-guard.js";
 export type { HiddenMcpTool } from "./tool-guard.js";
